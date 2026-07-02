@@ -13,6 +13,18 @@ export interface User {
   country?: string
   phone?: string
   joinedDate?: string
+  aboutMe?: string
+}
+
+export interface Coupon {
+  id: string
+  code: string
+  description: string
+  discount: number
+  discountType: 'percentage' | 'fixed'
+  status: 'active' | 'used' | 'expired'
+  expiresAt: string
+  usedAt?: string
 }
 
 export interface AuthState {
@@ -74,6 +86,11 @@ export interface Booking {
   roomTypeName: string
   guests: number
   totalPrice: number
+  discountApplied?: {
+    code: string
+    type: 'percentage' | 'fixed'
+    amount: number
+  }
   status: 'upcoming' | 'completed' | 'cancelled'
   createdAt: string
 }

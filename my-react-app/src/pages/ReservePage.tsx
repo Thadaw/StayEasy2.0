@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
-import { Star, ChevronDown, Check, Circle } from "lucide-react"
+import { Star, ChevronDown, Check, Circle, Ticket, X } from "lucide-react"
 import { hotels } from "../data/hotels"
 import { useBookings } from "../context/BookingContext"
 import { Navbar } from "../components/Navbar"
@@ -45,6 +45,35 @@ export default function ReservePage() {
   const hotel = hotels.find((h) => h.id === Number(id))
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null)
   const [showBreakdown, setShowBreakdown] = useState(false)
+  const [showPromo, setShowPromo] = useState(false)
+  const [promoInput, setPromoInput] = useState('')
+  const [appliedDiscount, setAppliedDiscount] = useState<{ type: 'percentage' | 'fixed'; amount: number; code: string } | null>(null)
+  const [promoError, setPromoError] = useState('')
+
+  const validPromos: Record<string, { type: 'percentage' | 'fixed'; amount: number }> = {
+    SUMMER20: { type: 'percentage', amount: 20 },
+    WELCOME10: { type: 'percentage', amount: 10 },
+    STAY50: { type: 'fixed', amount: 50 },
+    EARLY15: { type: 'percentage', amount: 15 },
+  }
+
+  const handleApplyPromo = () => {
+    const code = promoInput.trim().toUpperCase()
+    if (!code) return
+    const promo = validPromos[code]
+    if (promo) {
+      setAppliedDiscount({ ...promo, code })
+      setPromoError('')
+      setPromoInput('')
+      setShowPromo(false)
+    } else {
+      setPromoError('Invalid promo code')
+    }
+  }
+
+  const handleRemovePromo = () => {
+    setAppliedDiscount(null)
+  }
 
   const roomsParam = searchParams.get('rooms');
   const guestCountsParam = searchParams.get('guestCounts');
@@ -95,8 +124,16 @@ export default function ReservePage() {
   const subtotal = roomLines.reduce((s, l) => s + l.lineTotal * nights, 0);
   const taxesAndFees = Math.round(subtotal * 0.10);
   const resortFee = Math.round(roomLines.reduce((s, l) => s + l.ep * l.qty, 0) * 0.06);
-  const total = subtotal + taxesAndFees + resortFee;
-  const dueToday = subtotal + taxesAndFees;
+
+  let discountAmount = 0;
+  if (appliedDiscount) {
+    discountAmount = appliedDiscount.type === 'percentage'
+      ? Math.round(subtotal * appliedDiscount.amount / 100)
+      : appliedDiscount.amount;
+  }
+
+  const total = subtotal + taxesAndFees + resortFee - discountAmount;
+  const dueToday = subtotal + taxesAndFees - discountAmount;
   const dueAtProperty = resortFee;
 
   return (
@@ -273,20 +310,82 @@ export default function ReservePage() {
                 )}
               </div>
 
-              {/* 7. Total */}
+              {/* 7. Promo / Discount Code */}
+              <div className="py-[18px] border-b border-[#E5E7EB]">
+                {appliedDiscount ? (
+                  <div className="flex items-center justify-between bg-[#f0fdf4] border border-[#bbf7d0] rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Ticket size={14} className="text-[#16a34a]" />
+                      <div>
+                        <p className="text-[13px] font-semibold text-[#16a34a]">{appliedDiscount.code}</p>
+                        <p className="text-[11px] text-[#15803d]">
+                          {appliedDiscount.type === 'percentage' ? `${appliedDiscount.amount}% off` : `$${appliedDiscount.amount} off`}
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={handleRemovePromo} className="p-1 rounded-full hover:bg-[#dcfce7] cursor-pointer">
+                      <X size={14} className="text-[#16a34a]" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setShowPromo(v => !v)}
+                      className="flex items-center gap-2 text-[13px] font-medium text-[#111827] hover:text-[#2E86AB] transition-colors cursor-pointer"
+                    >
+                      <Ticket size={14} />
+                      {showPromo ? 'Cancel' : 'Have a promo code?'}
+                    </button>
+                    {showPromo && (
+                      <div className="mt-3 flex gap-2">
+                        <input
+                          value={promoInput}
+                          onChange={e => { setPromoInput(e.target.value); setPromoError('') }}
+                          onKeyDown={e => e.key === 'Enter' && handleApplyPromo()}
+                          placeholder="Enter code"
+                          className="flex-1 border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#111827] transition-colors text-[#111827]"
+                        />
+                        <button
+                          onClick={handleApplyPromo}
+                          className="px-4 py-2 rounded-lg bg-[#111827] text-white text-sm font-semibold hover:bg-black transition-colors cursor-pointer"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    )}
+                    {promoError && (
+                      <p className="text-[12px] text-[#e94560] mt-1">{promoError}</p>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* 8. Total */}
               <div className="py-[18px] border-b border-[#E5E7EB]">
                 <div className="flex justify-between items-center">
                   <span className="text-base font-bold text-[#111827]">Total USD</span>
-                  <span className="text-base font-bold text-[#111827]">${total.toFixed(2)}</span>
+                  <span className="text-base font-bold text-[#111827]">${Math.max(0, total).toFixed(2)}</span>
                 </div>
+                {appliedDiscount && (
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-[12px] text-[#16a34a]">Discount applied</span>
+                    <span className="text-[12px] text-[#16a34a]">-${discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
 
-              {/* 8. Due Today */}
+              {/* 9. Due Today */}
               <div className="pt-[18px]">
                 <div className="flex justify-between items-center">
                   <span className="text-[15px] font-semibold text-[#111827]">Due today</span>
-                  <span className="text-[15px] font-semibold text-[#111827]">${dueToday.toFixed(2)}</span>
+                  <span className="text-[15px] font-semibold text-[#111827]">${Math.max(0, dueToday).toFixed(2)}</span>
                 </div>
+                {appliedDiscount && (
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-[12px] text-[#16a34a]">Discount applied</span>
+                    <span className="text-[12px] text-[#16a34a]">-${discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center mt-1">
                   <span className="text-[13px] text-[#6B7280]">Due to host at property</span>
                   <span className="text-[13px] text-[#6B7280]">${dueAtProperty.toFixed(2)}</span>
@@ -299,7 +398,7 @@ export default function ReservePage() {
               disabled={!selectedPayment}
               onClick={() => {
                 const roomTypeName = selectedRoomTypes.map(r => r.name).join(', ')
-                addBooking({
+                const bookingData = {
                   hotelId: hotel.id,
                   hotelName: hotel.name,
                   hotelCity: hotel.city,
@@ -309,9 +408,21 @@ export default function ReservePage() {
                   checkOut,
                   roomTypeName,
                   guests: totalGuests,
-                  totalPrice: total,
-                })
-                navigate('/my-bookings')
+                  totalPrice: Math.max(0, total),
+                  discountApplied: appliedDiscount ? {
+                    code: appliedDiscount.code,
+                    type: appliedDiscount.type,
+                    amount: appliedDiscount.amount,
+                  } : undefined,
+                }
+                addBooking(bookingData)
+                const booking = {
+                  id: `${Date.now().toString(36)}`,
+                  ...bookingData,
+                  status: 'upcoming' as const,
+                  createdAt: new Date().toISOString(),
+                }
+                navigate('/booking-confirmation', { state: { booking } })
               }}
               className="w-full mt-6 py-3.5 rounded-xl bg-[#111827] text-white font-semibold text-sm hover:bg-black transition-all disabled:bg-[#D1D5DB] disabled:cursor-not-allowed"
             >

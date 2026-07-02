@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Star, Heart, Share2, ChevronLeft, ChevronRight, Wifi, Car, Utensils, Waves, Mountain, Dumbbell, ShieldCheck, ArrowLeft, Users, BedDouble, Bath, Plus, Minus } from "lucide-react";
 import { hotels, reviewSamples } from "../data/hotels";
@@ -21,6 +21,8 @@ export default function HotelDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const hotel = hotels.find((h) => h.id === Number(id));
+
+  useEffect(() => { window.scrollTo(0, 0) }, []);
   const [currentImg, setCurrentImg] = useState(0);
   const [checkIn, setCheckIn] = useState("");
   const { user } = useAuth();

@@ -11,6 +11,8 @@ interface AuthContextValue {
   credentialLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   signup: (fullName: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => void
+  updateProfile: (data: Partial<User>) => Promise<{ success: boolean; error?: string }>
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -65,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const form = new FormData()
       form.append('username', email)
       form.append('password', password)
-      const res = await api.post('/auth/users/login', form, {
+      const res = await api.post('auth/users/login', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       await login(res.data.access_token)
@@ -100,6 +102,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const refreshUser = async () => {
+    if (!token) return
+    const userType = localStorage.getItem('userType') || 'guest'
+    const endpoint = userType === 'host' ? '/auth/users/me' : '/auth/guests/me'
+    try {
+      const { data } = await api.get<User>(endpoint)
+      setUser(mapUser(data))
+    } catch {
+      // ignore
+    }
+  }
+
+  const updateProfile = async (data: Partial<User>): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const userType = localStorage.getItem('userType') || 'guest'
+      const endpoint = userType === 'host' ? '/auth/users/me' : '/auth/guests/me'
+      const { data: updated } = await api.patch<User>(endpoint, data)
+      setUser(mapUser(updated))
+      return { success: true }
+    } catch (err) {
+      let msg = 'Failed to update profile.'
+      if (err instanceof AxiosError && err.response?.data) {
+        const d = err.response.data as Record<string, unknown>
+        if (typeof d.detail === 'string') msg = d.detail
+        else if (typeof d.message === 'string') msg = d.message
+      }
+      return { success: false, error: msg }
+    }
+  }
+
   const logout = () => {
     localStorage.removeItem('token')
     setToken(null)
@@ -107,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, credentialLogin, signup, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, credentialLogin, signup, logout, updateProfile, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

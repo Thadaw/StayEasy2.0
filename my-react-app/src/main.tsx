@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import { FavoritesProvider } from './context/FavoritesContext'
 import { BookingProvider } from './context/BookingContext'
+import { CouponProvider } from './context/CouponContext'
 import './index.css'
 import App from './App'
 
@@ -16,8 +17,10 @@ createRoot(document.getElementById('root')!).render(
       <AuthProvider>
         <FavoritesProvider>
           <BookingProvider>
+            <CouponProvider>
             <App />
             <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+          </CouponProvider>
           </BookingProvider>
         </FavoritesProvider>
       </AuthProvider>

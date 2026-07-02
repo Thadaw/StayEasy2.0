@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, ChevronDown, LogOut, User, MapPin, Plus, Minus, Calendar, Heart } from "lucide-react";
+import { Search, ChevronDown, LogOut, User, MapPin, Plus, Minus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { CountryCurrencyPicker } from "./CountryCurrencyPicker";
 import { useAuth } from "../context/AuthContext";
@@ -69,6 +69,9 @@ export function Navbar() {
   const initials = ((firstName || '')?.[0] || '') + ((lastName || '')?.[0] || '');
   const displayInitials = initials.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?';
   const userEmail = user?.email || "";
+  const photoKey = user?.id ? `photo_${user.id}` : 'photo_guest';
+  const [photoData, setPhotoData] = useState(() => localStorage.getItem(photoKey));
+  useEffect(() => { setPhotoData(localStorage.getItem(photoKey)) }, [photoKey]);
 
   const handleNavbarSearch = () => {
     const params = new URLSearchParams();
@@ -330,9 +333,13 @@ export function Navbar() {
             >
               {user ? (
                 <>
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: '#2E86AB' }}>
-                    {displayInitials}
-                  </div>
+                  {photoData ? (
+                    <img src={photoData} alt="" className="w-7 h-7 rounded-full object-cover" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: '#2E86AB' }}>
+                      {displayInitials}
+                    </div>
+                  )}
                   <span className="hidden sm:block text-sm font-semibold max-w-[120px] truncate" style={{ color: "var(--brand-dark)" }}>
                     {displayName}
                   </span>
@@ -355,9 +362,13 @@ export function Navbar() {
                   <>
                     <div className="px-4 py-4 border-b" style={{ borderColor: "var(--border)", backgroundColor: "var(--accent)" }}>
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold text-white border-2" style={{ backgroundColor: '#2E86AB', borderColor: "var(--primary)" }}>
-                          {displayInitials}
-                        </div>
+                        {photoData ? (
+                          <img src={photoData} alt="" className="w-12 h-12 rounded-full object-cover border-2" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', borderColor: "var(--primary)" }} />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold text-white border-2" style={{ backgroundColor: '#2E86AB', borderColor: "var(--primary)" }}>
+                            {displayInitials}
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <p className="font-bold truncate" style={{ color: "var(--brand-dark)", fontSize: "1rem" }}>
                             {displayName}{lastName ? ` ${lastName}` : ""}
@@ -372,28 +383,9 @@ export function Navbar() {
                       </div>
                     </div>
                     <div className="py-1">
-                      {(() => {
-                        const ut = localStorage.getItem('userType') || 'guest'
-                        return ut === 'guest' ? (
-                          <>
-                            <button onClick={() => { navigate("/profile"); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-accent" style={{ color: "var(--foreground)" }}>
-                              <User size={15} style={{ color: "var(--primary)" }} />Profile
-                            </button>
-                            <button onClick={() => { navigate("/my-bookings"); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-accent" style={{ color: "var(--foreground)" }}>
-                              <Calendar size={15} style={{ color: "var(--muted-foreground)" }} />My Booking
-                            </button>
-                            <button onClick={() => { navigate("/my-wishlist"); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-accent" style={{ color: "var(--foreground)" }}>
-                              <Heart size={15} style={{ color: "var(--muted-foreground)" }} />My Wishlist
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button onClick={() => { navigate("/profile"); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-accent" style={{ color: "var(--foreground)" }}>
-                              <User size={15} style={{ color: "var(--primary)" }} />Profile
-                            </button>
-                          </>
-                        )
-                      })()}
+                      <button onClick={() => { navigate("/profile"); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-accent" style={{ color: "var(--foreground)" }}>
+                        <User size={15} style={{ color: "var(--primary)" }} />Profile
+                      </button>
                       <div className="my-1 border-t" style={{ borderColor: "var(--border)" }} />
                       <button onClick={() => { logout(); navigate("/"); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-accent" style={{ color: "var(--foreground)" }}>
                         <LogOut size={15} style={{ color: "var(--muted-foreground)" }} />Logout

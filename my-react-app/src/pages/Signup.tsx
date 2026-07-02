@@ -57,7 +57,7 @@ export default function Signup() {
     if (!PASSWORD_RE.test(password)) { setError('Password must be 8+ characters with a number and a special character.'); return }
     setLoading(true)
     try {
-      const endpoint = isHost ? '/auth/users/register' : '/auth/guests/register'
+      const endpoint = isHost ? 'auth/users/register' : 'auth/guests/register'
       await api.post(endpoint, {
         full_name: fullName,
         email,
@@ -104,7 +104,7 @@ export default function Signup() {
     setError('')
     setResendLoading(true)
     try {
-      const endpoint = isHost ? '/auth/users/resend-otp' : '/auth/guests/resend-otp'
+      const endpoint = isHost ? 'auth/users/resend-otp' : 'auth/guests/resend-otp'
       await api.post(endpoint, { email })
       toast.success('Verification code resent to your email')
       setResendTimer(30)
