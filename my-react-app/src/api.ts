@@ -1,9 +1,9 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://stayeasy-2-cpk9.onrender.com/',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://stay-easy-sizw.onrender.com/api/v1/',
+  timeout: 15000,
   headers: {
-    'ngrok-skip-browser-warning': 'true',
     'Content-Type': 'application/json'
   }
 })

@@ -13,7 +13,7 @@ const footerLinks = {
 export function Footer() {
   return (
     <footer className="border-t border-border mt-16" style={{ backgroundColor: "var(--secondary)" }}>
-      <div className="max-w-[1280px] mx-auto px-6 py-12">
+      <div className="max-w-screen-2xl mx-auto px-6 py-12">
         <div className="mb-8">
           <Link to="/" className="shrink-0 flex items-center gap-2">
             <img src={logo1} alt="StayEasy" className="h-[34px] w-auto" />
@@ -24,10 +24,10 @@ export function Footer() {
                 fontSize: "20px",
                 letterSpacing: "-0.5px",
                 lineHeight: 1,
-                color: "#1A3C5E",
+                color: "var(--brand-primary)",
               }}
             >
-              Stay<span style={{ color: "#2E86AB" }}>Easy</span>
+              Stay<span style={{ color: "var(--brand-accent)" }}>Easy</span>
             </span>
           </Link>
         </div>

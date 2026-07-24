@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, MapPin, Plus, Minus, Building2, Compass, Check } from "lucide-react";
+import { Search, MapPin, Calendar, Users, Wallet, ChevronDown, Plus, Minus, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { hotels } from "../data/hotels";
+import { useTranslation } from "react-i18next";
+import { popularSearchDestinations } from "../data/searchDestinations";
+import { budgetOptionKeys } from "../data/budgetOptions";
+import { formatDateRange, buildGuestLabel } from "../utils/format";
 
 interface GuestCount {
   adults: number;
@@ -10,399 +13,256 @@ interface GuestCount {
 }
 
 export function SearchBar() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"stays" | "experiences">("stays");
-  const [location, setLocation] = useState("");
+
+  const [where, setWhere] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
-  const [guests, setGuests] = useState<GuestCount>({ adults: 1, children: 0, infants: 0 });
+  const [guests, setGuests] = useState<GuestCount>({ adults: 2, children: 0, infants: 0 });
+  const [budget, setBudget] = useState("anyBudget");
 
-  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showGuestPicker, setShowGuestPicker] = useState(false);
+  const [showWhere, setShowWhere] = useState(false);
+  const [showDates, setShowDates] = useState(false);
+  const [showGuests, setShowGuests] = useState(false);
+  const [showBudget, setShowBudget] = useState(false);
 
-  const locationRef = useRef<HTMLDivElement>(null);
-  const dateRef = useRef<HTMLDivElement>(null);
-  const guestRef = useRef<HTMLDivElement>(null);
+  const whereRef = useRef<HTMLDivElement>(null);
+  const datesRef = useRef<HTMLDivElement>(null);
+  const guestsRef = useRef<HTMLDivElement>(null);
+  const budgetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (locationRef.current && !locationRef.current.contains(e.target as Node)) setShowLocationSuggestions(false);
-      if (dateRef.current && !dateRef.current.contains(e.target as Node)) setShowDatePicker(false);
-      if (guestRef.current && !guestRef.current.contains(e.target as Node)) setShowGuestPicker(false);
+      if (whereRef.current && !whereRef.current.contains(e.target as Node)) setShowWhere(false);
+      if (datesRef.current && !datesRef.current.contains(e.target as Node)) setShowDates(false);
+      if (guestsRef.current && !guestsRef.current.contains(e.target as Node)) setShowGuests(false);
+      if (budgetRef.current && !budgetRef.current.contains(e.target as Node)) setShowBudget(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const suggestions = Array.from(
-    new Set(hotels.map(h => `${h.city}, ${h.country}`))
-  ).filter(s => location.length === 0 || s.toLowerCase().includes(location.toLowerCase())).slice(0, 6);
-
   const totalGuests = guests.adults + guests.children;
-  const guestLabel = totalGuests === 0 ? "Add guests" : `${totalGuests} guest${totalGuests > 1 ? "s" : ""}${guests.infants > 0 ? `, ${guests.infants} infant${guests.infants > 1 ? "s" : ""}` : ""}`;
+  const guestLabel = buildGuestLabel(guests.adults, guests.children, guests.infants);
 
-  const dateLabel = (d: string) => {
-    if (!d) return null;
-    return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
-
-  const hasDates = checkIn || checkOut;
-  const hasLocation = location.length > 0;
-  const hasGuests = totalGuests > 1 || guests.infants > 0;
-
-  const pillLabel = () => {
-    const parts = [];
-    if (location) parts.push(location.split(",")[0]);
-    else parts.push("Anywhere");
-    if (checkIn && checkOut) parts.push(`${dateLabel(checkIn)} - ${dateLabel(checkOut)}`);
-    else if (checkIn) parts.push(dateLabel(checkIn) ?? "Any week");
-    else parts.push("Any week");
-    if (totalGuests > 0) parts.push(guestLabel);
-    else parts.push("Add guests");
-    return parts;
-  };
-
-  const [p1, p2, p3] = pillLabel();
-
-  const adjust = (key: keyof GuestCount, delta: number) => {
-    setGuests(prev => {
-      const next = { ...prev, [key]: Math.max(key === "adults" ? 1 : 0, prev[key] + delta) };
-      return next;
-    });
+  const adjustGuest = (key: keyof GuestCount, delta: number) => {
+    setGuests((prev) => ({
+      ...prev,
+      [key]: Math.max(key === "adults" ? 1 : 0, prev[key] + delta),
+    }));
   };
 
   const handleSearch = () => {
     const params = new URLSearchParams();
-    if (location) params.set("where", location);
-    if (checkIn) params.set("checkIn", checkIn);
-    if (checkOut) params.set("checkOut", checkOut);
+    if (where) params.set("where", where);
+    if (checkIn) params.set("checkin", checkIn);
+    if (checkOut) params.set("checkout", checkOut);
     if (totalGuests > 0) params.set("guests", String(totalGuests));
-    navigate(`/?${params}`);
-    window.scrollTo({ top: 400, behavior: "smooth" });
+    if (budget !== "anyBudget") params.set("budget", t(budget));
+    navigate(`/search?${params}`);
   };
 
+  const dateDisplay = formatDateRange(checkIn, checkOut);
+
   return (
-    <div className="flex flex-col items-center gap-3 md:gap-5 w-full">
-      {/* Stays / Experiences toggle */}
-      <div className="relative flex items-center gap-1 rounded-full p-1.5 md:p-1" style={{ backgroundColor: "rgba(255,255,255,0.12)", backdropFilter: "blur(4px)" }}>
-        {(["stays", "experiences"] as const).map((tab) => {
-          const Icon = tab === "stays" ? Building2 : Compass;
-          const isActive = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`relative flex items-center gap-1.5 md:gap-2 px-4 md:px-7 py-2 md:py-2.5 text-xs md:text-sm font-bold rounded-full transition-all duration-300 capitalize ${
-                isActive
-                  ? "shadow-lg scale-100"
-                  : "text-white/80 hover:text-white hover:scale-105"
-              }`}
-              style={{
-                backgroundColor: isActive ? "white" : "transparent",
-                boxShadow: isActive ? "0 4px 20px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.1)" : "none",
-                transform: isActive ? "scale(1)" : "scale(0.95)",
-              }}
-            >
-              <Icon
-                size={14}
-                style={{
-                  width: "clamp(14px, 2vw, 16px)",
-                  height: "clamp(14px, 2vw, 16px)",
-                  color: isActive ? "var(--primary)" : "rgba(255,255,255,0.7)",
-                  transition: "color 0.3s",
-                }}
-              />
-              <span className="capitalize">{tab}</span>
-              {isActive && (
-                <span
-                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                  style={{ backgroundColor: "var(--primary)" }}
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Pill search */}
-      <div className="group/search relative flex items-center bg-white rounded-full md:rounded-full shadow-2xl border border-border overflow-visible w-full max-w-full md:max-w-2xl transition-all duration-500 hover:shadow-3xl hover:border-gray-300">
-        {/* Glow effect ring */}
-        <div className="absolute -inset-0.5 rounded-full opacity-0 group-hover/search:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: "linear-gradient(135deg, var(--primary), rgba(46,134,171,0.3))", filter: "blur(4px)", zIndex: -1 }} />
-
+    <div className="bg-white rounded-2xl shadow-card border border-brand-primary-extra-light p-1.5 md:p-1 mb-3 md:mb-4 w-full">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-0 md:items-center">
         {/* Where */}
-        <div ref={locationRef} className="relative flex-1 min-w-0">
+        <div ref={whereRef} className="relative min-w-0 md:flex-1">
           <button
-            className={`pill-btn w-full flex flex-col items-center md:items-start justify-center px-0.5 sm:px-2 md:px-6 py-1.5 md:py-4 text-[9px] sm:text-[11px] md:text-sm font-medium rounded-l-full transition-all duration-200 min-h-[36px] md:min-h-0 ${
-              showLocationSuggestions ? "bg-accent/60 shadow-inner" : "hover:bg-accent/40 hover:scale-[1.02]"
-            }`}
-            style={{ color: "var(--foreground)" }}
-            onClick={() => { setShowLocationSuggestions(v => !v); setShowDatePicker(false); setShowGuestPicker(false); }}
+            onClick={() => { setShowWhere((v) => !v); setShowDates(false); setShowGuests(false); setShowBudget(false); }}
+            className="w-full px-4 sm:px-5 py-2.5 md:py-2 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-l-2xl md:rounded-tr-none"
           >
-            <span className="hidden md:flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: hasLocation ? "var(--primary)" : "var(--foreground)" }}>
-              <span className="icon-wrapper inline-flex"><MapPin size={12} className="icon-bounce" /></span>
-              Where
-              {hasLocation && <Check size={10} style={{ color: "var(--primary)" }} />}
-            </span>
-            <span className="flex md:hidden flex-col items-center gap-0.5 leading-tight">
-              <span className="icon-wrapper inline-flex"><MapPin size={14} className="icon-bounce" style={{ color: hasLocation ? "var(--primary)" : "var(--muted-foreground)" }} /></span>
-              <span className="truncate max-w-[60px]">{p1}</span>
-            </span>
-            <span className="hidden md:block truncate w-full font-semibold transition-all duration-300" style={{ color: hasLocation ? "var(--foreground)" : "var(--muted-foreground)" }}>{p1}</span>
+            <MapPin size={13} className="text-brand-accent shrink-0" />
+            <div className="min-w-0">
+              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("whereTo")}</div>
+              <div className={`text-[11px] md:text-xs font-medium truncate ${where ? "text-gray-800" : "text-gray-400"}`}>{where || t("searchPlaceholder")}</div>
+            </div>
+            <ChevronDown size={13} className={`ml-auto shrink-0 text-gray-400 transition-transform hidden sm:block ${showWhere ? "rotate-180" : ""}`} />
           </button>
-          {showLocationSuggestions && (
-            <div className="fixed md:absolute top-1/2 md:top-full left-1/2 md:left-0 -translate-x-1/2 md:translate-x-0 -translate-y-1/2 md:translate-y-0 mt-0 md:mt-2 w-[85vw] md:w-72 bg-white rounded-xl shadow-2xl border border-border z-[60] p-2 md:p-4 animate-scale-in">
-              <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider mb-2 md:mb-3" style={{ color: "var(--muted-foreground)" }}>Where to?</p>
-              <div className="flex items-center gap-1.5 md:gap-2 border border-border rounded-lg px-2 md:px-3 py-1.5 md:py-2 focus-within:border-primary transition-all duration-200 focus-within:shadow-md" style={{ backgroundColor: "var(--accent)" }}>
-                <MapPin size={12} style={{ color: "var(--primary)", flexShrink: 0 }} />
+          {showWhere && (
+            <div className="absolute top-full left-0 mt-2 w-[calc(100vw-2rem)] sm:w-72 max-w-[320px] bg-white rounded-xl shadow-modal border border-brand-primary-extra-light z-50 p-3 animate-in">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2 px-1">{t("whereTo")}</p>
+              <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 focus-within:border-brand-accent transition-colors mb-2">
+                <MapPin size={13} className="text-brand-accent shrink-0" />
                 <input
                   type="text"
-                  placeholder="Search destinations"
-                  value={location}
-                  onChange={e => { setLocation(e.target.value); }}
-                  className="w-full text-[11px] md:text-sm bg-transparent border-none outline-none placeholder:text-muted-foreground"
-                  style={{ color: "var(--foreground)" }}
+                  placeholder={t("searchPlaceholder")}
+                  value={where}
+                  onChange={(e) => setWhere(e.target.value)}
+                  className="w-full text-sm bg-transparent border-none outline-none placeholder:text-gray-400"
                   autoFocus
                 />
               </div>
-              {suggestions.length > 0 && (
-                <div className="mt-1.5 md:mt-2 max-h-40 md:max-h-48 overflow-y-auto">
-                  {location === "" && (
-                    <div className="px-1 pt-1.5 md:pt-2 pb-1 text-[10px] md:text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
-                      Popular destinations
-                    </div>
-                  )}
-                  {suggestions.map(s => (
+              <div className="max-h-48 overflow-y-auto">
+                <button
+                  onClick={() => { setWhere(t("nearby")); setShowWhere(false); }}
+                  className="w-full flex items-center gap-2.5 px-2 py-2 text-sm text-gray-700 hover:bg-brand-primary-extra-light rounded-lg transition-colors text-left"
+                >
+                  <MapPin size={13} className="text-brand-accent shrink-0" />
+                  {t("nearby")}
+                </button>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1 px-1 mt-1">{t("popularDestinations")}</p>
+                {popularSearchDestinations
+                  .filter((d) => where === "" || d.toLowerCase().includes(where.toLowerCase()))
+                  .map((d) => (
                     <button
-                      key={s}
-                      className="group/suggestion w-full flex items-center gap-2 md:gap-3 px-2 py-2 md:py-2.5 text-[11px] md:text-sm hover:bg-accent rounded-lg transition-all duration-200 text-left active:scale-[0.98] hover:translate-x-0.5"
-                      style={{ color: "var(--foreground)" }}
-                      onClick={() => { setLocation(s); setShowLocationSuggestions(false); }}
+                      key={d}
+                      onClick={() => { setWhere(d); setShowWhere(false); }}
+                      className="w-full flex items-center gap-2.5 px-2 py-2 text-sm text-gray-700 hover:bg-brand-primary-extra-light rounded-lg transition-colors text-left"
                     >
-                      <span className="w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center transition-all duration-200 group-hover/suggestion:scale-110 group-hover/suggestion:shadow-md" style={{ backgroundColor: "var(--accent)" }}>
-                        <MapPin size={11} style={{ color: "var(--primary)" }} />
-                      </span>
-                      <span className="transition-all duration-200 group-hover/suggestion:font-semibold">{s}</span>
+                      <MapPin size={13} className="text-brand-accent shrink-0" />
+                      {d}
                     </button>
                   ))}
-                </div>
-              )}
+              </div>
             </div>
           )}
         </div>
 
-        <div className="w-px bg-border self-stretch my-1.5 md:my-4 group-hover/search:bg-gray-300 group-hover/search:scale-y-110 transition-all duration-300" />
-
-        {/* Dates */}
-        <div ref={dateRef} className="relative flex-1 min-w-0">
+        {/* Check in – Check out */}
+        <div ref={datesRef} className="relative min-w-0 md:flex-1">
           <button
-            className={`pill-btn w-full flex flex-col items-center md:items-start justify-center px-0.5 sm:px-2 md:px-6 py-1.5 md:py-4 text-[9px]  sm:text-[11px] md:text-sm font-medium transition-all duration-200 min-h-[36px] md:min-h-0 ${
-              showDatePicker ? "bg-accent/60 shadow-inner" : "hover:bg-accent/40 hover:scale-[1.02]"
-            }`}
-            style={{ color: "var(--foreground)" }}
-            onClick={() => { setShowDatePicker(v => !v); setShowLocationSuggestions(false); setShowGuestPicker(false); }}
+            onClick={() => { setShowDates((v) => !v); setShowWhere(false); setShowGuests(false); setShowBudget(false); }}
+            className="w-full px-4 sm:px-5 py-2.5 md:py-2 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
           >
-            <span className="hidden md:flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: hasDates ? "var(--primary)" : "var(--foreground)" }}>
-              <span className="icon-wrapper inline-flex icon-bounce"><CalendarIcon /></span>
-              Check in
-              {hasDates && <Check size={10} style={{ color: "var(--primary)" }} />}
-            </span>
-            <span className="truncate hidden md:block w-full font-semibold transition-all duration-300" style={{ color: hasDates ? "var(--foreground)" : "var(--muted-foreground)" }}>{p2}</span>
-            <span className="flex md:hidden flex-col items-center gap-0.5 leading-tight">
-              <span className="icon-wrapper inline-flex icon-bounce"><CalendarIcon /></span>
-              <span className="truncate max-w-[60px]">{p2}</span>
-            </span>
+            <Calendar size={13} className="text-brand-accent shrink-0" />
+            <div className="min-w-0">
+              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("checkInCheckOut")}</div>
+              <div className={`text-[11px] md:text-xs font-medium truncate ${checkIn ? "text-gray-800" : "text-gray-400"}`}>{dateDisplay}</div>
+            </div>
+            <ChevronDown size={13} className={`ml-auto shrink-0 text-gray-400 transition-transform hidden sm:block ${showDates ? "rotate-180" : ""}`} />
           </button>
-          {showDatePicker && (
-            <div className="fixed md:absolute top-1/2 md:top-full left-1/2 md:left-0 -translate-x-1/2 md:translate-x-0 -translate-y-1/2 md:translate-y-0 mt-0 md:mt-2 w-[85vw] md:w-auto md:min-w-[280px] bg-white rounded-xl shadow-2xl border border-border z-[60] p-3 md:p-5 animate-scale-in">
-              <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider mb-2 md:mb-3" style={{ color: "var(--muted-foreground)" }}>Select dates</p>
-              <div className="flex flex-col gap-2 md:gap-3">
+          {showDates && (
+            <div className="absolute top-full left-0 mt-2 w-[calc(100vw-2rem)] sm:w-72 max-w-[320px] bg-white rounded-xl shadow-modal border border-brand-primary-extra-light z-50 p-4 animate-in">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">{t("selectDates")}</p>
+              <div className="flex flex-col gap-3">
                 <div>
-                  <label className="text-[11px] md:text-xs font-semibold mb-0.5 md:mb-1 block" style={{ color: "var(--foreground)" }}>Check in</label>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">{t("checkIn")}</label>
                   <input
                     type="date"
                     value={checkIn}
                     min={new Date().toISOString().split("T")[0]}
-                    onChange={e => { setCheckIn(e.target.value); if (checkOut && e.target.value > checkOut) setCheckOut(""); }}
-                    className="w-full border border-border rounded-lg px-2.5 md:px-3 py-2 md:py-2.5 text-[11px] md:text-sm outline-none transition-all duration-200 focus:border-primary focus:shadow-md"
-                    style={{ color: "var(--foreground)" }}
+                    onChange={(e) => { setCheckIn(e.target.value); if (checkOut && e.target.value > checkOut) setCheckOut(""); }}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] md:text-xs font-semibold mb-0.5 md:mb-1 block" style={{ color: "var(--foreground)" }}>Check out</label>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">{t("checkOut")}</label>
                   <input
                     type="date"
                     value={checkOut}
                     min={checkIn || new Date().toISOString().split("T")[0]}
-                    onChange={e => setCheckOut(e.target.value)}
-                    className="w-full border border-border rounded-lg px-2.5 md:px-3 py-2 md:py-2.5 text-[11px] md:text-sm outline-none transition-all duration-200 focus:border-primary focus:shadow-md"
-                    style={{ color: "var(--foreground)" }}
+                    onChange={(e) => setCheckOut(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent transition-colors"
                   />
                 </div>
                 <button
-                  onClick={() => setShowDatePicker(false)}
-                  className="mt-0.5 md:mt-1 w-full py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-semibold text-white transition-all duration-200 hover:shadow-lg hover:brightness-110 active:scale-[0.97] relative overflow-hidden"
-                  style={{ backgroundColor: "var(--primary)" }}
+                  onClick={() => setShowDates(false)}
+                  className="w-full py-2 rounded-lg text-sm font-semibold text-white bg-brand-accent hover:bg-brand-accent-hover transition-colors"
                 >
-                  <span className="absolute inset-0 bg-white/0 hover:bg-white/10 transition-all duration-300" />
-                  <span className="relative z-10">Apply</span>
+                  {t("apply")}
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        <div className="w-px bg-border self-stretch my-1.5 md:my-4 group-hover/search:bg-gray-300 group-hover/search:scale-y-110 transition-all duration-300" />
-
         {/* Guests */}
-        <div ref={guestRef} className="relative flex-1 min-w-0">
+        <div ref={guestsRef} className="relative min-w-0 md:flex-1">
           <button
-            className={`pill-btn w-full flex flex-col items-center md:items-start justify-center px-0.5 sm:px-2 md:px-6 py-1.5 md:py-4 text-[9px]  sm:text-[11px] md:text-sm font-medium transition-all duration-200 min-h-[36px] md:min-h-0 ${
-              showGuestPicker ? "bg-accent/60 shadow-inner" : "hover:bg-accent/40 hover:scale-[1.02]"
-            }`}
-            style={{ color: "var(--foreground)" }}
-            onClick={() => { setShowGuestPicker(v => !v); setShowLocationSuggestions(false); setShowDatePicker(false); }}
+            onClick={() => { setShowGuests((v) => !v); setShowWhere(false); setShowDates(false); setShowBudget(false); }}
+            className="w-full px-4 sm:px-5 py-2.5 md:py-2 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
           >
-            <span className="hidden md:flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: hasGuests ? "var(--primary)" : "var(--foreground)" }}>
-              <span className="icon-wrapper inline-flex icon-bounce"><UsersIcon /></span>
-              Guests
-              {hasGuests && <Check size={10} style={{ color: "var(--primary)" }} />}
-            </span>
-            <span className="truncate hidden md:block w-full font-semibold transition-all duration-300" style={{ color: hasGuests ? "var(--foreground)" : "var(--muted-foreground)" }}>{p3}</span>
-            <span className="flex md:hidden flex-col items-center gap-0.5 leading-tight">
-              <span className="icon-wrapper inline-flex icon-bounce"><UsersIcon /></span>
-              <span className="truncate max-w-[60px]">{p3}</span>
-            </span>
+            <Users size={13} className="text-brand-accent shrink-0" />
+            <div className="min-w-0">
+              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("guests")}</div>
+              <div className={`text-[11px] md:text-xs font-medium truncate ${totalGuests > 0 ? "text-gray-800" : "text-gray-400"}`}>{guestLabel}</div>
+            </div>
+            <ChevronDown size={13} className={`ml-auto shrink-0 text-gray-400 transition-transform hidden sm:block ${showGuests ? "rotate-180" : ""}`} />
           </button>
-          {showGuestPicker && (
-            <div className="fixed md:absolute top-1/2 md:top-full left-1/2 md:left-auto -translate-x-1/2 md:translate-x-0 -translate-y-1/2 md:translate-y-0 mt-0 md:mt-2 w-[85vw] md:w-72 bg-white rounded-xl shadow-2xl border border-border z-[60] p-3 md:p-5 animate-scale-in">
-              <div className="flex items-center justify-between mb-3 md:mb-4">
-                <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Guests</p>
-                <span className="text-[10px] md:text-xs font-semibold px-1.5 md:px-2 py-0.5 rounded-full" style={{ backgroundColor: "var(--accent)", color: "var(--primary)" }}>
-                  {totalGuests + guests.infants} total
-                </span>
-              </div>
+          {showGuests && (
+            <div className="absolute top-full left-0 mt-2 w-[calc(100vw-2rem)] sm:w-72 max-w-[320px] bg-white rounded-xl shadow-modal border border-brand-primary-extra-light z-50 p-4 animate-in">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">{t("guests")}</p>
               {([
-                { key: "adults" as keyof GuestCount, label: "Adults", sub: "Ages 13 or above" },
-                { key: "children" as keyof GuestCount, label: "Children", sub: "Ages 2–12" },
-                { key: "infants" as keyof GuestCount, label: "Infants", sub: "Under 2" },
+                { key: "adults" as keyof GuestCount, label: t("adults"), sub: t("ages13") },
+                { key: "children" as keyof GuestCount, label: t("children"), sub: t("ages2to12") },
+                { key: "infants" as keyof GuestCount, label: t("room"), sub: t("numberOfRooms") },
               ]).map(({ key, label, sub }) => (
-                <div key={key} className="flex items-center justify-between py-2 md:py-3 border-b border-border last:border-0 group/item">
+                <div key={key} className="flex items-center justify-between py-3 border-b border-brand-primary-extra-light last:border-0">
                   <div>
-                    <p className="text-[11px] md:text-sm font-semibold" style={{ color: "var(--foreground)" }}>{label}</p>
-                    <p className="text-[10px] md:text-xs" style={{ color: "var(--muted-foreground)" }}>{sub}</p>
+                    <p className="text-sm font-semibold text-gray-800">{label}</p>
+                    <p className="text-xs text-gray-400">{sub}</p>
                   </div>
-                  <div className="flex items-center gap-2 md:gap-3">
+                  <div className="flex items-center gap-3">
                     <button
-                      onClick={() => adjust(key, -1)}
+                      onClick={() => adjustGuest(key, -1)}
                       disabled={guests[key] <= (key === "adults" ? 1 : 0)}
-                      className="w-7 h-7 md:w-7 md:h-7 rounded-full border-2 flex items-center justify-center transition-all duration-200 hover:border-primary hover:bg-primary/10 active:scale-[0.85] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-border hover:shadow-sm"
-                      style={{ borderColor: "var(--border)" }}
+                      className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-brand-accent hover:bg-brand-accent-light disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
-                      <Minus size={10} className="transition-transform duration-200 group-hover/item:scale-110" />
+                      <Minus size={12} />
                     </button>
-                    <span className="w-5 md:w-5 text-center text-[11px] md:text-sm font-bold tabular-nums transition-all duration-200" style={{ color: "var(--foreground)" }}>{guests[key]}</span>
+                    <span className="w-5 text-center text-sm font-bold tabular-nums">{guests[key]}</span>
                     <button
-                      onClick={() => adjust(key, 1)}
-                      className="w-7 h-7 md:w-7 md:h-7 rounded-full border-2 flex items-center justify-center transition-all duration-200 hover:border-primary hover:bg-primary/10 active:scale-[0.85] hover:shadow-sm"
-                      style={{ borderColor: "var(--border)" }}
+                      onClick={() => adjustGuest(key, 1)}
+                      className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-brand-accent hover:bg-brand-accent-light transition-colors"
                     >
-                      <Plus size={10} className="transition-transform duration-200 group-hover/item:scale-110" />
+                      <Plus size={12} />
                     </button>
                   </div>
                 </div>
               ))}
               <button
-                onClick={() => setShowGuestPicker(false)}
-                className="mt-2 md:mt-3 w-full py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-semibold text-white transition-all duration-200 hover:shadow-lg hover:brightness-110 active:scale-[0.97] relative overflow-hidden"
-                style={{ backgroundColor: "var(--primary)" }}
+                onClick={() => setShowGuests(false)}
+                className="mt-3 w-full py-2 rounded-lg text-sm font-semibold text-white bg-brand-accent hover:bg-brand-accent-hover transition-colors"
               >
-                <span className="absolute inset-0 bg-white/0 hover:bg-white/10 transition-all duration-300" />
-                <span className="relative z-10">Apply</span>
+                {t("apply")}
               </button>
             </div>
           )}
         </div>
 
-        {/* Search button */}
-        <div className="relative flex items-center pr-0.5 md:pr-2 pl-0.5 md:pl-2">
-          {/* Glow behind search button */}
-          <div className="absolute inset-0 rounded-full opacity-0 group-hover/search:opacity-100 transition-all duration-500 scale-125 group-hover/search:scale-150 pointer-events-none" style={{ background: "radial-gradient(circle, rgba(46,134,171,0.35) 0%, transparent 70%)" }} />
+        {/* Budget */}
+        <div ref={budgetRef} className="relative min-w-0 md:flex-1">
           <button
-            onClick={handleSearch}
-            className="rounded-full p-1.5 md:p-3 flex items-center justify-center text-white transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:scale-110 active:scale-95 relative overflow-hidden"
-            style={{ backgroundColor: "var(--primary)" }}
+            onClick={() => { setShowBudget((v) => !v); setShowWhere(false); setShowDates(false); setShowGuests(false); }}
+            className="w-full px-4 sm:px-5 py-2.5 md:py-2 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-r-2xl md:rounded-bl-none"
           >
-            <span className="absolute inset-0 rounded-full bg-white/0 hover:bg-white/15 transition-all duration-300" />
-            <Search size={13} className="relative z-10 md:w-[16px] md:h-[16px] group-active/search:rotate-12 transition-transform duration-300" />
+            <Wallet size={13} className="text-brand-accent shrink-0" />
+            <div className="min-w-0">
+              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("budgetPerNight")}</div>
+              <div className="text-[11px] md:text-xs font-medium text-gray-800 truncate">{t(budget)}</div>
+            </div>
+            <ChevronDown size={13} className={`ml-auto shrink-0 text-gray-400 transition-transform hidden sm:block ${showBudget ? "rotate-180" : ""}`} />
           </button>
-          <span className="absolute -top-1 -right-0.5 w-2.5 h-2.5 rounded-full animate-ping group-hover/search:animate-ping group-hover/search:w-3 group-hover/search:h-3 transition-all duration-300" style={{ backgroundColor: "var(--primary)", opacity: 0.4 }} />
+          {showBudget && (
+            <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-modal border border-brand-primary-extra-light z-50 p-2 animate-in">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1 px-2 pt-1">{t("budgetPerNightTitle")}</p>
+              {budgetOptionKeys.map((key) => (
+                <button
+                  key={key}
+                  onClick={() => { setBudget(key); setShowBudget(false); }}
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm rounded-lg transition-colors text-left ${
+                    budget === key ? "bg-brand-accent-light text-brand-accent font-semibold" : "text-gray-700 hover:bg-brand-primary-extra-light"
+                  }`}
+                >
+                  {budget === key && <Check size={14} className="text-brand-accent shrink-0" />}
+                  {t(key)}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Search button */}
+        <button
+          onClick={handleSearch}
+          className="col-span-2 md:col-span-1 w-full h-9 rounded-xl bg-brand-accent flex items-center justify-center text-white hover:bg-brand-accent-hover transition-all duration-200 hover:shadow-lg hover:shadow-brand-accent/30 active:scale-95 mt-2 md:mt-0 md:shrink-0"
+        >
+          <Search size={15} />
+        </button>
       </div>
-
-      <style>{`
-        @keyframes slide-down {
-          from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes scale-in {
-          from { opacity: 0; transform: translateX(-50%) translateY(-50%) scale(0.92); }
-          to { opacity: 1; transform: translateX(-50%) translateY(-50%) scale(1); }
-        }
-        @media (min-width: 768px) {
-          @keyframes scale-in {
-            from { opacity: 0; transform: translateY(-8px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-          }
-        }
-        .animate-slide-down { animation: slide-down 0.2s ease-out; }
-        .animate-scale-in { animation: scale-in 0.2s ease-out; }
-
-        .pill-btn { position: relative; overflow: hidden; }
-        .pill-btn::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          opacity: 0;
-          transition: opacity 0.3s;
-          background: linear-gradient(135deg, rgba(46,134,171,0.08), transparent);
-        }
-        .pill-btn:hover::after { opacity: 1; }
-        .pill-btn:active { transform: scale(0.97) !important; }
-
-        .icon-wrapper { transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        .pill-btn:hover .icon-wrapper { transform: scale(1.2) rotate(-5deg); }
-        .pill-btn:active .icon-wrapper { transform: scale(0.9); }
-
-        @keyframes pulse-glow {
-          0%, 100% { box-shadow: 0 0 8px rgba(46,134,171,0.3); }
-          50% { box-shadow: 0 0 20px rgba(46,134,171,0.6); }
-        }
-        .search-btn-glow { animation: pulse-glow 2s ease-in-out infinite; }
-      `}</style>
     </div>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  );
-}
-
-function UsersIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
   );
 }

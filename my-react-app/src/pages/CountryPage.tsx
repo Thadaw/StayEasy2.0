@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Star, Calendar, Utensils, Clock, ChevronRight } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Utensils, Clock, ChevronRight, Star } from "lucide-react";
 import { getCountry } from "../data/worldCountries";
 import { hotels } from "../data/hotels";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { HotelCard } from "../components/HotelCard";
+import { useFavorites } from "../context/FavoritesContext";
 
 export default function CountryPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const country = getCountry(code?.toUpperCase() || "");
   const [activeCity, setActiveCity] = useState<string | null>(null);
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   const countryHotels = hotels.filter((h) =>
     h.country?.toLowerCase() === country?.name.toLowerCase() ||
@@ -46,7 +48,7 @@ export default function CountryPage() {
           transition: "background-image 0.5s ease",
         }}
       >
-        <div className="max-w-[1280px] mx-auto px-6 pb-10 w-full">
+        <div className="max-w-screen-2xl mx-auto px-6 pb-10 w-full">
           <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-white/80 hover:text-white text-sm mb-6 transition-colors">
             <ArrowLeft size={15} /> Back
           </button>
@@ -77,7 +79,7 @@ export default function CountryPage() {
         </div>
       </div>
 
-      <div className="max-w-[1280px] mx-auto px-6 py-10">
+      <div className="max-w-screen-2xl mx-auto px-6 py-10">
         <div className="mb-10">
           <h2 className="font-semibold text-foreground mb-4" style={{ fontSize: "1.125rem" }}>
             Popular cities & places in {country.name}
@@ -207,7 +209,9 @@ export default function CountryPage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {displayHotels.map((h) => <HotelCard key={h.id} {...h} />)}
+            {displayHotels.map((h) => (
+              <HotelCard key={h.id} hotel={h} href={`/hotel/${h.id}`} showFavourite isFavourite={isFavorite(h.id)} onToggleFavourite={() => toggleFavorite(h.id)} className="!rounded-xl" />
+            ))}
           </div>
         </div>
       </div>

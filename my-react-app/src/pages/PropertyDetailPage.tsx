@@ -1,0 +1,338 @@
+import { useState, useEffect, useMemo } from "react";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, BedDouble, Bath, Users } from "lucide-react";
+import { hotels } from "../data/hotels";
+import { Navbar } from "../components/Navbar";
+import { Footer } from "../components/Footer";
+import { SearchBar } from "../components/SearchBar";
+import { StickySearchHeader } from "../components/StickySearchHeader";
+import { useAuth } from "../context/AuthContext";
+import { useFavorites } from "../context/FavoritesContext";
+import { calcPrice } from "../utils/pricing";
+import { haversineDistance } from "../utils/geo";
+import { HotelHeader } from "../components/property/HotelHeader";
+import { ImageGallery } from "../components/property/ImageGallery";
+import { HostInfo } from "../components/property/HostInfo";
+import { AmenitiesSection } from "../components/property/AmenitiesSection";
+import { RoomGrid } from "../components/property/RoomGrid";
+import { RoomSelectionPanel } from "../components/property/RoomSelectionPanel";
+import { ReviewSection } from "../components/property/ReviewSection";
+import { ThingsToKnow } from "../components/property/ThingsToKnow";
+import { RoomDetailModal } from "../components/property/RoomDetailModal";
+import { NearbyStays } from "../components/property/NearbyStays";
+import { RecommendedRoom } from "../components/property/RecommendedRoom";
+
+export default function PropertyDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const guestsParam = searchParams.get("guests") || "";
+  const whereParam = searchParams.get("where") || "";
+  const budgetParam = searchParams.get("budget") || "";
+  const checkinParam = searchParams.get("checkin") || "";
+  const checkoutParam = searchParams.get("checkout") || "";
+  const filterAmenities = searchParams.get("amenities")?.split(",").filter(Boolean) || [];
+  const filterBedTypes = searchParams.get("bedTypes")?.split(",").filter(Boolean) || [];
+  const filterGuestRating = searchParams.get("guestRating") || "Any";
+  const filterPriceMin = Number(searchParams.get("priceMin")) || 0;
+  const filterPriceMax = Number(searchParams.get("priceMax")) || 500;
+  const filterPropertyTypes = searchParams.get("propertyTypes")?.split(",").filter(Boolean) || [];
+  const hasSearchParams = filterAmenities.length > 0 || filterBedTypes.length > 0 || filterGuestRating !== "Any" || filterPriceMin > 0 || filterPriceMax < 500 || filterPropertyTypes.length > 0 || guestsParam !== "" || whereParam !== "" || budgetParam !== "" || checkinParam !== "" || checkoutParam !== "";
+  const hotel = hotels.find((h) => h.id === Number(id));
+
+  useEffect(() => { window.scrollTo(0, 0) }, []);
+  const { user } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const liked = isFavorite(Number(id));
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [detailRoomId, setDetailRoomId] = useState<string | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [roomQuantities, setRoomQuantities] = useState<Record<string, number>>({});
+  const [roomGuestCounts] = useState<Record<string, number>>(
+    hotel?.roomTypes.reduce((acc, rt) => ({ ...acc, [rt.id]: 1 }), {}) ?? {}
+  );
+
+  const handleQtyChange = (roomId: string, delta: number) => {
+    setRoomQuantities(prev => {
+      const current = prev[roomId] || 0;
+      const nextVal = current + delta;
+      if (nextVal < 0) return prev;
+      const room = hotel?.roomTypes.find(r => r.id === roomId);
+      if (room && nextVal > room.availableRooms) return prev;
+      return { ...prev, [roomId]: nextVal };
+    });
+  };
+
+  const guestCount = useMemo(() => {
+    if (!guestsParam) return 2;
+    const matches = guestsParam.match(/\d+/g);
+    if (!matches) return 2;
+    return matches.reduce((sum, n) => sum + parseInt(n), 0);
+  }, [guestsParam]);
+
+  const recommendedRooms = useMemo(() => {
+    if (!hotel || guestCount === 0) return [];
+    const scored = hotel.roomTypes
+      .filter((rt) => rt.availableRooms > 0 && rt.maxGuests >= guestCount)
+      .map((rt) => {
+        let score = 0;
+        let total = 0;
+
+        if (filterBedTypes.length > 0) {
+          total += 1;
+          const rtBed = rt.bedType?.toLowerCase() || "";
+          if (filterBedTypes.some((bt) => rtBed.includes(bt.toLowerCase().replace(" bed", "")))) score += 1;
+        }
+
+        if (filterAmenities.length > 0) {
+          total += filterAmenities.length;
+          const roomAmenities = (rt.roomFacilities || []).map((a) => a.toLowerCase());
+          const allAmenities = [...new Set([...roomAmenities, ...hotel.amenities.map((a) => a.toLowerCase())])];
+          for (const a of filterAmenities) {
+            if (allAmenities.some((ha) => ha.includes(a.toLowerCase()))) score += 1;
+          }
+        }
+
+        if (filterPriceMin > 0 || filterPriceMax < 500) {
+          total += 1;
+          const effectivePrice = calcPrice(rt.price, rt.maxGuests, guestCount);
+          if (effectivePrice >= filterPriceMin && effectivePrice <= filterPriceMax) score += 1;
+        }
+
+        return { rt, score, total };
+      })
+      .sort((a, b) => (b.total > 0 ? b.score / b.total : 0) - (a.total > 0 ? a.score / a.total : 0));
+
+    if (scored.length === 0) return [];
+    return [scored[0].rt];
+  }, [hotel, guestCount, filterBedTypes, filterAmenities, filterPriceMin, filterPriceMax]);
+
+  const hotelMatchesFilters = useMemo(() => {
+    if (!hotel) return false;
+    if (!hasSearchParams) return false;
+    if (filterGuestRating !== "Any" && hotel.rating < parseFloat(filterGuestRating)) return false;
+    if (filterPropertyTypes.length > 0) {
+      const typeMap: Record<string, string[]> = {
+        "Villas": ["villa"],
+        "Hotels": ["resort", "hotel"],
+        "Apartments": ["apartment", "loft"],
+        "Resorts": ["resort", "eco"],
+        "Cottages": ["cottage", "chalet", "lodge"],
+      };
+      const matches = filterPropertyTypes.some((t) =>
+        typeMap[t]?.some((k) => hotel.category.toLowerCase().includes(k) || hotel.name.toLowerCase().includes(k))
+      );
+      if (!matches) return false;
+    }
+    return true;
+  }, [hotel, filterGuestRating, filterPropertyTypes, hasSearchParams]);
+
+  const nearbyHotels = useMemo(() => {
+    if (!hotel) return [];
+    return hotels
+      .filter((h) => h.id !== hotel.id)
+      .map((h) => ({ hotel: h, dist: haversineDistance(hotel.lat, hotel.lng, h.lat, h.lng) }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 4)
+      .map((e) => e.hotel);
+  }, [hotel]);
+
+  if (!hotel) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <p className="text-2xl">🏨</p>
+        <p className="text-lg font-semibold text-foreground">Property not found</p>
+        <Link to="/" className="px-5 py-2.5 bg-primary text-white rounded-full text-sm font-medium hover:opacity-90">
+          Back to home
+        </Link>
+      </div>
+    );
+  }
+
+  const nights = checkIn && checkOut
+    ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
+    : 1;
+
+  const handleSelectRoom = (roomId: string) => {
+    const qty = roomQuantities[roomId] || 0;
+    if (qty === 0) {
+      setRoomQuantities(prev => ({ ...prev, [roomId]: 1 }));
+    }
+    setSelectedRoomId(roomId);
+    setTimeout(() => setSelectedRoomId(null), 3000);
+    const el = document.getElementById(`room-${roomId}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const handleOpenDetail = (roomId: string) => {
+    setDetailRoomId(roomId);
+  };
+
+  const handleReserveFromModal = (roomId: string) => {
+    setRoomQuantities(prev => ({ ...prev, [roomId]: (prev[roomId] || 0) + 1 }));
+    setDetailRoomId(null);
+    setTimeout(() => document.getElementById('room-selection')?.scrollIntoView({ behavior: 'smooth' }), 100);
+  };
+
+  const handleReserve = () => {
+    const selected = Object.entries(roomQuantities).filter(([, q]) => q > 0);
+    if (selected.length === 0) return;
+    const params = new URLSearchParams();
+    if (checkIn) params.set('checkIn', checkIn);
+    if (checkOut) params.set('checkOut', checkOut);
+    params.set('rooms', JSON.stringify(Object.fromEntries(selected)));
+    params.set('guestCounts', JSON.stringify(
+      Object.fromEntries(Object.entries(roomGuestCounts).filter(([roomId]) => selected.some(([sId]) => sId === roomId)))
+    ));
+    const query = params.toString();
+    if (!user) {
+      navigate('/login?redirect=' + encodeURIComponent('/reserve/' + id + '?' + query));
+    } else {
+      navigate('/reserve/' + id + '?' + query);
+    }
+  };
+
+  const detailRoom = detailRoomId ? hotel.roomTypes.find(rt => rt.id === detailRoomId) : null;
+
+  return (
+    <div className="min-h-screen bg-background" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <Navbar />
+
+      <StickySearchHeader>
+        <SearchBar />
+      </StickySearchHeader>
+
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
+        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
+          <ArrowLeft size={15} /> All stays
+        </button>
+
+        <HotelHeader hotel={hotel} liked={liked} onToggleFavorite={() => {
+          if (!user) { navigate('/signup'); } else { toggleFavorite(Number(id)); }
+        }} />
+
+        <ImageGallery hotel={hotel} />
+
+        <div>
+          <div className="flex flex-wrap gap-4 pb-6 border-b border-border mb-6">
+            <div className="flex items-center gap-2 text-sm text-foreground">
+              <BedDouble size={18} className="text-muted-foreground" />
+              <span><strong>{hotel.bedrooms}</strong> bedroom{hotel.bedrooms > 1 ? "s" : ""}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-foreground">
+              <BedDouble size={18} className="text-muted-foreground" />
+              <span><strong>{hotel.beds}</strong> bed{hotel.beds > 1 ? "s" : ""}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-foreground">
+              <Bath size={18} className="text-muted-foreground" />
+              <span><strong>{hotel.bathrooms}</strong> bathroom{hotel.bathrooms > 1 ? "s" : ""}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-foreground">
+              <Users size={18} className="text-muted-foreground" />
+              <span>Up to <strong>{hotel.maxGuests}</strong> guests</span>
+            </div>
+          </div>
+
+          <HostInfo hotel={hotel} />
+
+          <AmenitiesSection hotel={hotel} />
+
+          {hotelMatchesFilters && recommendedRooms.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-lg font-bold text-foreground mb-3" style={{ fontFamily: "'Sora', sans-serif" }}>
+                Recommended for {guestCount} guest{guestCount > 1 ? "s" : ""}
+              </h3>
+              <div className="space-y-3">
+                {recommendedRooms.map((rt) => (
+                  <RecommendedRoom key={rt.id} room={rt} guestCount={guestCount} checkIn={checkIn} onReserve={handleSelectRoom} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <RoomGrid hotel={hotel} roomQuantities={roomQuantities} onSelectRoom={handleSelectRoom} />
+
+          <div className="mb-8">
+            <h2 className="text-lg font-bold text-foreground mb-4" style={{ fontFamily: "'Sora', sans-serif" }}>About this property</h2>
+            <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
+              <p>
+                <span className="font-semibold text-foreground">{hotel.name}</span> — {hotel.description}
+              </p>
+              <p>
+                The property features <span className="font-medium text-foreground">{hotel.amenities.slice(0, 6).join(", ").toLowerCase()}</span>, and more. Each accommodation is designed for comfort with modern amenities and thoughtful touches throughout.
+              </p>
+              <p>
+                Located in <span className="font-medium text-foreground">{hotel.location}, {hotel.city}, {hotel.country}</span>, the property is ideally situated for exploring the area's attractions. Guests particularly enjoy the location — rating it <span className="font-semibold text-foreground">{hotel.rating}</span> for stays with multiple people.
+              </p>
+              {hotel.isSuperhost && (
+                <p>
+                  <span className="font-medium text-foreground">Superhost status:</span> {hotel.hostName} is a Superhost with <span className="font-medium text-foreground">{hotel.hostReviews} reviews</span>, committed to providing exceptional hospitality.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-6">
+              <h3 className="text-sm font-bold text-foreground mb-3">Most popular facilities</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {hotel.amenities.slice(0, 8).map((a) => (
+                  <div key={a} className="flex items-center gap-2 text-[12px] text-foreground bg-gray-50 rounded-lg px-3 py-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                    {a}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h3 className="text-sm font-bold text-foreground mb-3">Room views available</h3>
+              <div className="flex flex-wrap gap-2">
+                {hotel.amenities.filter(a => a.toLowerCase().includes("view")).map((v) => (
+                  <span key={v} className="text-[11px] text-foreground bg-gray-100 rounded-full px-3 py-1">{v}</span>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[12px] text-muted-foreground">
+              <span>Free private parking available on-site</span>
+              <span>Distance in property description is calculated using © OpenStreetMap</span>
+            </div>
+          </div>
+
+          <RoomSelectionPanel
+            hotel={hotel}
+            checkIn={checkIn}
+            checkOut={checkOut}
+            onCheckInChange={setCheckIn}
+            onCheckOutChange={setCheckOut}
+            roomQuantities={roomQuantities}
+            roomGuestCounts={roomGuestCounts}
+            selectedRoomId={selectedRoomId}
+            nights={nights}
+            onQtyChange={handleQtyChange}
+            onOpenDetail={handleOpenDetail}
+            onReserve={handleReserve}
+          />
+
+          <ReviewSection hotel={hotel} />
+        </div>
+
+        <ThingsToKnow />
+      </div>
+
+      {detailRoom && (
+        <RoomDetailModal
+          room={detailRoom}
+          hotel={hotel}
+          roomGuestCounts={roomGuestCounts}
+          onClose={() => setDetailRoomId(null)}
+          onReserve={handleReserveFromModal}
+        />
+      )}
+
+      <NearbyStays hotels={nearbyHotels} />
+
+      <Footer />
+    </div>
+  );
+}

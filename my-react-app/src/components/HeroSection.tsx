@@ -1,143 +1,204 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Star, Heart } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { SearchBar } from "./SearchBar";
+import { heroHotels } from "../data/heroHotels";
+import { vibes } from "../data/vibes";
+import { useFavorites } from "../context/FavoritesContext";
 
-import Bg1 from "../assets/Bg1.png";
-import Bg2 from "../assets/Bg2.png";
-import Bg3 from "../assets/Bg3.png";
+const vibeKeyMap: Record<string, string> = {
+  All: "vibeAll",
+  Beach: "vibeBeach",
+  Mountains: "vibeMountains",
+  City: "vibeCity",
+  Countryside: "vibeCountryside",
+  Design: "vibeDesign",
+  Trending: "vibeTrending",
+};
 
 export function HeroSection() {
-  const backgrounds = [Bg1, Bg2, Bg3];
-
-  const [current, setCurrent] = useState(0);
-  const [blackFade, setBlackFade] = useState(false);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Fade to black
-      setBlackFade(true);
-
-      // Change image while the screen is black
-      setTimeout(() => {
-        setCurrent((prev) => (prev + 1) % backgrounds.length);
-      }, 1000);
-
-      // Fade back to the new image
-      setTimeout(() => {
-        setBlackFade(false);
-      }, 2000);
-    }, 10000); // Change image every 10 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+  const { t } = useTranslation();
+  const [activeVibe, setActiveVibe] = useState("All");
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   return (
-    <section className="relative min-h-[340px] md:min-h-[420px] flex items-center justify-center">
-      <div className="absolute inset-0 overflow-hidden">
-        {/* Background Image */}
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.70)), url(${backgrounds[current]})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            transform: "scale(1.05)",
-            transition: "transform 10s ease-out",
-          }}
-        />
+    <section className="relative w-full min-h-[240px] md:min-h-[280px] lg:min-h-[320px] overflow-hidden bg-brand-background">
+      {/* Decorative wavy lines */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30" viewBox="0 0 1440 320" fill="none" preserveAspectRatio="xMidYMid slice">
+        <path d="M-100 200 Q200 150 400 220 T800 180 T1200 240 T1600 200" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="6 4" fill="none" opacity="0.4" />
+        <path d="M-50 280 Q250 230 500 300 T900 260 T1300 320 T1700 280" stroke="var(--brand-accent)" strokeWidth="1" strokeDasharray="4 6" fill="none" opacity="0.3" />
+        <path d="M-80 360 Q220 310 480 380 T880 340 T1280 400 T1680 360" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="6 4" fill="none" opacity="0.25" />
+        <path d="M-30 440 Q270 390 520 460 T920 420 T1320 480 T1720 440" stroke="var(--brand-accent)" strokeWidth="1" strokeDasharray="4 6" fill="none" opacity="0.2" />
+      </svg>
 
-        {/* Black Fade Transition */}
-        <div
-          className="absolute inset-0 bg-black pointer-events-none"
-          style={{
-            opacity: blackFade ? 1 : 0,
-            transition: "opacity 1000ms ease-in-out",
-            zIndex: 2,
-          }}
-        />
+      {/* Decorative teal dots - hidden on mobile */}
+      <div className="hidden md:block absolute top-[18%] right-[32%] w-2.5 h-2.5 rounded-full bg-brand-accent opacity-60" />
+      <div className="hidden md:block absolute top-[25%] right-[28%] w-2 h-2 rounded-full bg-brand-accent opacity-40" />
+      <div className="hidden md:block absolute top-[15%] right-[38%] w-1.5 h-1.5 rounded-full bg-brand-accent opacity-50" />
+      <div className="hidden md:block absolute top-[40%] right-[25%] w-2 h-2 rounded-full bg-brand-accent opacity-35" />
+      <div className="hidden md:block absolute bottom-[35%] left-[48%] w-2.5 h-2.5 rounded-full bg-brand-accent opacity-50" />
+      <div className="hidden md:block absolute bottom-[25%] right-[22%] w-1.5 h-1.5 rounded-full bg-brand-accent opacity-40" />
+      <div className="hidden md:block absolute top-[12%] left-[15%] w-3 h-3 rounded-full bg-brand-accent opacity-30" />
+      <div className="hidden md:block absolute top-[55%] left-[10%] w-2 h-2 rounded-full bg-brand-accent opacity-45" />
+      <div className="hidden md:block absolute top-[8%] right-[50%] w-1.5 h-1.5 rounded-full bg-brand-accent opacity-55" />
+      <div className="hidden md:block absolute top-[45%] right-[42%] w-2.5 h-2.5 rounded-full bg-brand-accent opacity-25" />
+      <div className="hidden md:block absolute bottom-[15%] left-[30%] w-2 h-2 rounded-full bg-brand-accent opacity-50" />
+      <div className="hidden md:block absolute bottom-[45%] right-[15%] w-3 h-3 rounded-full bg-brand-accent opacity-35" />
+      <div className="hidden md:block absolute top-[60%] left-[55%] w-1.5 h-1.5 rounded-full bg-brand-accent opacity-60" />
+      <div className="hidden md:block absolute bottom-[20%] left-[65%] w-2 h-2 rounded-full bg-brand-accent opacity-40" />
+      <div className="hidden md:block absolute top-[5%] left-[40%] w-2 h-2 rounded-full bg-brand-accent opacity-30" />
+      <div className="hidden md:block absolute bottom-[50%] left-[20%] w-1.5 h-1.5 rounded-full bg-brand-accent opacity-55" />
 
-        {/* Pattern Overlay */}
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)",
-            backgroundSize: "32px 32px",
-            zIndex: 3,
-          }}
-        />
-      </div>
-
-      {/* Hero Content */}
-      <div className="relative z-[45] w-full max-w-[1280px] mx-auto px-4 sm:px-6 flex flex-col items-center text-center gap-3 md:gap-5 py-6 md:py-12">
-        <div className="flex flex-col items-center gap-4">
-          <span
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest"
-            style={{
-              backgroundColor: "rgba(46,134,171,0.3)",
-              color: "#EBF5FB",
-              border: "1px solid rgba(46,134,171,0.5)",
-            }}
-          >
-            ✦ Discover your perfect stay
-          </span>
-
+      <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 md:px-10 py-4 sm:py-5 md:py-6 flex flex-col lg:flex-row items-start lg:items-center gap-5 lg:gap-10 min-h-[240px] md:min-h-[280px] lg:min-h-[320px]">
+        {/* Left content */}
+        <div className="flex-1 w-full max-w-2xl pt-2 md:pt-4 lg:pt-0">
+          {/* Heading */}
           <h1
-            style={{
-              fontFamily: "'Sora', 'Inter', sans-serif",
-              fontWeight: 1000,
-              fontSize: "clamp(2rem, 5vw, 3.5rem)",
-              color: "white",
-              lineHeight: 1.1,
-              letterSpacing: "-0.5px",
-            }}
+            className="text-[2rem] sm:text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] leading-[1.05] tracking-tight mb-4 md:mb-5"
+            style={{ fontFamily: "'Sora', 'Inter', sans-serif", fontWeight: 800, color: "var(--brand-heading)" }}
           >
-            Find Your Perfect Stay
+            {t("heroHeading1")}
             <br />
+            {t("heroHeading2")}
           </h1>
 
+          {/* Subtext */}
           <p
-            className="max-w-xs sm:max-w-md md:max-w-lg"
-            style={{
-              fontSize: "clamp(0.875rem, 2.5vw, 1.0625rem)",
-              color: "rgba(235,245,251,0.88)",
-              fontFamily: "'Inter', sans-serif",
-              lineHeight: 1.6,
-            }}
+            className="text-[0.875rem] md:text-[1.05rem] mb-6 md:mb-8 leading-relaxed"
+            style={{ color: "var(--brand-text-secondary)", fontFamily: "'Inter', sans-serif", maxWidth: "400px" }}
           >
-           Discover Hotels, Villas & Unique Accommadations Around The World.
+            {t("heroSubtext1")}
+            <br className="hidden sm:block" />
+            <span className="sm:hidden"> </span>{t("heroSubtext2")}
           </p>
-        </div>
 
-        {/* Search */}
-        <div id="hero-search" className="w-full max-w-3xl">
+          {/* Search bar */}
           <SearchBar />
+
+          {/* Explore by vibe - horizontally scrollable on mobile */}
+          <div className="mb-4">
+            <p className="text-sm font-semibold text-gray-600 mb-3">{t("exploreByVibe")}</p>
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 sm:mx-0 sm:px-0 sm:flex-wrap scrollbar-hide">
+              {vibes.map((vibe) => {
+                const Icon = vibe.icon;
+                const isActive = activeVibe === vibe.label;
+                return (
+                  <button
+                    key={vibe.label}
+                    onClick={() => setActiveVibe(vibe.label)}
+                    className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border whitespace-nowrap shrink-0 ${
+                      isActive
+                        ? "bg-brand-accent text-white border-brand-accent shadow-md shadow-brand-accent/20"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-brand-accent hover:text-brand-accent hover:bg-brand-accent-light"
+                    }`}
+                  >
+                    <Icon size={14} />
+                    {t(vibeKeyMap[vibe.label] || vibe.label)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Trust text */}
+          <div className="flex items-center gap-2 mt-5 md:mt-6">
+            <span className="text-brand-accent text-base md:text-lg">✦</span>
+            <p className="text-xs sm:text-sm text-gray-500">
+              {t("trustText")}
+            </p>
+          </div>
         </div>
 
-        {/* Stats */}
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 md:gap-6">
-          {[
-            "50,000+ Properties",
-            "195+ Countries",
-            "4.9★ Avg Rating",
-          ].map((stat) => (
-            <div key={stat} className="flex items-center gap-1.5 md:gap-2">
-              <div
-                className="w-1 h-1.5 md:w-1.5 md:h-1.5 rounded-full"
-                style={{ backgroundColor: "#2E86AB" }}
-              />
-              <span
-                className="text-[0.75rem] md:text-[0.8125rem]"
-                style={{
-                  color: "rgba(235,245,251,0.8)",
-                  fontFamily: "'Inter', sans-serif",
-                }}
-              >
-                {stat}
-              </span>
+        {/* Right side - Floating hotel cards in circular layout (hidden on mobile/tablet) */}
+        <div className="hidden lg:flex relative w-[380px] h-[340px] xl:w-[480px] xl:h-[430px] shrink-0 items-center justify-center mx-auto">
+          {/* Decorative dashed circle behind cards */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 480 430" fill="none">
+            {/* Wavy dash from airplane to Card 1 */}
+            <path d="M50 8 Q120 40 180 80 T260 120" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="8 6" fill="none" opacity="0.5" strokeLinecap="round" />
+            {/* Flight path connecting cards */}
+            <path d="M260 120 C180 160 120 220 130 300" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="8 6" fill="none" opacity="0.45" strokeLinecap="round" />
+            <path d="M130 300 C160 340 250 350 350 340" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="8 6" fill="none" opacity="0.45" strokeLinecap="round" />
+            <path d="M350 340 C380 300 370 200 260 120" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="8 6" fill="none" opacity="0.45" strokeLinecap="round" />
+            {/* Paper airplane icon - pointing left */}
+            <g transform="translate(50, 20) rotate(180) scale(1.3)" opacity="0.8">
+              <path d="M0 0 L20 8 L0 16 L3 8 Z" fill="var(--brand-accent)" />
+            </g>
+          </svg>
+
+          {/* Card 1 - Santorini (top right, slightly rotated) */}
+          <div className="absolute left-[200px] top-[100px] xl:left-[260px] xl:top-[120px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-20 rotate-[4deg]">
+            <div className="relative h-[120px] xl:h-[150px]">
+              <img src={heroHotels[0].image} alt={heroHotels[0].location} className="w-full h-full object-cover" />
+              <div className="absolute top-2 right-2 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1.5 py-0.5">
+                <Star size={9} className="text-yellow-500 fill-yellow-500" />
+                <span className="text-[10px] xl:text-[11px] font-semibold text-gray-800">{heroHotels[0].rating}</span>
+              </div>
             </div>
-          ))}
+            <div className="px-2 py-2.5 xl:px-2.5 xl:py-3">
+              <h3 className="text-[11px] xl:text-[13px] font-bold text-gray-900 mb-0.5">{heroHotels[0].location}</h3>
+              <p className="text-[9px] xl:text-[10px] text-gray-500 mb-1">{heroHotels[0].tagline}</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs xl:text-[13px] font-bold text-gray-900">${heroHotels[0].price} <span className="text-[9px] xl:text-[10px] font-normal text-gray-400">{t("perNight")}</span></span>
+                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(heroHotels[0].id); }} className="w-5 h-5 xl:w-6 xl:h-6 rounded-full border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors group">
+                  <Heart size={9} className={isFavorite(heroHotels[0].id) ? "text-red-500 fill-red-500" : "text-gray-400 group-hover:text-red-500 transition-colors"} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2 - Bali (bottom left, tilted opposite) */}
+          <div className="absolute left-[100px] top-[240px] xl:left-[130px] xl:top-[300px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-10 -rotate-[3deg]">
+            <div className="relative h-[120px] xl:h-[150px]">
+              <img src={heroHotels[1].image} alt={heroHotels[1].location} className="w-full h-full object-cover" />
+              <div className="absolute top-2 right-2 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1.5 py-0.5">
+                <Star size={9} className="text-yellow-500 fill-yellow-500" />
+                <span className="text-[10px] xl:text-[11px] font-semibold text-gray-800">{heroHotels[1].rating}</span>
+              </div>
+            </div>
+            <div className="px-2 py-2.5 xl:px-2.5 xl:py-3">
+              <h3 className="text-[11px] xl:text-[13px] font-bold text-gray-900 mb-0.5">{heroHotels[1].location}</h3>
+              <p className="text-[9px] xl:text-[10px] text-gray-500 mb-1">{heroHotels[1].tagline}</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs xl:text-[13px] font-bold text-gray-900">${heroHotels[1].price} <span className="text-[9px] xl:text-[10px] font-normal text-gray-400">{t("perNight")}</span></span>
+                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(heroHotels[1].id); }} className="w-5 h-5 xl:w-6 xl:h-6 rounded-full border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors group">
+                  <Heart size={9} className={isFavorite(heroHotels[1].id) ? "text-red-500 fill-red-500" : "text-gray-400 group-hover:text-red-500 transition-colors"} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3 - Kyoto (center right, slight tilt, overlapping others) */}
+          <div className="absolute left-[280px] top-[270px] xl:left-[350px] xl:top-[340px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-15 rotate-[2deg]">
+            <div className="relative h-[120px] xl:h-[150px]">
+              <img src={heroHotels[2].image} alt={heroHotels[2].location} className="w-full h-full object-cover" />
+              <div className="absolute top-2 right-2 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1.5 py-0.5">
+                <Star size={9} className="text-yellow-500 fill-yellow-500" />
+                <span className="text-[10px] xl:text-[11px] font-semibold text-gray-800">{heroHotels[2].rating}</span>
+              </div>
+            </div>
+            <div className="px-2 py-2.5 xl:px-2.5 xl:py-3">
+              <h3 className="text-[11px] xl:text-[13px] font-bold text-gray-900 mb-0.5">{heroHotels[2].location}</h3>
+              <p className="text-[9px] xl:text-[10px] text-gray-500 mb-1">{heroHotels[2].tagline}</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs xl:text-[13px] font-bold text-gray-900">${heroHotels[2].price} <span className="text-[9px] xl:text-[10px] font-normal text-gray-400">{t("perNight")}</span></span>
+                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(heroHotels[2].id); }} className="w-5 h-5 xl:w-6 xl:h-6 rounded-full border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors group">
+                  <Heart size={9} className={isFavorite(heroHotels[2].id) ? "text-red-500 fill-red-500" : "text-gray-400 group-hover:text-red-500 transition-colors"} />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes animate-in {
+          from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-in { animation: animate-in 0.15s ease-out; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+      `}</style>
     </section>
   );
 }

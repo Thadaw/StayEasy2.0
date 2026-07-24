@@ -119,11 +119,11 @@ export default function Signup() {
     <div
       style={{
         minHeight: '100vh',
-        background: '#e8e8e8',
+        background: 'var(--brand-secondary-surface)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 20,
+        padding: 'var(--space-6)',
         fontFamily: "'Segoe UI', sans-serif",
       }}
     >
@@ -131,41 +131,41 @@ export default function Signup() {
         style={{
           width: 640,
           height: 440,
-          background: '#fff',
-          borderRadius: 16,
+          background: 'var(--brand-surface)',
+          borderRadius: 'var(--radius-xl)',
           display: 'flex',
           overflow: 'hidden',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.13)',
+          boxShadow: 'var(--shadow-modal)',
         }}
       >
-        {/* Form panel â€” on the LEFT for sign up */}
+        {/* Form panel — on the LEFT for sign up */}
         <div
           className="custom-scroll"
           style={{
             width: '50%',
-            background: '#fff',
+            background: 'var(--brand-surface)',
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            padding: '22px 32px 28px',
+            padding: 'var(--space-6) var(--space-8) var(--space-7)',
             order: 1,
             flexShrink: 0,
             overflowY: 'auto',
           }}
         >
           {/* Tabs */}
-          <div style={{ display: 'flex', marginBottom: 4 }}>
+          <div style={{ display: 'flex', marginBottom: 'var(--space-1)' }}>
             <div
               onClick={() => navigate(isHost ? '/host/login' : '/login')}
               style={{
-                padding: '3px 0',
+                padding: 'var(--space-1) 0',
                 fontSize: 11,
                 fontWeight: 700,
                 letterSpacing: '0.8px',
                 textTransform: 'uppercase',
                 color: '#ccc',
                 borderBottom: '2px solid transparent',
-                marginRight: 18,
+                marginRight: 'var(--space-4)',
                 cursor: 'pointer',
               }}
             >
@@ -173,13 +173,13 @@ export default function Signup() {
             </div>
             <div
               style={{
-                padding: '3px 0',
+                padding: 'var(--space-1) 0',
                 fontSize: 11,
                 fontWeight: 700,
                 letterSpacing: '0.8px',
                 textTransform: 'uppercase',
-                color: '#111',
-                borderBottom: '2px solid #111',
+                color: 'var(--brand-heading)',
+                borderBottom: '2px solid var(--brand-heading)',
               }}
             >
               Sign up
@@ -188,18 +188,18 @@ export default function Signup() {
 
           {!showOtpStep ? (
             <>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 2 }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--brand-heading)', marginBottom: 'var(--space-1)' }}>
                 {isHost ? 'Become a Host' : 'Create account'}
               </div>
-              <div style={{ fontSize: 12, color: '#999', marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: 'var(--brand-text-secondary)', marginBottom: 'var(--space-6)' }}>
                 {isHost ? 'Start listing your property today' : 'Start finding your stay today'}
               </div>
 
               {/* Full name */}
-              <div style={{ marginBottom: 13 }}>
+              <div style={{ marginBottom: 'var(--space-3)' }}>
                 <label
                   style={{
-                    fontSize: 11, color: '#666', marginBottom: 3, display: 'block',
+                    fontSize: 11, color: 'var(--brand-text-secondary)', marginBottom: 'var(--space-1)', display: 'block',
                     textTransform: 'uppercase', letterSpacing: '0.4px',
                   }}
                 >
@@ -208,22 +208,23 @@ export default function Signup() {
                 <input
                   type="text"
                   value={fullName}
-                  onChange={e => setFullName(e.target.value)}
+                  onChange={e => setFullName(e.target.value.slice(0, 100))}
                   onFocus={() => setPwFocused(false)}
                   placeholder="Enter your name"
                   autoComplete="off"
+                  maxLength={100}
                   style={{
                     width: '100%', border: 'none', borderBottom: '1.5px solid #ddd',
-                    padding: '7px 4px 7px 0', fontSize: 14, color: '#111', outline: 'none', background: 'transparent',
+                    padding: 'var(--space-2) var(--space-1) var(--space-2) 0', fontSize: 14, color: 'var(--brand-heading)', outline: 'none', background: 'transparent',
                   }}
                 />
               </div>
 
               {/* Phone */}
-              <div style={{ position: 'relative', marginBottom: 13 }}>
+              <div style={{ position: 'relative', marginBottom: 'var(--space-3)' }}>
                 <label
                   style={{
-                    fontSize: 11, color: '#666', marginBottom: 3, display: 'block',
+                    fontSize: 11, color: 'var(--brand-text-secondary)', marginBottom: 'var(--space-1)', display: 'block',
                     textTransform: 'uppercase', letterSpacing: '0.4px',
                   }}
                 >
@@ -232,22 +233,23 @@ export default function Signup() {
                 <input
                   type="tel"
                   value={phone}
-                  onChange={e => setPhone(e.target.value)}
+                  onChange={e => setPhone(e.target.value.slice(0, 20))}
                   onFocus={() => setPwFocused(false)}
                   placeholder="+977-98XXXXXXXX"
                   autoComplete="off"
+                  maxLength={20}
                   style={{
                     width: '100%', border: 'none', borderBottom: '1.5px solid #ddd',
-                    padding: '7px 26px 7px 0', fontSize: 14, color: '#111', outline: 'none', background: 'transparent',
+                    padding: 'var(--space-2) var(--space-6) var(--space-2) 0', fontSize: 14, color: 'var(--brand-heading)', outline: 'none', background: 'transparent',
                   }}
                 />
               </div>
 
               {/* Email */}
-              <div style={{ position: 'relative', marginBottom: 13 }}>
+              <div style={{ position: 'relative', marginBottom: 'var(--space-3)' }}>
                 <label
                   style={{
-                    fontSize: 11, color: '#666', marginBottom: 3, display: 'block',
+                    fontSize: 11, color: 'var(--brand-text-secondary)', marginBottom: 'var(--space-1)', display: 'block',
                     textTransform: 'uppercase', letterSpacing: '0.4px',
                   }}
                 >
@@ -256,22 +258,23 @@ export default function Signup() {
                 <input
                   type="email"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={e => setEmail(e.target.value.slice(0, 254))}
                   onFocus={() => setPwFocused(false)}
                   placeholder="Enter your email"
                   autoComplete="off"
+                  maxLength={254}
                   style={{
                     width: '100%', border: 'none', borderBottom: '1.5px solid #ddd',
-                    padding: '7px 26px 7px 0', fontSize: 14, color: '#111', outline: 'none', background: 'transparent',
+                    padding: 'var(--space-2) var(--space-6) var(--space-2) 0', fontSize: 14, color: 'var(--brand-heading)', outline: 'none', background: 'transparent',
                   }}
                 />
               </div>
 
               {/* Password */}
-              <div style={{ position: 'relative', marginBottom: 13 }}>
+              <div style={{ position: 'relative', marginBottom: 'var(--space-3)' }}>
                 <label
                   style={{
-                    fontSize: 11, color: '#666', marginBottom: 3, display: 'block',
+                    fontSize: 11, color: 'var(--brand-text-secondary)', marginBottom: 'var(--space-1)', display: 'block',
                     textTransform: 'uppercase', letterSpacing: '0.4px',
                   }}
                 >
@@ -280,14 +283,15 @@ export default function Signup() {
                 <input
                   type={showPw ? 'text' : 'password'}
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={e => setPassword(e.target.value.slice(0, 128))}
                   onFocus={() => setPwFocused(true)}
                   onBlur={() => setPwFocused(false)}
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                  placeholder="••••••••"
                   autoComplete="off"
+                  maxLength={128}
                   style={{
                     width: '100%', border: 'none', borderBottom: '1.5px solid #ddd',
-                    padding: '7px 26px 7px 0', fontSize: 14, color: '#111', outline: 'none', background: 'transparent',
+                        padding: 'var(--space-2) var(--space-6) var(--space-2) 0', fontSize: 14, color: 'var(--brand-heading)', outline: 'none', background: 'transparent',
                   }}
                 />
                 <button
@@ -296,38 +300,38 @@ export default function Signup() {
                   aria-label="Toggle password visibility"
                   style={{
                     position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer', color: '#bbb', fontSize: 15, padding: 0,
+                    background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand-text-secondary)', fontSize: 15, padding: 0,
                   }}
                 >
                   {showPw ? <Eye size={15} /> : <EyeOff size={15} />}
                 </button>
               </div>
 
-              <div style={{ fontSize: 11, color: '#bbb', marginTop: -8, marginBottom: 13 }}>
+              <div style={{ fontSize: 11, color: 'var(--brand-text-secondary)', marginTop: -8, marginBottom: 'var(--space-3)' }}>
                 Must be 8+ characters with a number and a special character.
               </div>
 
               {error && (
-                <p style={{ color: '#e94560', fontSize: 12, marginBottom: 6 }}>{error}</p>
+                <p style={{ color: 'var(--brand-danger)', fontSize: 12, marginBottom: 'var(--space-2)' }}>{error}</p>
               )}
 
               <button
                 onClick={handleSignup}
                 disabled={loading}
                 style={{
-                  width: '100%', padding: 11, background: '#111', border: 'none', borderRadius: 8,
+                  width: '100%', padding: 'var(--space-3)', background: '#111', border: 'none', borderRadius: 'var(--radius-card)',
                   color: '#fff', fontSize: 14, fontWeight: 600, cursor: loading ? 'default' : 'pointer',
-                  marginTop: 2, opacity: loading ? 0.7 : 1,
+                  marginTop: 'var(--space-1)', opacity: loading ? 0.7 : 1,
                 }}
               >
                 {loading ? 'Creating account...' : 'Create Account'}
               </button>
 
-              <div style={{ textAlign: 'center', marginTop: 11, fontSize: 12, color: '#aaa' }}>
+                  <div style={{ textAlign: 'center', marginTop: 'var(--space-3)', fontSize: 12, color: 'var(--brand-text-secondary)' }}>
                 Already have an account?{' '}
                 <span
                   onClick={() => navigate(isHost ? '/host/login' : '/login')}
-                  style={{ color: '#111', fontWeight: 600, cursor: 'pointer' }}
+                  style={{ color: 'var(--brand-heading)', fontWeight: 600, cursor: 'pointer' }}
                 >
                   Log in
                 </span>
@@ -335,20 +339,20 @@ export default function Signup() {
             </>
           ) : (
             <>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 3 }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--brand-heading)', marginBottom: 'var(--space-1)' }}>
                 Verify your email
               </div>
-              <div style={{ fontSize: 12, color: '#999', marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: 'var(--brand-text-secondary)', marginBottom: 'var(--space-6)' }}>
                 A verification code was sent to <strong>{email}</strong>
               </div>
 
               {!verified ? (
                 <>
                   {/* OTP input */}
-                  <div style={{ position: 'relative', marginBottom: 20 }}>
+                  <div style={{ position: 'relative', marginBottom: 'var(--space-6)' }}>
                     <label
                       style={{
-                        fontSize: 11, color: '#666', marginBottom: 3, display: 'block',
+                        fontSize: 11, color: 'var(--brand-text-secondary)', marginBottom: 'var(--space-1)', display: 'block',
                         textTransform: 'uppercase', letterSpacing: '0.4px',
                       }}
                     >
@@ -362,7 +366,7 @@ export default function Signup() {
                       autoComplete="off"
                       style={{
                         width: '100%', border: 'none', borderBottom: '1.5px solid #ddd',
-                        padding: '7px 26px 7px 0', fontSize: 14, color: '#111', outline: 'none', background: 'transparent',
+                    padding: 'var(--space-2) var(--space-6) var(--space-2) 0', fontSize: 14, color: 'var(--brand-heading)', outline: 'none', background: 'transparent',
                         letterSpacing: 8,
                         fontWeight: 600,
                       }}
@@ -370,27 +374,27 @@ export default function Signup() {
                   </div>
 
                   {error && (
-                    <p style={{ color: '#e94560', fontSize: 12, marginBottom: 10 }}>{error}</p>
+                    <p style={{ color: 'var(--brand-danger)', fontSize: 12, marginBottom: 'var(--space-3)' }}>{error}</p>
                   )}
 
                   <button
                     onClick={handleVerifyOtp}
                     disabled={otpLoading || otp.length < 4}
                     style={{
-                      width: '100%', padding: 11, background: '#111', border: 'none', borderRadius: 8,
+                      width: '100%', padding: 'var(--space-3)', background: '#111', border: 'none', borderRadius: 'var(--radius-card)',
                       color: '#fff', fontSize: 14, fontWeight: 600, cursor: otpLoading ? 'default' : 'pointer',
-                      marginTop: 2, opacity: otpLoading || otp.length < 4 ? 0.7 : 1,
+                      marginTop: 'var(--space-1)', opacity: otpLoading || otp.length < 4 ? 0.7 : 1,
                     }}
                   >
                     {otpLoading ? 'Verifying...' : 'Verify OTP'}
                   </button>
 
-                  <div style={{ textAlign: 'center', marginTop: 11, fontSize: 12, color: '#aaa' }}>
+              <div style={{ textAlign: 'center', marginTop: 'var(--space-3)', fontSize: 12, color: 'var(--brand-text-secondary)' }}>
                     Didn't receive the code?{' '}
                     <span
                       onClick={handleResendOtp}
                       style={{
-                        color: resendTimer > 0 || resendLoading ? '#ccc' : '#111',
+                        color: resendTimer > 0 || resendLoading ? '#ccc' : 'var(--brand-heading)',
                         fontWeight: 600,
                         cursor: resendTimer > 0 || resendLoading ? 'default' : 'pointer',
                       }}
@@ -401,9 +405,9 @@ export default function Signup() {
                 </>
               ) : (
                 <>
-                  <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                    <div style={{ fontSize: 40, marginBottom: 10 }}>âœ“</div>
-                    <p style={{ fontSize: 13, color: '#1E8449', fontWeight: 600 }}>
+                  <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
+                    <div style={{ fontSize: 40, marginBottom: 'var(--space-3)' }}>✓</div>
+                    <p style={{ fontSize: 13, color: 'var(--brand-success)', fontWeight: 600 }}>
                       Email verified successfully!
                     </p>
                   </div>
@@ -411,9 +415,9 @@ export default function Signup() {
                   <button
                     onClick={() => navigate(isHost ? '/host/login' : '/login')}
                     style={{
-                      width: '100%', padding: 11, background: '#111', border: 'none', borderRadius: 8,
+                      width: '100%', padding: 'var(--space-3)', background: '#111', border: 'none', borderRadius: 'var(--radius-card)',
                       color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                      marginTop: 2,
+                      marginTop: 'var(--space-1)',
                     }}
                   >
                     Next
@@ -424,12 +428,11 @@ export default function Signup() {
           )}
         </div>
 
-        {/* Animated scene panel â€” on the RIGHT for sign up */}
-        <div style={{ width: '50%', background: '#dde0ee', order: 2, flexShrink: 0 }}>
+        {/* Animated scene panel — on the RIGHT for sign up */}
+        <div style={{ width: '50%', background: 'var(--brand-secondary-surface)', order: 2, flexShrink: 0 }}>
           <BuildingScene mode="signup" passwordFocused={pwFocused} passwordVisible={showPw} />
         </div>
       </div>
     </div>
   )
 }
-

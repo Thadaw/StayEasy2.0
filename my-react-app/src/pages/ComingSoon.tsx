@@ -15,21 +15,21 @@ export default function ComingSoon() {
     <div
       style={{
         minHeight: '100vh',
-        background: '#e8e8e8',
+        background: 'var(--brand-secondary-surface)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 20,
+        padding: 'var(--space-6)',
         fontFamily: "'Segoe UI', sans-serif",
       }}
     >
       <div
         style={{
           width: 420,
-          background: '#fff',
-          borderRadius: 16,
-          boxShadow: '0 8px 40px rgba(0,0,0,0.13)',
-          padding: '48px 32px',
+          background: 'var(--brand-surface)',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-modal)',
+          padding: 'var(--space-12) var(--space-8)',
           textAlign: 'center',
         }}
       >
@@ -38,20 +38,20 @@ export default function ComingSoon() {
             width: 64,
             height: 64,
             borderRadius: '50%',
-            background: '#dde0ee',
+            background: 'var(--brand-secondary-surface)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 20px',
+            margin: '0 auto var(--space-6)',
             fontSize: 28,
           }}
         >
           ⏳
         </div>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--brand-heading)', margin: '0 0 var(--space-2)' }}>
           {title || 'Page'}
         </h1>
-        <p style={{ fontSize: 14, color: '#999', margin: '0 0 28px' }}>
+        <p style={{ fontSize: 14, color: 'var(--brand-text-secondary)', margin: '0 0 var(--space-8)' }}>
           This page is coming soon. We're working on it!
         </p>
         <button
@@ -59,12 +59,12 @@ export default function ComingSoon() {
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 6,
-            padding: '10px 24px',
+            gap: 'var(--space-2)',
+            padding: 'var(--space-3) var(--space-6)',
             background: '#111',
             color: '#fff',
             border: 'none',
-            borderRadius: 8,
+            borderRadius: 'var(--radius-card)',
             fontSize: 14,
             fontWeight: 600,
             cursor: 'pointer',

@@ -49,6 +49,8 @@ export interface Hotel {
   beds: number;
   bathrooms: number;
   maxGuests: number;
+  maxAdults: number;
+  maxChildren: number;
   roomTypes: RoomType[];
 }
 
@@ -85,6 +87,8 @@ export const hotels: Hotel[] = [
     beds: 4,
     bathrooms: 2,
     maxGuests: 6,
+    maxAdults: 4,
+    maxChildren: 2,
     roomTypes: [
       {
         id: "std", name: "Lakeview Room", price: 180, maxGuests: 2, bedrooms: 1, beds: 1, bathrooms: 1,
@@ -172,6 +176,8 @@ export const hotels: Hotel[] = [
     beds: 3,
     bathrooms: 2,
     maxGuests: 5,
+    maxAdults: 3,
+    maxChildren: 2,
     roomTypes: [
       {
         id: "std", name: "Courtyard Room", price: 95, maxGuests: 2, bedrooms: 1, beds: 1, bathrooms: 1,
@@ -243,6 +249,8 @@ export const hotels: Hotel[] = [
     beds: 2,
     bathrooms: 2,
     maxGuests: 4,
+    maxAdults: 2,
+    maxChildren: 2,
     roomTypes: [
       {
         id: "std", name: "Standard Villa", price: 420, maxGuests: 2, bedrooms: 1, beds: 1, bathrooms: 1,
@@ -331,6 +339,8 @@ export const hotels: Hotel[] = [
     beds: 6,
     bathrooms: 3,
     maxGuests: 8,
+    maxAdults: 6,
+    maxChildren: 2,
     roomTypes: [
       { id: "std", name: "Standard Chalet", price: 580, maxGuests: 4, bedrooms: 2, beds: 3, bathrooms: 2, description: "Cosy mountain-view room", totalRooms: 8, availableRooms: 5, roomNumbers: ["101", "102", "103", "104", "105"], bedType: "Queen + Single", areaSqFt: 550, image: "https://images.unsplash.com/photo-1605346434674-a440ca4dc4c0?w=600&h=450&fit=crop&auto=format" },
       { id: "dlx", name: "Deluxe Chalet", price: 780, maxGuests: 6, bedrooms: 3, beds: 4, bathrooms: 2, description: "Spacious suite with hot tub access", totalRooms: 4, availableRooms: 2, roomNumbers: ["201", "202"], bedType: "King + 2 Single", areaSqFt: 850, image: "https://images.unsplash.com/photo-1578898886225-c7c894047899?w=600&h=450&fit=crop&auto=format" },
@@ -368,6 +378,8 @@ export const hotels: Hotel[] = [
     beds: 1,
     bathrooms: 1,
     maxGuests: 2,
+    maxAdults: 2,
+    maxChildren: 0,
     roomTypes: [
       { id: "std", name: "Cliffside Room", price: 340, maxGuests: 2, bedrooms: 1, beds: 1, bathrooms: 1, description: "Cozy room with caldera view", totalRooms: 6, availableRooms: 4, roomNumbers: ["C1", "C2", "C3", "C4"], bedType: "Queen", areaSqFt: 320, image: "https://images.unsplash.com/photo-1549294413-26f195200c16?w=600&h=450&fit=crop&auto=format" },
       { id: "dlx", name: "Suite with Plunge Pool", price: 520, maxGuests: 2, bedrooms: 1, beds: 1, bathrooms: 1, description: "Spacious suite with private plunge pool", totalRooms: 3, availableRooms: 1, roomNumbers: ["P1"], bedType: "King", areaSqFt: 480, image: "https://images.unsplash.com/photo-1629140727571-9b5c6f6267b4?w=600&h=450&fit=crop&auto=format" },
@@ -405,6 +417,8 @@ export const hotels: Hotel[] = [
     beds: 4,
     bathrooms: 3,
     maxGuests: 6,
+    maxAdults: 4,
+    maxChildren: 2,
     roomTypes: [
       { id: "std", name: "Jungle Room", price: 195, maxGuests: 2, bedrooms: 1, beds: 1, bathrooms: 1, description: "Garden-view room with outdoor shower", totalRooms: 5, availableRooms: 3, roomNumbers: ["101", "102", "105"], bedType: "Queen", areaSqFt: 380, image: "https://images.unsplash.com/photo-1549294413-26f195200c16?w=600&h=450&fit=crop&auto=format" },
       { id: "dlx", name: "Pool Villa", price: 350, maxGuests: 4, bedrooms: 2, beds: 2, bathrooms: 2, description: "Villa with private infinity pool", totalRooms: 3, availableRooms: 2, roomNumbers: ["201", "203"], bedType: "King + Single", areaSqFt: 680, image: "https://images.unsplash.com/photo-1613977257365-aaae5a9817ff?w=600&h=450&fit=crop&auto=format" },
@@ -441,6 +455,8 @@ export const hotels: Hotel[] = [
     beds: 2,
     bathrooms: 2,
     maxGuests: 4,
+    maxAdults: 2,
+    maxChildren: 2,
     roomTypes: [
       { id: "std", name: "City Room", price: 475, maxGuests: 2, bedrooms: 1, beds: 1, bathrooms: 1, description: "Elegant room with Tokyo Tower view", totalRooms: 6, availableRooms: 4, roomNumbers: ["38A", "38B", "38C", "38D"], bedType: "Queen", areaSqFt: 420, image: "https://images.unsplash.com/photo-1590675560125-0d832b9d719e?w=600&h=450&fit=crop&auto=format" },
       { id: "dlx", name: "Penthouse Suite", price: 720, maxGuests: 4, bedrooms: 2, beds: 2, bathrooms: 2, description: "Corner suite with wraparound views", totalRooms: 2, availableRooms: 1, roomNumbers: ["39A"], bedType: "King", areaSqFt: 720, image: "https://images.unsplash.com/photo-1731336478850-6bce7235e320?w=600&h=450&fit=crop&auto=format" },
@@ -477,6 +493,8 @@ export const hotels: Hotel[] = [
     beds: 4,
     bathrooms: 2,
     maxGuests: 6,
+    maxAdults: 4,
+    maxChildren: 2,
     roomTypes: [
       { id: "std", name: "Sea-View Room", price: 290, maxGuests: 2, bedrooms: 1, beds: 1, bathrooms: 1, description: "Bright room with sea views", totalRooms: 5, availableRooms: 3, roomNumbers: ["101", "102", "104"], bedType: "Queen", areaSqFt: 350, image: "https://images.unsplash.com/photo-1549294413-26f195200c16?w=600&h=450&fit=crop&auto=format" },
       { id: "dlx", name: "Terrace Suite", price: 450, maxGuests: 4, bedrooms: 2, beds: 2, bathrooms: 1, description: "Suite with private al-fresco terrace", totalRooms: 3, availableRooms: 2, roomNumbers: ["201", "202"], bedType: "King", areaSqFt: 520, image: "https://images.unsplash.com/photo-1613977257365-aaae5a9817ff?w=600&h=450&fit=crop&auto=format" },
@@ -514,6 +532,8 @@ export const hotels: Hotel[] = [
     beds: 7,
     bathrooms: 4,
     maxGuests: 10,
+    maxAdults: 6,
+    maxChildren: 4,
     roomTypes: [
       { id: "std", name: "Countryside Room", price: 350, maxGuests: 2, bedrooms: 1, beds: 1, bathrooms: 1, description: "Charming room with vineyard views", totalRooms: 4, availableRooms: 3, roomNumbers: ["C1", "C2", "C4"], bedType: "Queen", areaSqFt: 400, image: "https://images.unsplash.com/photo-1543489822-c49534f3271f?w=600&h=450&fit=crop&auto=format" },
       { id: "dlx", name: "Estate Suite", price: 550, maxGuests: 6, bedrooms: 3, beds: 4, bathrooms: 2, description: "Suite with olive grove access", totalRooms: 3, availableRooms: 2, roomNumbers: ["E1", "E2"], bedType: "King", areaSqFt: 680, image: "https://images.unsplash.com/photo-1549294413-26f195200c16?w=600&h=450&fit=crop&auto=format" },
@@ -550,6 +570,8 @@ export const hotels: Hotel[] = [
     beds: 3,
     bathrooms: 1,
     maxGuests: 4,
+    maxAdults: 2,
+    maxChildren: 2,
     roomTypes: [
       { id: "std", name: "Classic Room", price: 220, maxGuests: 2, bedrooms: 1, beds: 1, bathrooms: 1, description: "Elegant Parisian room with city views", totalRooms: 4, availableRooms: 2, roomNumbers: ["3A", "3B"], bedType: "Queen", areaSqFt: 320, image: "https://images.unsplash.com/photo-1629140727571-9b5c6f6267b4?w=600&h=450&fit=crop&auto=format" },
       { id: "dlx", name: "Family Suite", price: 380, maxGuests: 4, bedrooms: 2, beds: 3, bathrooms: 1, description: "Spacious suite with separate living area", totalRooms: 2, availableRooms: 1, roomNumbers: ["5A"], bedType: "King", areaSqFt: 580, image: "https://images.unsplash.com/photo-1578898886225-c7c894047899?w=600&h=450&fit=crop&auto=format" },

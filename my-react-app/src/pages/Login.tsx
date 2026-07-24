@@ -19,7 +19,6 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(true)
   const [pwFocused, setPwFocused] = useState(false)
-  const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -77,7 +76,6 @@ export default function Login() {
     }
 
     await login(res!.data.access_token, userType)
-    localStorage.setItem('token', res!.data.access_token)
     setTimeout(() => navigate(userType === 'host' ? '/become-a-host' : redirect), 1700)
   }
 
@@ -85,11 +83,11 @@ export default function Login() {
     <div
       style={{
         minHeight: '100vh',
-        background: '#e8e8e8',
+        background: 'var(--brand-secondary-surface)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 20,
+        padding: 'var(--space-6)',
         fontFamily: "'Segoe UI', sans-serif",
       }}
     >
@@ -97,15 +95,15 @@ export default function Login() {
         style={{
           width: 640,
           height: 440,
-          background: '#fff',
-          borderRadius: 16,
+          background: 'var(--brand-surface)',
+          borderRadius: 'var(--radius-xl)',
           display: 'flex',
           overflow: 'hidden',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.13)',
+          boxShadow: 'var(--shadow-modal)',
         }}
       >
         {/* Animated scene panel */}
-        <div style={{ width: '50%', background: '#dde0ee', order: 1, flexShrink: 0 }}>
+        <div style={{ width: '50%', background: 'var(--brand-secondary-surface)', order: 1, flexShrink: 0 }}>
           <BuildingScene
             mode="login"
             fieldsReady={fieldsReady}
@@ -119,27 +117,27 @@ export default function Login() {
         <div
           style={{
             width: '50%',
-            background: '#fff',
+            background: 'var(--brand-surface)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            padding: '36px 32px 42px',
+            padding: 'var(--space-9) var(--space-8) var(--space-11)',
             order: 2,
             flexShrink: 0,
           }}
         >
           {/* Tabs */}
-          <div style={{ display: 'flex', marginBottom: 8 }}>
+          <div style={{ display: 'flex', marginBottom: 'var(--space-2)' }}>
             <div
               style={{
-                padding: '3px 0',
+                padding: 'var(--space-1) 0',
                 fontSize: 11,
                 fontWeight: 700,
                 letterSpacing: '0.8px',
                 textTransform: 'uppercase',
-                color: '#111',
-                borderBottom: '2px solid #111',
-                marginRight: 18,
+                color: 'var(--brand-heading)',
+                borderBottom: '2px solid var(--brand-heading)',
+                marginRight: 'var(--space-4)',
               }}
             >
               Login
@@ -147,7 +145,7 @@ export default function Login() {
             <div
               onClick={() => navigate(isHost ? '/host/signup' : redirect ? `/signup?redirect=${encodeURIComponent(redirect)}` : '/signup')}
               style={{
-                padding: '3px 0',
+                padding: 'var(--space-1) 0',
                 fontSize: 11,
                 fontWeight: 700,
                 letterSpacing: '0.8px',
@@ -161,22 +159,22 @@ export default function Login() {
             </div>
           </div>
 
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 3 }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--brand-heading)', marginBottom: 'var(--space-1)' }}>
             {isHost ? 'Welcome Back, Host' : 'Welcome back!'}
           </div>
-          <div style={{ fontSize: 12, color: '#999', marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: 'var(--brand-text-secondary)', marginBottom: 'var(--space-4)' }}>
             {isHost ? 'Manage your properties' : 'Please enter your details'}
           </div>
 
 
 
           {/* Email */}
-          <div style={{ position: 'relative', marginBottom: 13 }}>
+          <div style={{ position: 'relative', marginBottom: 'var(--space-3)' }}>
             <label
               style={{
                 fontSize: 11,
-                color: '#666',
-                marginBottom: 3,
+                color: 'var(--brand-text-secondary)',
+                marginBottom: 'var(--space-1)',
                 display: 'block',
                 textTransform: 'uppercase',
                 letterSpacing: '0.4px',
@@ -187,17 +185,18 @@ export default function Login() {
             <input
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value.slice(0, 254))}
               onFocus={() => setPwFocused(false)}
               placeholder="Enter your email"
               autoComplete="off"
+              maxLength={254}
               style={{
                 width: '100%',
                 border: 'none',
                 borderBottom: '1.5px solid #ddd',
-                padding: '7px 26px 7px 0',
+                padding: 'var(--space-2) var(--space-6) var(--space-2) 0',
                 fontSize: 14,
-                color: '#111',
+                color: 'var(--brand-heading)',
                 outline: 'none',
                 background: 'transparent',
               }}
@@ -205,12 +204,12 @@ export default function Login() {
           </div>
 
           {/* Password */}
-          <div style={{ position: 'relative', marginBottom: 13 }}>
+          <div style={{ position: 'relative', marginBottom: 'var(--space-3)' }}>
             <label
               style={{
                 fontSize: 11,
-                color: '#666',
-                marginBottom: 3,
+                color: 'var(--brand-text-secondary)',
+                marginBottom: 'var(--space-1)',
                 display: 'block',
                 textTransform: 'uppercase',
                 letterSpacing: '0.4px',
@@ -221,18 +220,19 @@ export default function Login() {
             <input
               type={showPw ? 'text' : 'password'}
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value.slice(0, 128))}
               onFocus={() => setPwFocused(true)}
               onBlur={() => setPwFocused(false)}
               placeholder="Set your password"
               autoComplete="off"
+              maxLength={128}
               style={{
                 width: '100%',
                 border: 'none',
                 borderBottom: '1.5px solid #ddd',
-                padding: '7px 26px 7px 0',
+                padding: 'var(--space-2) var(--space-6) var(--space-2) 0',
                 fontSize: 14,
-                color: '#111',
+                color: 'var(--brand-heading)',
                 outline: 'none',
                 background: 'transparent',
               }}
@@ -249,7 +249,7 @@ export default function Login() {
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                color: '#bbb',
+                color: 'var(--brand-text-secondary)',
                 fontSize: 15,
                 padding: 0,
               }}
@@ -258,25 +258,8 @@ export default function Login() {
             </button>
           </div>
 
-          {/* Remember / forgot */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 13 }}>
-            <input
-              type="checkbox"
-              id="remember"
-              checked={remember}
-              onChange={e => setRemember(e.target.checked)}
-              style={{ width: 12, height: 12, accentColor: '#111' }}
-            />
-            <label htmlFor="remember" style={{ fontSize: 11, color: '#999' }}>
-              Remember for 30 days
-            </label>
-            <span style={{ fontSize: 11, color: '#bbb', cursor: 'pointer', marginLeft: 'auto' }}>
-              Forgot password?
-            </span>
-          </div>
-
           {error && (
-            <p style={{ color: '#e94560', fontSize: 12, marginBottom: 10 }}>{error}</p>
+            <p style={{ color: 'var(--brand-danger)', fontSize: 12, marginBottom: 'var(--space-3)' }}>{error}</p>
           )}
 
           <button
@@ -284,26 +267,26 @@ export default function Login() {
             disabled={loading}
             style={{
               width: '100%',
-              padding: 11,
+              padding: 'var(--space-3)',
               background: '#111',
               border: 'none',
-              borderRadius: 8,
+              borderRadius: 'var(--radius-card)',
               color: '#fff',
               fontSize: 14,
               fontWeight: 600,
               cursor: loading ? 'default' : 'pointer',
-              marginTop: 2,
+              marginTop: 'var(--space-1)',
               opacity: loading ? 0.7 : 1,
             }}
           >
             {loading ? 'Signing in...' : 'Log In'}
           </button>
 
-          <div style={{ textAlign: 'center', marginTop: 11, fontSize: 12, color: '#aaa' }}>
+          <div style={{ textAlign: 'center', marginTop: 'var(--space-3)', fontSize: 12, color: 'var(--brand-text-secondary)' }}>
             Don't have an account?{' '}
             <span
               onClick={() => navigate(isHost ? '/host/signup' : redirect ? `/signup?redirect=${encodeURIComponent(redirect)}` : '/signup')}
-              style={{ color: '#111', fontWeight: 600, cursor: 'pointer' }}
+              style={{ color: 'var(--brand-heading)', fontWeight: 600, cursor: 'pointer' }}
             >
               Sign up
             </span>

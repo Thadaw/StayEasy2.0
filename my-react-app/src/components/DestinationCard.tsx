@@ -7,7 +7,7 @@ interface DestinationCardProps {
 
 export function DestinationCard({ city, country, imageUrl, properties }: DestinationCardProps) {
   return (
-    <div className="relative group cursor-pointer rounded-2xl overflow-hidden aspect-[3/4] bg-muted">
+    <div className="relative group cursor-pointer rounded-2xl overflow-hidden aspect- [3/4] bg-muted">
       <img
         src={imageUrl}
         alt={`${city}, ${country}`}
@@ -24,4 +24,4 @@ export function DestinationCard({ city, country, imageUrl, properties }: Destina
       </div>
     </div>
   );
-}
+} 

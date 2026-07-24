@@ -5,6 +5,8 @@ import { hotels } from "../data/hotels"
 import { useBookings } from "../context/BookingContext"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
+import { calcPrice } from "../utils/pricing"
+import { formatDate, formatShortDate } from "../utils/format"
 
 type PaymentMethod = "stripe" | "razorpay"
 
@@ -32,11 +34,6 @@ const paymentOptions: { key: PaymentMethod; label: string; sub: string; logo: JS
     ),
   },
 ]
-
-const calcPrice = (basePrice: number, maxGuests: number, guestCount: number) => {
-  if (maxGuests <= 1) return basePrice;
-  return Math.round(basePrice * (0.85 + 0.15 * (guestCount - 1) / (maxGuests - 1)));
-};
 
 export default function ReservePage() {
   const { id } = useParams()
@@ -84,22 +81,12 @@ export default function ReservePage() {
   const [checkIn, setCheckIn] = useState(searchParams.get('checkIn') || '')
   const [checkOut, setCheckOut] = useState(searchParams.get('checkOut') || '')
 
-  const formatDate = (d: string) => {
-    if (!d) return ''
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
-
-  const formatShortDate = (d: string) => {
-    if (!d) return ''
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
-
   if (!hotel) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
         <p className="text-2xl">🏨</p>
-        <p className="text-lg font-semibold text-[#111827]">Property not found</p>
-        <Link to="/" className="px-5 py-2.5 bg-[#111827] text-white rounded-full text-sm font-medium hover:opacity-90">
+        <p className="text-lg font-semibold text-brand-heading">Property not found</p>
+        <Link to="/" className="px-5 py-2.5 bg-brand-heading text-white rounded-full text-sm font-medium hover:opacity-90">
           Back to home
         </Link>
       </div>
@@ -137,10 +124,10 @@ export default function ReservePage() {
   const dueAtProperty = resortFee;
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] pb-8" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div className="min-h-screen bg-brand-background pb-8" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       <Navbar />
-      <div className="max-w-[1100px] mx-auto px-6 py-8">
-        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 text-sm text-[#6B7280] hover:text-[#111827] mb-6 transition-colors">
+      <div className="max-w-screen-2xl mx-auto px-6 py-8">
+        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 text-sm text-brand-text-secondary hover:text-brand-heading mb-6 transition-colors">
           <ChevronDown size={15} className="rotate-90" /> Back
         </button>
 
@@ -148,22 +135,22 @@ export default function ReservePage() {
           {/* Left — interactive content */}
           <div>
             {/* Trip details — editable */}
-            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-4 mb-5">
-              <h2 className="text-sm font-bold text-[#111827] mb-3">Trip details</h2>
-              <div className="border border-[#E5E7EB] rounded-lg">
-                <div className="grid grid-cols-2 divide-x divide-[#E5E7EB] rounded-t-lg overflow-hidden">
+            <div className="bg-white border border-brand-card-border rounded-2xl p-4 mb-5">
+              <h2 className="text-sm font-bold text-brand-heading mb-3">Trip details</h2>
+              <div className="border border-brand-card-border rounded-lg">
+                <div className="grid grid-cols-2 divide-x divide-brand-card-border rounded-t-lg overflow-hidden">
                   <div className="p-2">
-                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-[#374151] mb-0.5">Check-in</label>
-                    <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="w-full text-xs bg-transparent outline-none text-[#111827]" />
+                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-brand-text mb-0.5">Check-in</label>
+                    <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="w-full text-xs bg-transparent outline-none text-brand-heading" />
                   </div>
                   <div className="p-2">
-                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-[#374151] mb-0.5">Checkout</label>
-                    <input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="w-full text-xs bg-transparent outline-none text-[#111827]" />
+                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-brand-text mb-0.5">Checkout</label>
+                    <input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="w-full text-xs bg-transparent outline-none text-brand-heading" />
                   </div>
                 </div>
-                <div className="border-t border-[#E5E7EB] p-2 rounded-b-lg">
-                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-[#374151] mb-0.5">Guests</label>
-                  <p className="text-xs text-[#111827]">
+                <div className="border-t border-brand-card-border p-2 rounded-b-lg">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wide text-brand-text mb-0.5">Guests</label>
+                  <p className="text-xs text-brand-heading">
                     {totalGuests} guest{totalGuests !== 1 ? 's' : ''} across {roomLines.length} room type{roomLines.length > 1 ? 's' : ''}
                   </p>
                 </div>
@@ -172,7 +159,7 @@ export default function ReservePage() {
 
 
             {/* Payment Method */}
-            <h2 className="text-xl font-bold text-[#111827] mb-5">Payment Method</h2>
+            <h2 className="text-xl font-bold text-brand-heading mb-5">Payment Method</h2>
             <div className="space-y-3">
               {paymentOptions.map(({ key, label, sub, logo }) => (
                 <button
@@ -180,42 +167,42 @@ export default function ReservePage() {
                   onClick={() => setSelectedPayment(key)}
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
                     selectedPayment === key
-                      ? "border-[#111827] bg-[#F9FAFB] shadow-md"
-                      : "border-[#E5E7EB] hover:border-[#9CA3AF] hover:bg-[#F3F4F6]"
+                      ? "border-brand-heading bg-brand-background shadow-md"
+                      : "border-brand-card-border hover:border-brand-placeholder hover:bg-brand-secondary-surface"
                   }`}
                 >
                   {logo}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#111827]">{label}</p>
-                    <p className="text-xs text-[#6B7280] truncate">{sub}</p>
+                    <p className="text-sm font-semibold text-brand-heading">{label}</p>
+                    <p className="text-xs text-brand-text-secondary truncate">{sub}</p>
                   </div>
                   {selectedPayment === key ? (
-                    <span className="w-5 h-5 rounded-full bg-[#111827] flex items-center justify-center">
+                    <span className="w-5 h-5 rounded-full bg-brand-heading flex items-center justify-center">
                       <Check size={12} className="text-white" />
                     </span>
                   ) : (
-                    <Circle size={18} className="text-[#9CA3AF]" />
+                    <Circle size={18} className="text-brand-placeholder" />
                   )}
                 </button>
               ))}
             </div>
 
             {selectedPayment && (
-              <div className="mt-6 p-5 bg-white border border-[#E5E7EB] rounded-xl">
-                <p className="text-sm font-semibold text-[#111827] mb-3">
+              <div className="mt-6 p-5 bg-white border border-brand-card-border rounded-xl">
+                <p className="text-sm font-semibold text-brand-heading mb-3">
                   {selectedPayment === "stripe" && "Pay with Stripe"}
                   {selectedPayment === "razorpay" && "Pay with Razorpay"}
                 </p>
                 <div className="space-y-3">
-                  <input type="text" placeholder="Card number" className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#111827] transition-colors text-[#111827]" />
+                  <input type="text" placeholder="Card number" className="w-full border border-brand-card-border rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading" />
                   <div className="grid grid-cols-2 gap-3">
-                    <input type="text" placeholder="MM/YY" className="border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#111827] transition-colors text-[#111827]" />
-                    <input type="text" placeholder="CVC" className="border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#111827] transition-colors text-[#111827]" />
+                    <input type="text" placeholder="MM/YY" className="border border-brand-card-border rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading" />
+                    <input type="text" placeholder="CVC" className="border border-brand-card-border rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading" />
                   </div>
-                  <input type="text" placeholder="Cardholder name" className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#111827] transition-colors text-[#111827]" />
+                  <input type="text" placeholder="Cardholder name" className="w-full border border-brand-card-border rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading" />
                 </div>
                 {selectedPayment === "razorpay" && (
-                  <p className="text-xs text-[#6B7280] mt-3">Razorpay also supports UPI, Net Banking, and Wallets.</p>
+                  <p className="text-xs text-brand-text-secondary mt-3">Razorpay also supports UPI, Net Banking, and Wallets.</p>
                 )}
               </div>
             )}
@@ -223,35 +210,35 @@ export default function ReservePage() {
 
           {/* Right — Booking Summary Card */}
           <div className="lg:sticky lg:top-24 self-start">
-            <div className="bg-white border border-[#E5E7EB] rounded-[20px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+            <div className="bg-white border border-brand-card-border rounded-[20px] p-6 shadow-card">
               {/* 1. Hotel Information */}
-              <div className="pb-[18px] border-b border-[#E5E7EB]">
+              <div className="pb-[18px] border-b border-brand-card-border">
                 <div className="flex gap-4">
                   <img src={hotel.images[0]} alt={hotel.name} className="w-16 h-16 rounded-[10px] object-cover shrink-0" />
                   <div className="flex flex-col gap-[4px] min-w-0">
-                    <h3 className="text-lg font-bold text-[#111827] truncate leading-tight">{hotel.name} – {hotel.city}</h3>
-                    <p className="text-[13px] text-[#6B7280]">{roomLines.map(l => `${l.qty}× ${l.room.name}`).join(', ')}</p>
+                    <h3 className="text-lg font-bold text-brand-heading truncate leading-tight">{hotel.name} – {hotel.city}</h3>
+                    <p className="text-[13px] text-brand-text-secondary">{roomLines.map(l => `${l.qty}× ${l.room.name}`).join(', ')}</p>
                     <div className="flex items-center gap-1">
-                      <Star size={11} className="fill-[#111827] stroke-[#111827]" />
-                      <span className="text-[13px] font-medium text-[#111827]">{hotel.rating}</span>
-                      <span className="text-[13px] text-[#6B7280]">({hotel.reviews})</span>
+                      <Star size={11} className="fill-brand-heading stroke-brand-heading" />
+                      <span className="text-[13px] font-medium text-brand-heading">{hotel.rating}</span>
+                      <span className="text-[13px] text-brand-text-secondary">({hotel.reviews})</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* 2. Cancellation Policy */}
-              <div className="py-[18px] border-b border-[#E5E7EB]">
-                <p className="text-[13px] text-[#4B5563] leading-5">
+              <div className="py-[18px] border-b border-brand-card-border">
+                <p className="text-[13px] text-brand-text leading-5">
                   Cancel before check-in on {checkIn ? formatDate(checkIn) : 'check-in date'} for a partial refund.
                 </p>
-                <button className="text-[13px] font-medium text-[#111827] underline mt-1 cursor-pointer">Full policy</button>
+                <button className="text-[13px] font-medium text-brand-heading underline mt-1 cursor-pointer">Full policy</button>
               </div>
 
               {/* 3. Dates */}
-              <div className="py-[18px] border-b border-[#E5E7EB]">
-                <span className="text-[13px] font-medium text-[#374151]">Dates</span>
-                <p className="text-[14px] text-[#111827] mt-1">
+              <div className="py-[18px] border-b border-brand-card-border">
+                <span className="text-[13px] font-medium text-brand-text">Dates</span>
+                <p className="text-[14px] text-brand-heading mt-1">
                   {checkIn && checkOut
                     ? `${formatShortDate(checkIn)} – ${formatShortDate(checkOut)}, ${new Date(checkOut).getFullYear()}`
                     : 'Select dates'}
@@ -259,11 +246,11 @@ export default function ReservePage() {
               </div>
 
               {/* 4. Guests */}
-              <div className="py-[18px] border-b border-[#E5E7EB]">
-                <span className="text-[13px] font-medium text-[#374151]">Guests</span>
+              <div className="py-[18px] border-b border-brand-card-border">
+                <span className="text-[13px] font-medium text-brand-text">Guests</span>
                 <div className="mt-1 space-y-1">
                   {roomLines.map(l => (
-                    <p key={l.room.id} className="text-[14px] text-[#111827]">
+                    <p key={l.room.id} className="text-[14px] text-brand-heading">
                       {l.room.name}: {l.gc} guest{l.gc > 1 ? 's' : ''}
                     </p>
                   ))}
@@ -271,19 +258,19 @@ export default function ReservePage() {
               </div>
 
               {/* 5. Location */}
-              <div className="py-[18px] border-b border-[#E5E7EB]">
-                <p className="text-[13px] font-medium text-[#374151] mb-1">Location</p>
-                <p className="text-[14px] text-[#4B5563]">{hotel.location}</p>
-                <p className="text-[14px] text-[#4B5563]">{hotel.city}, {hotel.country}</p>
+              <div className="py-[18px] border-b border-brand-card-border">
+                <p className="text-[13px] font-medium text-brand-text mb-1">Location</p>
+                <p className="text-[14px] text-brand-text">{hotel.location}</p>
+                <p className="text-[14px] text-brand-text">{hotel.city}, {hotel.country}</p>
               </div>
 
               {/* 6. Price Details */}
-              <div className="py-[18px] border-b border-[#E5E7EB]">
+              <div className="py-[18px] border-b border-brand-card-border">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-[14px] font-semibold text-[#111827]">Price details</p>
+                  <p className="text-[14px] font-semibold text-brand-heading">Price details</p>
                   <button
                     onClick={() => setShowBreakdown(v => !v)}
-                    className="text-[13px] font-medium text-[#111827] underline cursor-pointer"
+                    className="text-[13px] font-medium text-brand-heading underline cursor-pointer"
                   >
                     {showBreakdown ? 'Hide breakdown' : 'Price breakdown'}
                   </button>
@@ -291,47 +278,47 @@ export default function ReservePage() {
                 <div className="space-y-1">
                   {roomLines.map(l => (
                     <div key={l.room.id} className="flex justify-between items-center text-[14px]">
-                      <span className="text-[#4B5563]">${l.ep} × {l.qty} × {nights} night{nights > 1 ? 's' : ''} ({l.room.name})</span>
-                      <span className="text-[#111827]">${(l.lineTotal * nights).toFixed(2)}</span>
+                      <span className="text-brand-text">${l.ep} × {l.qty} × {nights} night{nights > 1 ? 's' : ''} ({l.room.name})</span>
+                      <span className="text-brand-heading">${(l.lineTotal * nights).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
                 {showBreakdown && (
-                  <div className="mt-3 space-y-[10px] pt-3 border-t border-[#E5E7EB]">
+                  <div className="mt-3 space-y-[10px] pt-3 border-t border-brand-card-border">
                     <div className="flex justify-between items-center text-[14px]">
-                      <span className="text-[#4B5563]">Taxes and fees (10%)</span>
-                      <span className="text-[#111827]">${taxesAndFees.toFixed(2)}</span>
+                      <span className="text-brand-text">Taxes and fees (10%)</span>
+                      <span className="text-brand-heading">${taxesAndFees.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center text-[14px]">
-                      <span className="text-[#4B5563]">Resort fee</span>
-                      <span className="text-[#111827]">${resortFee.toFixed(2)}</span>
+                      <span className="text-brand-text">Resort fee</span>
+                      <span className="text-brand-heading">${resortFee.toFixed(2)}</span>
                     </div>
                   </div>
                 )}
               </div>
 
               {/* 7. Promo / Discount Code */}
-              <div className="py-[18px] border-b border-[#E5E7EB]">
+              <div className="py-[18px] border-b border-brand-card-border">
                 {appliedDiscount ? (
-                  <div className="flex items-center justify-between bg-[#f0fdf4] border border-[#bbf7d0] rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between bg-brand-success-light border border-brand-success-border rounded-lg px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <Ticket size={14} className="text-[#16a34a]" />
+                      <Ticket size={14} className="text-brand-success" />
                       <div>
-                        <p className="text-[13px] font-semibold text-[#16a34a]">{appliedDiscount.code}</p>
-                        <p className="text-[11px] text-[#15803d]">
+                        <p className="text-[13px] font-semibold text-brand-success">{appliedDiscount.code}</p>
+                        <p className="text-[11px] text-brand-success">
                           {appliedDiscount.type === 'percentage' ? `${appliedDiscount.amount}% off` : `$${appliedDiscount.amount} off`}
                         </p>
                       </div>
                     </div>
-                    <button onClick={handleRemovePromo} className="p-1 rounded-full hover:bg-[#dcfce7] cursor-pointer">
-                      <X size={14} className="text-[#16a34a]" />
+                    <button onClick={handleRemovePromo} className="p-1 rounded-full hover:bg-brand-success-light cursor-pointer">
+                      <X size={14} className="text-brand-success" />
                     </button>
                   </div>
                 ) : (
                   <>
                     <button
                       onClick={() => setShowPromo(v => !v)}
-                      className="flex items-center gap-2 text-[13px] font-medium text-[#111827] hover:text-[#2E86AB] transition-colors cursor-pointer"
+                      className="flex items-center gap-2 text-[13px] font-medium text-brand-heading hover:text-brand-accent transition-colors cursor-pointer"
                     >
                       <Ticket size={14} />
                       {showPromo ? 'Cancel' : 'Have a promo code?'}
@@ -343,33 +330,33 @@ export default function ReservePage() {
                           onChange={e => { setPromoInput(e.target.value); setPromoError('') }}
                           onKeyDown={e => e.key === 'Enter' && handleApplyPromo()}
                           placeholder="Enter code"
-                          className="flex-1 border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#111827] transition-colors text-[#111827]"
+                          className="flex-1 border border-brand-card-border rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading"
                         />
                         <button
                           onClick={handleApplyPromo}
-                          className="px-4 py-2 rounded-lg bg-[#111827] text-white text-sm font-semibold hover:bg-black transition-colors cursor-pointer"
+                          className="px-4 py-2 rounded-lg bg-brand-heading text-white text-sm font-semibold hover:bg-black transition-colors cursor-pointer"
                         >
                           Apply
                         </button>
                       </div>
                     )}
                     {promoError && (
-                      <p className="text-[12px] text-[#e94560] mt-1">{promoError}</p>
+                      <p className="text-[12px] text-brand-danger mt-1">{promoError}</p>
                     )}
                   </>
                 )}
               </div>
 
               {/* 8. Total */}
-              <div className="py-[18px] border-b border-[#E5E7EB]">
+              <div className="py-[18px] border-b border-brand-card-border">
                 <div className="flex justify-between items-center">
-                  <span className="text-base font-bold text-[#111827]">Total USD</span>
-                  <span className="text-base font-bold text-[#111827]">${Math.max(0, total).toFixed(2)}</span>
+                  <span className="text-base font-bold text-brand-heading">Total USD</span>
+                  <span className="text-base font-bold text-brand-heading">${Math.max(0, total).toFixed(2)}</span>
                 </div>
                 {appliedDiscount && (
                   <div className="flex justify-between items-center mt-1">
-                    <span className="text-[12px] text-[#16a34a]">Discount applied</span>
-                    <span className="text-[12px] text-[#16a34a]">-${discountAmount.toFixed(2)}</span>
+                    <span className="text-[12px] text-brand-success">Discount applied</span>
+                    <span className="text-[12px] text-brand-success">-${discountAmount.toFixed(2)}</span>
                   </div>
                 )}
               </div>
@@ -377,18 +364,18 @@ export default function ReservePage() {
               {/* 9. Due Today */}
               <div className="pt-[18px]">
                 <div className="flex justify-between items-center">
-                  <span className="text-[15px] font-semibold text-[#111827]">Due today</span>
-                  <span className="text-[15px] font-semibold text-[#111827]">${Math.max(0, dueToday).toFixed(2)}</span>
+                  <span className="text-[15px] font-semibold text-brand-heading">Due today</span>
+                  <span className="text-[15px] font-semibold text-brand-heading">${Math.max(0, dueToday).toFixed(2)}</span>
                 </div>
                 {appliedDiscount && (
                   <div className="flex justify-between items-center mt-1">
-                    <span className="text-[12px] text-[#16a34a]">Discount applied</span>
-                    <span className="text-[12px] text-[#16a34a]">-${discountAmount.toFixed(2)}</span>
+                    <span className="text-[12px] text-brand-success">Discount applied</span>
+                    <span className="text-[12px] text-brand-success">-${discountAmount.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-[13px] text-[#6B7280]">Due to host at property</span>
-                  <span className="text-[13px] text-[#6B7280]">${dueAtProperty.toFixed(2)}</span>
+                  <span className="text-[13px] text-brand-text-secondary">Due to host at property</span>
+                  <span className="text-[13px] text-brand-text-secondary">${dueAtProperty.toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -424,11 +411,11 @@ export default function ReservePage() {
                 }
                 navigate('/booking-confirmation', { state: { booking } })
               }}
-              className="w-full mt-6 py-3.5 rounded-xl bg-[#111827] text-white font-semibold text-sm hover:bg-black transition-all disabled:bg-[#D1D5DB] disabled:cursor-not-allowed"
+              className="w-full mt-6 py-3.5 rounded-xl bg-brand-heading text-white font-semibold text-sm hover:bg-black transition-all disabled:bg-brand-divider disabled:cursor-not-allowed"
             >
               {selectedPayment ? "Confirm reservation" : "Select a payment method"}
             </button>
-            <p className="text-center text-xs text-[#6B7280] mt-3">You won't be charged yet</p>
+            <p className="text-center text-xs text-brand-text-secondary mt-3">You won't be charged yet</p>
           </div>
         </div>
       </div>

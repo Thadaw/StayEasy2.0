@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext'
 import { FavoritesProvider } from './context/FavoritesContext'
 import { BookingProvider } from './context/BookingContext'
 import { CouponProvider } from './context/CouponContext'
+import './i18n'
 import './index.css'
 import App from './App'
 
