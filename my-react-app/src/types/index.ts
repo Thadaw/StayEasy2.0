@@ -94,3 +94,5 @@ export interface Booking {
   status: 'upcoming' | 'completed' | 'cancelled'
   createdAt: string
 }
+
+export type { RazorpayOrderResponse, RazorpayPaymentResponse, HostBankDetails } from './razorpay'

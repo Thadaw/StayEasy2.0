@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
-import { Star, ChevronDown, Check, Circle, Ticket, X } from "lucide-react"
+import { Star, ChevronDown, Check, Circle, Ticket, X, Loader2, CreditCard, ShieldCheck } from "lucide-react"
+import toast from "react-hot-toast"
 import { hotels } from "../data/hotels"
 import { useBookings } from "../context/BookingContext"
 import { Navbar } from "../components/Navbar"
@@ -41,11 +42,16 @@ export default function ReservePage() {
   const [searchParams] = useSearchParams()
   const hotel = hotels.find((h) => h.id === Number(id))
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null)
+  const [paymentLoading, setPaymentLoading] = useState(false)
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [showPromo, setShowPromo] = useState(false)
   const [promoInput, setPromoInput] = useState('')
   const [appliedDiscount, setAppliedDiscount] = useState<{ type: 'percentage' | 'fixed'; amount: number; code: string } | null>(null)
   const [promoError, setPromoError] = useState('')
+  const [cardNumber, setCardNumber] = useState('')
+  const [cardExpiry, setCardExpiry] = useState('')
+  const [cardCvv, setCardCvv] = useState('')
+  const [cardName, setCardName] = useState('')
 
   const validPromos: Record<string, { type: 'percentage' | 'fixed'; amount: number }> = {
     SUMMER20: { type: 'percentage', amount: 20 },
@@ -189,20 +195,73 @@ export default function ReservePage() {
 
             {selectedPayment && (
               <div className="mt-6 p-5 bg-white border border-brand-card-border rounded-xl">
-                <p className="text-sm font-semibold text-brand-heading mb-3">
-                  {selectedPayment === "stripe" && "Pay with Stripe"}
-                  {selectedPayment === "razorpay" && "Pay with Razorpay"}
-                </p>
-                <div className="space-y-3">
-                  <input type="text" placeholder="Card number" className="w-full border border-brand-card-border rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" placeholder="MM/YY" className="border border-brand-card-border rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading" />
-                    <input type="text" placeholder="CVC" className="border border-brand-card-border rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading" />
-                  </div>
-                  <input type="text" placeholder="Cardholder name" className="w-full border border-brand-card-border rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading" />
+                <div className="flex items-center gap-2 mb-4">
+                  <CreditCard size={18} className="text-brand-heading" />
+                  <p className="text-sm font-semibold text-brand-heading">
+                    {selectedPayment === "stripe" ? "Stripe — Coming Soon" : "Card Details"}
+                  </p>
                 </div>
-                {selectedPayment === "razorpay" && (
-                  <p className="text-xs text-brand-text-secondary mt-3">Razorpay also supports UPI, Net Banking, and Wallets.</p>
+                {selectedPayment === "stripe" ? (
+                  <p className="text-xs text-brand-text-secondary">Stripe integration is coming soon. Please select Razorpay to proceed.</p>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-brand-text-secondary mb-1">Card Number</label>
+                      <input
+                        type="text"
+                        placeholder="1234 5678 9012 3456"
+                        maxLength={19}
+                        value={cardNumber}
+                        onChange={e => {
+                          const v = e.target.value.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim()
+                          setCardNumber(v)
+                        }}
+                        className="w-full border border-brand-card-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-brand-text-secondary mb-1">Expiry</label>
+                        <input
+                          type="text"
+                          placeholder="MM/YY"
+                          maxLength={5}
+                          value={cardExpiry}
+                          onChange={e => {
+                            let v = e.target.value.replace(/\D/g, '')
+                            if (v.length >= 2) v = v.slice(0, 2) + '/' + v.slice(2)
+                            setCardExpiry(v)
+                          }}
+                          className="w-full border border-brand-card-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-brand-text-secondary mb-1">CVV</label>
+                        <input
+                          type="password"
+                          placeholder="***"
+                          maxLength={4}
+                          value={cardCvv}
+                          onChange={e => setCardCvv(e.target.value.replace(/\D/g, ''))}
+                          className="w-full border border-brand-card-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-brand-text-secondary mb-1">Cardholder Name</label>
+                      <input
+                        type="text"
+                        placeholder="John Doe"
+                        value={cardName}
+                        onChange={e => setCardName(e.target.value)}
+                        className="w-full border border-brand-card-border rounded-lg px-3 py-2.5 text-sm outline-none focus:border-brand-heading transition-colors text-brand-heading"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <ShieldCheck size={13} className="text-green-600" />
+                      <p className="text-[11px] text-brand-text-secondary">Demo mode — no real charges will be made.</p>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -382,9 +441,24 @@ export default function ReservePage() {
 
             {/* Confirm button below card */}
             <button
-              disabled={!selectedPayment}
-              onClick={() => {
-                const roomTypeName = selectedRoomTypes.map(r => r.name).join(', ')
+              disabled={!selectedPayment || paymentLoading}
+              onClick={async () => {
+                if (!selectedPayment) return
+
+                if (selectedPayment === "stripe") {
+                  toast.error("Stripe integration coming soon")
+                  return
+                }
+
+                if (!cardNumber.trim() || !cardExpiry.trim() || !cardCvv.trim() || !cardName.trim()) {
+                  toast.error("Please fill in all card details")
+                  return
+                }
+
+                setPaymentLoading(true)
+                await new Promise(resolve => setTimeout(resolve, 2500))
+
+                const roomTypeName = selectedRoomTypes.map(r => r.name).join(", ")
                 const bookingData = {
                   hotelId: hotel.id,
                   hotelName: hotel.name,
@@ -406,16 +480,31 @@ export default function ReservePage() {
                 const booking = {
                   id: `${Date.now().toString(36)}`,
                   ...bookingData,
-                  status: 'upcoming' as const,
+                  status: "upcoming" as const,
                   createdAt: new Date().toISOString(),
                 }
-                navigate('/booking-confirmation', { state: { booking } })
+                toast.success("Payment successful!")
+                navigate("/booking-confirmation", { state: { booking } })
+                setPaymentLoading(false)
               }}
-              className="w-full mt-6 py-3.5 rounded-xl bg-brand-heading text-white font-semibold text-sm hover:bg-black transition-all disabled:bg-brand-divider disabled:cursor-not-allowed"
+              className="w-full mt-6 py-3.5 rounded-xl bg-brand-heading text-white font-semibold text-sm hover:bg-black transition-all disabled:bg-brand-divider disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {selectedPayment ? "Confirm reservation" : "Select a payment method"}
+              {paymentLoading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Processing payment...
+                </>
+              ) : selectedPayment === "stripe" ? (
+                "Stripe coming soon"
+              ) : selectedPayment ? (
+                "Confirm reservation"
+              ) : (
+                "Select a payment method"
+              )}
             </button>
-            <p className="text-center text-xs text-brand-text-secondary mt-3">You won't be charged yet</p>
+            <p className="text-center text-xs text-brand-text-secondary mt-3">
+              {paymentLoading ? "Please do not close this page" : "Demo mode — no real charges"}
+            </p>
           </div>
         </div>
       </div>
