@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Search, MapPin, Calendar, Users, ChevronDown, Plus, Minus, Check } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { popularSearchDestinations } from "../data/searchDestinations";
-import { formatDateRange, buildGuestLabel } from "../utils/format";
+import { formatDateRange, formatDateShort, buildGuestLabel } from "../utils/format";
 
 interface GuestCount {
   adults: number;
@@ -14,11 +14,18 @@ interface GuestCount {
 export function SearchBar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [urlParams] = useSearchParams();
 
-  const [where, setWhere] = useState("");
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
-  const [guests, setGuests] = useState<GuestCount>({ adults: 2, children: 0, infants: 0 });
+  const [where, setWhere] = useState(() => {
+    return urlParams.get("where") || localStorage.getItem("nearbyLocation") || "";
+  });
+  const [checkIn, setCheckIn] = useState(() => urlParams.get("checkin") || "");
+  const [checkOut, setCheckOut] = useState(() => urlParams.get("checkout") || "");
+  const [guests, setGuests] = useState<GuestCount>(() => {
+    const total = parseInt(urlParams.get("guests") || "0");
+    if (total > 0) return { adults: total, children: 0, infants: 1 };
+    return { adults: 1, children: 0, infants: 1 };
+  });
   const [showWhere, setShowWhere] = useState(false);
   const [showDates, setShowDates] = useState(false);
   const [showGuests, setShowGuests] = useState(false);
@@ -48,8 +55,11 @@ export function SearchBar() {
   };
 
   const handleSearch = () => {
+    if (checkIn && checkOut && checkIn >= checkOut) return;
     const params = new URLSearchParams();
-    if (where) params.set("where", where);
+    const rawWhere = where || localStorage.getItem("nearbyLocation") || "";
+    const searchWhere = rawWhere.replace(/\s*\([\d.]+,\s*[\d.]+\)/, "").trim();
+    if (searchWhere) params.set("where", searchWhere);
     if (checkIn) params.set("checkin", checkIn);
     if (checkOut) params.set("checkout", checkOut);
     if (totalGuests > 0) params.set("guests", String(totalGuests));
@@ -70,7 +80,7 @@ export function SearchBar() {
             <MapPin size={13} className="text-brand-accent shrink-0" />
             <div className="min-w-0">
               <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("whereTo")}</div>
-              <div className={`text-[11px] md:text-xs font-medium truncate ${where ? "text-gray-800" : "text-gray-400"}`}>{where || t("searchPlaceholder")}</div>
+              <div className={`text-[11px] md:text-xs font-medium truncate ${where || localStorage.getItem("nearbyLocation") ? "text-gray-800" : "text-gray-400"}`}>{(where || localStorage.getItem("nearbyLocation") || "").replace(/\s*\([\d.]+,\s*[\d.]+\)/, "").trim() || t("searchPlaceholder")}</div>
             </div>
             <ChevronDown size={13} className={`ml-auto shrink-0 text-gray-400 transition-transform hidden sm:block ${showWhere ? "rotate-180" : ""}`} />
           </button>
@@ -122,8 +132,8 @@ export function SearchBar() {
           >
             <Calendar size={13} className="text-brand-accent shrink-0" />
             <div className="min-w-0">
-              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("checkInCheckOut")}</div>
-              <div className={`text-[11px] md:text-xs font-medium truncate ${checkIn ? "text-gray-800" : "text-gray-400"}`}>{dateDisplay}</div>
+              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("checkIn")} – {t("checkOut")}</div>
+              <div className={`text-[11px] md:text-xs font-medium truncate ${checkIn ? "text-gray-800" : "text-gray-400"}`}>{checkIn && checkOut ? `${formatDateShort(checkIn)} – ${formatDateShort(checkOut)}` : dateDisplay}</div>
             </div>
             <ChevronDown size={13} className={`ml-auto shrink-0 text-gray-400 transition-transform hidden sm:block ${showDates ? "rotate-180" : ""}`} />
           </button>
@@ -146,10 +156,13 @@ export function SearchBar() {
                   <input
                     type="date"
                     value={checkOut}
-                    min={checkIn || new Date().toISOString().split("T")[0]}
+                    min={checkIn ? new Date(new Date(checkIn).getTime() + 86400000).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]}
                     onChange={(e) => setCheckOut(e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent transition-colors"
                   />
+                  {checkIn && checkOut && checkIn >= checkOut && (
+                    <p className="text-[10px] text-red-500 mt-1">Check-out must be after check-in</p>
+                  )}
                 </div>
                 <button
                   onClick={() => setShowDates(false)}

@@ -1,19 +1,30 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Navbar } from "../components/Navbar";
 import { HeroSection } from "../components/HeroSection";
 import { Footer } from "../components/Footer";
 import { DestinationCard } from "../components/DestinationCard";
-import { hotels } from "../data/hotels";
 import { propertyTypes } from "../data/propertyTypes";
 import { trendingDestinations } from "../data/trendingDestinations";
 import { popularDestinations } from "../data/popularDestinations";
 import { trustBadges } from "../data/trustBadges";
 import { testimonials } from "../data/testimonials";
-import { haversineDistance } from "../utils/geo";
-import { Star, ArrowRight, ChevronLeft, ChevronRight, Heart, MapPin, Quote } from "lucide-react";
-import { HotelCard } from "../components/HotelCard";
+import { Star, ArrowRight, ChevronLeft, ChevronRight, Heart, MapPin, Quote, Building2 } from "lucide-react";
 import { useFavorites } from "../context/FavoritesContext";
+import api from "../api";
+
+interface NearbyProperty {
+  property_id: string;
+  name: string;
+  type: string;
+  country: string;
+  state: string;
+  city: string;
+  address: string;
+  currency: string;
+  cover_photo: string;
+  distance_km: number;
+}
 
 export default function LandingPage() {
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
@@ -26,27 +37,37 @@ export default function LandingPage() {
   const [showDestinationPrev, setShowDestinationPrev] = useState(false);
   const { isFavorite, toggleFavorite } = useFavorites();
 
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [nearbyProperties, setNearbyProperties] = useState<NearbyProperty[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(true);
+
+  const getPropertyImage = (property: NearbyProperty): string => {
+    return property.cover_photo || "";
+  };
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      },
-      () => {},
-      { timeout: 8000 }
-    );
+    const fetchNearby = async () => {
+      setNearbyLoading(true);
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
+        });
+        const { data } = await api.get("/search/nearby", {
+          params: {
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            limit: 6,
+          },
+        });
+        const results = data?.data || [];
+        setNearbyProperties(results);
+      } catch {
+        setNearbyProperties([]);
+      } finally {
+        setNearbyLoading(false);
+      }
+    };
+    fetchNearby();
   }, []);
-
-  const nearbyHotels = useMemo(() => {
-    if (!userLocation) return [];
-    return hotels
-      .map((h) => ({ hotel: h, dist: haversineDistance(userLocation.lat, userLocation.lng, h.lat, h.lng) }))
-      .sort((a, b) => a.dist - b.dist)
-      .slice(0, 4)
-      .map((e) => e.hotel);
-  }, [userLocation]);
 
   useEffect(() => {
     const updateItemsPerPage = () => {
@@ -145,21 +166,91 @@ export default function LandingPage() {
       </section>
 
       {/* Stays nearby */}
-      {nearbyHotels.length > 0 && (
-        <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-10 md:py-14">
-          <div className="flex items-center gap-2 mb-6 md:mb-8">
-            <MapPin size={20} className="text-primary" />
+      <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-10 md:py-14">
+        <div className="flex items-center justify-between mb-6 md:mb-8">
+          <div className="flex items-center gap-2">
+            <MapPin size={20} className="text-brand-accent" />
             <h2 className="text-xl md:text-2xl font-bold" style={{ fontFamily: "'Sora', sans-serif", color: "var(--brand-heading)" }}>
               Stays nearby
             </h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            {nearbyHotels.map((h) => (
-              <HotelCard key={h.id} hotel={h} onClick={() => navigate(`/hotel/${h.id}`)} showFavourite isFavourite={isFavorite(h.id)} onToggleFavourite={() => toggleFavorite(h.id)} />
+          <Link to="/search?where=Nearby" className="flex items-center gap-1 text-sm font-semibold text-brand-accent hover:underline">
+            View all <ArrowRight size={14} />
+          </Link>
+        </div>
+
+        {nearbyLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse">
+                <div className="h-[200px] bg-gray-200" />
+                <div className="p-4 space-y-3">
+                  <div className="h-4 bg-gray-200 rounded w-3/4" />
+                  <div className="h-3 bg-gray-200 rounded w-1/2" />
+                  <div className="h-3 bg-gray-200 rounded w-2/3" />
+                </div>
+              </div>
             ))}
           </div>
-        </section>
-      )}
+        ) : nearbyProperties.length === 0 ? (
+          <div className="text-center py-16 bg-gray-50 rounded-2xl">
+            <MapPin size={40} className="mx-auto text-gray-300 mb-3" />
+            <p className="text-sm" style={{ color: "var(--brand-text-secondary)" }}>
+              No nearby properties found. Try allowing location access.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {nearbyProperties.map((property) => (
+              <div
+                key={property.property_id}
+                onClick={() => navigate(`/hotel/${property.property_id}`)}
+                className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group cursor-pointer border border-gray-100"
+              >
+                {/* Image */}
+                <div className="relative h-[200px] overflow-hidden">
+                  {getPropertyImage(property) ? (
+                    <img
+                      src={getPropertyImage(property)}
+                      alt={property.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                      <Building2 size={40} className="text-gray-300" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleFavorite(property.property_id); }}
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+                  >
+                    <Heart size={14} className={isFavorite(property.property_id) ? "text-red-500 fill-red-500" : "text-gray-600 hover:text-red-500 transition-colors"} />
+                  </button>
+                  <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
+                    <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-semibold text-white">
+                      {property.type}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-4">
+                  <h3 className="text-sm font-bold mb-1 line-clamp-1" style={{ color: "var(--brand-heading)" }}>
+                    {property.name}
+                  </h3>
+                  <p className="text-[11px] flex items-center gap-1 mb-2" style={{ color: "var(--brand-text-secondary)" }}>
+                    <MapPin size={10} /> {property.address}, {property.city}
+                  </p>
+                  <p className="text-[11px]" style={{ color: "var(--brand-text-secondary)" }}>
+                    {property.distance_km} km away
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Trending destinations */}
       <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-10 md:py-14">

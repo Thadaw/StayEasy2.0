@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Star, Heart } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Star, Heart, MapPin, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SearchBar } from "./SearchBar";
 import { heroHotels } from "../data/heroHotels";
@@ -20,6 +20,43 @@ export function HeroSection() {
   const { t } = useTranslation();
   const [activeVibe, setActiveVibe] = useState("All");
   const { isFavorite, toggleFavorite } = useFavorites();
+  const [showLocationPopup, setShowLocationPopup] = useState(false);
+
+  useEffect(() => {
+    const hasSeenPopup = localStorage.getItem("locationPopupSeen");
+    if (!hasSeenPopup) {
+      setShowLocationPopup(true);
+    }
+  }, []);
+
+  const handleAllowLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          localStorage.setItem("nearbyLocation", `Nearby (${latitude.toFixed(2)}, ${longitude.toFixed(2)})`);
+          localStorage.setItem("locationPopupSeen", "true");
+          setShowLocationPopup(false);
+          window.location.reload();
+        },
+        () => {
+          localStorage.setItem("nearbyLocation", "Nearby");
+          localStorage.setItem("locationPopupSeen", "true");
+          setShowLocationPopup(false);
+        },
+        { timeout: 10000 }
+      );
+    } else {
+      localStorage.setItem("nearbyLocation", "Nearby");
+      localStorage.setItem("locationPopupSeen", "true");
+      setShowLocationPopup(false);
+    }
+  };
+
+  const handleSkipLocation = () => {
+    localStorage.setItem("locationPopupSeen", "true");
+    setShowLocationPopup(false);
+  };
 
   return (
     <section className="relative w-full min-h-[240px] md:min-h-[280px] lg:min-h-[320px] overflow-hidden bg-brand-background">
@@ -189,6 +226,46 @@ export function HeroSection() {
           </div>
         </div>
       </div>
+
+      {/* Location Permission Popup */}
+      {showLocationPopup && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative animate-in">
+            <button
+              onClick={handleSkipLocation}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+            >
+              <X size={16} className="text-gray-600" />
+            </button>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-brand-accent-light flex items-center justify-center mb-4">
+                <MapPin size={28} className="text-brand-accent" />
+              </div>
+              <h3 className="text-lg font-bold mb-2" style={{ color: "var(--brand-heading)" }}>
+                Find stays nearby
+              </h3>
+              <p className="text-sm mb-6" style={{ color: "var(--brand-text-secondary)" }}>
+                Allow location access to discover properties close to you automatically.
+              </p>
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={handleSkipLocation}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 hover:bg-gray-50 transition-colors"
+                  style={{ color: "var(--brand-heading)" }}
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={handleAllowLocation}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-brand-accent hover:bg-brand-accent-hover transition-colors"
+                >
+                  Allow location
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes animate-in {

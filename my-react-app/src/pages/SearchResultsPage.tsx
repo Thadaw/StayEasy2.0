@@ -18,6 +18,7 @@ interface ApiProperty {
   amenities: string[];
   total_price: number;
   nights: number;
+  cover_photo: string;
 }
 
 const propertyTypes = [
@@ -95,10 +96,14 @@ export default function SearchResultsPage() {
       queryParams.children = guestParts?.[1] || "0";
       queryParams.rooms = "1";
 
+      console.log("Search params:", queryParams);
       const { data } = await api.get("/search", { params: queryParams });
-      const results = data?.data?.results || (Array.isArray(data?.data) ? data.data : []);
+      console.log("Search API full response:", data);
+      const results = data?.data?.results || (Array.isArray(data?.data) ? data.data : data?.results || []);
+      console.log("Parsed results:", results);
       setApiHotels(results);
-    } catch {
+    } catch (err) {
+      console.error("Search API error:", err);
       setApiHotels([]);
     } finally {
       setIsLoading(false);
@@ -393,11 +398,15 @@ export default function SearchResultsPage() {
                   onClick={() => navigate(`/hotel/${hotel.property_id}?${buildFilterParams()}`)}
                   className="flex bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100"
                 >
-                  {/* Image Placeholder */}
+                  {/* Image */}
                   <div className="relative w-[320px] shrink-0">
-                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                      <Building2 size={40} className="text-gray-300" />
-                    </div>
+                    {hotel.cover_photo ? (
+                      <img src={hotel.cover_photo} alt={hotel.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                        <Building2 size={40} className="text-gray-300" />
+                      </div>
+                    )}
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleFavorite(hotel.property_id); }}
                       className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
