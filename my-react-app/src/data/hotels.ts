@@ -14,6 +14,11 @@ export interface RoomType {
   roomNumbers: string[];
   bedType: string;
   areaSqFt: number;
+  floorNumber?: number;
+  maxAdults?: number;
+  maxChildren?: number;
+  cancellationTitle?: string;
+  customAmenities?: { name: string; icon: string | null }[];
   image: string;
   gallery?: string[];
   bathroomAmenities?: string[];

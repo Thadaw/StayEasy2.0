@@ -196,7 +196,10 @@ export default function SearchResultsPage() {
 
   const buildFilterParams = () => {
     const params = new URLSearchParams();
-    params.set("guests", guests);
+    if (whereParam) params.set("where", whereParam);
+    if (checkinParam) params.set("checkin", checkinParam);
+    if (checkoutParam) params.set("checkout", checkoutParam);
+    if (guests) params.set("guests", guests);
     if (selectedAmenities.length > 0) params.set("amenities", selectedAmenities.join(","));
     return params.toString();
   };

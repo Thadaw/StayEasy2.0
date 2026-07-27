@@ -25,6 +25,7 @@ import api from "../api";
 
 interface ApiProperty {
   id: string;
+  tenant_id: string;
   name: string;
   type: string;
   description: string;
@@ -33,18 +34,26 @@ interface ApiProperty {
   city: string;
   zip_code: string;
   address: string;
-  latitude: number | null;
-  longitude: number | null;
+  latitude: string | null;
+  longitude: string | null;
   check_in_time: string;
   check_out_time: string;
+  check_in_grace_period: number;
+  check_out_grace_period: number;
+  always_allow_check_in_out: boolean;
+  number_of_floors: number;
   total_rooms: number;
+  year_built: number;
   phone_number: string;
   email: string;
   currency: string;
+  timezone: string;
+  language: string;
   brand_logo_url: string;
   brand_color: string;
-  system_amenities: { icon: string; name: string }[];
-  custom_amenities: { icon: string; name: string }[];
+  is_active: boolean;
+  system_amenities: { id: string; name: string; icon: string }[];
+  custom_amenities: { icon: string | null; name: string }[];
   photos: { cover: string; gallery: string[] };
 }
 
@@ -64,7 +73,7 @@ interface ApiRoom {
   cancellation_description: string;
   photos: { cover: string; gallery: string[] };
   system_amenity_ids: string[];
-  custom_amenities: { icon: string; name: string }[];
+  custom_amenities: { icon: string | null; name: string }[];
 }
 
 function mapApiPropertyToHotel(apiProp: ApiProperty, rooms: ApiRoom[]): Hotel {
@@ -86,12 +95,17 @@ function mapApiPropertyToHotel(apiProp: ApiProperty, rooms: ApiRoom[]): Hotel {
     totalRooms: 1,
     availableRooms: r.status === "AVAILABLE" ? 1 : 0,
     roomNumbers: [r.room_name],
-    bedType: r.bed_type_id,
+    bedType: "",
     areaSqFt: 300,
+    floorNumber: r.floor_number,
+    maxAdults: r.max_adults,
+    maxChildren: r.max_children,
+    cancellationTitle: r.cancellation_title,
+    customAmenities: r.custom_amenities,
     image: r.photos?.cover || "",
     gallery: r.photos?.gallery || [],
     bathroomAmenities: [],
-    roomFacilities: apiProp.custom_amenities.map((a) => a.name),
+    roomFacilities: apiProp.system_amenities.map((a) => a.name),
     smokingPolicy: "No smoking",
     cancellationPolicy: r.cancellation_description || "",
     breakfastIncluded: false,
@@ -102,8 +116,8 @@ function mapApiPropertyToHotel(apiProp: ApiProperty, rooms: ApiRoom[]): Hotel {
     location: `${apiProp.address}, ${apiProp.city}, ${apiProp.country}`,
     city: apiProp.city,
     country: apiProp.country,
-    lat: apiProp.latitude || 0,
-    lng: apiProp.longitude || 0,
+    lat: apiProp.latitude ? parseFloat(apiProp.latitude) : 0,
+    lng: apiProp.longitude ? parseFloat(apiProp.longitude) : 0,
     rating: 4.8,
     reviews: 0,
     price: rooms.length > 0 ? parseFloat(rooms[0].base_rate) || 0 : 0,
@@ -163,14 +177,17 @@ export default function PropertyDetailPage() {
         const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
         const checkInDate = checkinParam || today;
         const checkOutDate = checkoutParam || tomorrow;
-        const guestParts = guestsParam.match(/\d+/g);
-        const adults = guestParts?.[0] || "2";
-        const children = guestParts?.[1] || "0";
+        const adultsParam = searchParams.get("adults");
+        const childrenParam = searchParams.get("children");
+        const roomsParam = searchParams.get("rooms");
+        const adults = adultsParam ? Number(adultsParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[0] || "2") : 2);
+        const children = childrenParam ? Number(childrenParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[1] || "0") : 0);
+        const rooms = roomsParam ? Number(roomsParam) : 1;
         const propRes = await api.get(`/properties/${id}/public`);
         setApiProperty(propRes.data?.data || null);
         try {
           const roomsRes = await api.get(`/properties/${id}/rooms/available-rooms`, {
-            params: { checkIn: checkInDate, checkOut: checkOutDate, adults, children },
+            params: { checkin_date: checkInDate, checkout_date: checkOutDate, adults, children, rooms },
           });
           setApiRooms(roomsRes.data?.data || []);
         } catch {
@@ -184,7 +201,7 @@ export default function PropertyDetailPage() {
       }
     };
     fetchPropertyData();
-  }, [id, checkinParam, checkoutParam]);
+  }, [id, searchParams]);
 
   const apiHotel = useMemo(() => {
     if (!apiProperty) return null;
@@ -194,12 +211,18 @@ export default function PropertyDetailPage() {
   const hotel = apiHotel || hotels.find((h) => h.id === Number(id));
 
   const liked = isFavorite(Number(id));
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
+  const [checkIn, setCheckIn] = useState(checkinParam || "");
+  const [checkOut, setCheckOut] = useState(checkoutParam || "");
   const [detailRoomId, setDetailRoomId] = useState<string | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [roomQuantities, setRoomQuantities] = useState<Record<string, number>>({});
   const [roomGuestCounts, setRoomGuestCounts] = useState<Record<string, number>>({});
+
+  const [guests, setGuests] = useState(() => {
+    const total = parseInt(guestsParam || "0");
+    if (total > 0) return { adults: total, children: 0, rooms: 1 };
+    return { adults: 2, children: 0, rooms: 1 };
+  });
 
   useEffect(() => {
     if (hotel?.roomTypes) {
@@ -326,6 +349,16 @@ export default function PropertyDetailPage() {
     setTimeout(() => setSelectedRoomId(null), 3000);
     const el = document.getElementById(`room-${roomId}`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const handleSearch = () => {
+    const params = new URLSearchParams();
+    if (whereParam) params.set("where", whereParam);
+    if (checkIn) params.set("checkin", checkIn);
+    if (checkOut) params.set("checkout", checkOut);
+    const totalGuests = guests.adults + guests.children;
+    if (totalGuests > 0) params.set("guests", String(totalGuests));
+    navigate(`/search?${params.toString()}`);
   };
 
   const handleOpenDetail = (roomId: string) => {
@@ -468,6 +501,9 @@ export default function PropertyDetailPage() {
             checkOut={checkOut}
             onCheckInChange={setCheckIn}
             onCheckOutChange={setCheckOut}
+            guests={guests}
+            onGuestsChange={setGuests}
+            onSearch={handleSearch}
             roomQuantities={roomQuantities}
             roomGuestCounts={roomGuestCounts}
             selectedRoomId={selectedRoomId}

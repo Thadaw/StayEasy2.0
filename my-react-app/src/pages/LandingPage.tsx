@@ -24,6 +24,15 @@ interface NearbyProperty {
   currency: string;
   cover_photo: string;
   distance_km: number;
+  total_price?: number;
+  nights?: number;
+  description?: string;
+  total_rooms?: number;
+  year_built?: number;
+  phone_number?: string;
+  email?: string;
+  system_amenities?: { id: string; name: string; icon: string }[];
+  custom_amenities?: { icon: string | null; name: string }[];
 }
 
 export default function LandingPage() {
@@ -51,15 +60,42 @@ export default function LandingPage() {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
         });
+        const today = new Date().toISOString().split("T")[0];
+        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
         const { data } = await api.get("/search/nearby", {
           params: {
             lat: pos.coords.latitude,
             lon: pos.coords.longitude,
             limit: 6,
+            check_in: today,
+            check_out: tomorrow,
+            adults: 2,
+            children: 0,
+            rooms: 1,
           },
         });
-        const results = data?.data || [];
-        setNearbyProperties(results);
+        const results: NearbyProperty[] = data?.data || [];
+        const withDetails = await Promise.all(
+          results.map(async (p) => {
+            try {
+              const { data: detail } = await api.get(`/properties/${p.property_id}/public`);
+              const prop = detail?.data;
+              return {
+                ...p,
+                description: prop?.description || "",
+                total_rooms: prop?.total_rooms || 0,
+                year_built: prop?.year_built || 0,
+                phone_number: prop?.phone_number || "",
+                email: prop?.email || "",
+                system_amenities: prop?.system_amenities || [],
+                custom_amenities: prop?.custom_amenities || [],
+              };
+            } catch {
+              return p;
+            }
+          })
+        );
+        setNearbyProperties(withDetails);
       } catch {
         setNearbyProperties([]);
       } finally {
@@ -239,12 +275,32 @@ export default function LandingPage() {
                   <h3 className="text-sm font-bold mb-1 line-clamp-1" style={{ color: "var(--brand-heading)" }}>
                     {property.name}
                   </h3>
-                  <p className="text-[11px] flex items-center gap-1 mb-2" style={{ color: "var(--brand-text-secondary)" }}>
-                    <MapPin size={10} /> {property.address}, {property.city}
+                  <p className="text-[11px] flex items-center gap-1 mb-1" style={{ color: "var(--brand-text-secondary)" }}>
+                    <MapPin size={10} /> {property.address}, {property.city}, {property.state}
                   </p>
-                  <p className="text-[11px]" style={{ color: "var(--brand-text-secondary)" }}>
-                    {property.distance_km} km away
+                  <p className="text-[11px] mb-2" style={{ color: "var(--brand-text-secondary)" }}>
+                    {property.distance_km} km away · {property.total_rooms || 0} rooms
                   </p>
+                  {property.description && (
+                    <p className="text-[11px] line-clamp-2 mb-2" style={{ color: "var(--brand-text-secondary)" }}>
+                      {property.description}
+                    </p>
+                  )}
+                  {property.custom_amenities && property.custom_amenities.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {property.custom_amenities.slice(0, 3).map((a, i) => (
+                        <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-full border border-gray-200" style={{ color: "var(--brand-text-secondary)" }}>{a.name}</span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-gray-100" style={{ color: "var(--brand-heading)" }}>{property.type}</span>
+                    {property.total_price != null && (
+                      <p className="text-sm font-bold" style={{ color: "var(--brand-heading)" }}>
+                        ${property.total_price} <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}>/ night</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

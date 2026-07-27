@@ -9,15 +9,14 @@ interface RoomGridProps {
 
 export function RoomGrid({ hotel, roomQuantities, onSelectRoom }: RoomGridProps) {
   return (
-    <section className="mt-16 border-t border-border pt-10">
-      <h2 className="font-semibold text-foreground mb-6" style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.5rem" }}>
+    <section className="p-6 mb-10">
+      <h2 className="font-semibold text-foreground mb-6" style={{ fontSize: "1.125rem" }}>
         Available rooms
       </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
         {hotel.roomTypes.map((rt) => {
           const qty = roomQuantities[rt.id] || 0;
           const roomType = rt.id === "std" ? "Standard" : rt.id === "dlx" ? "Deluxe" : "Suite";
-          const topAmenities = (rt.roomFacilities || []).slice(0, 3);
           return (
             <div key={rt.id} className="group bg-white rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
               <div className="relative h-[130px] md:h-[150px] overflow-hidden">
@@ -41,20 +40,23 @@ export function RoomGrid({ hotel, roomQuantities, onSelectRoom }: RoomGridProps)
               </div>
               <div className="px-3 py-2">
                 <p className="text-xs md:text-sm font-bold text-foreground leading-tight truncate">{rt.name}</p>
-                <p className="text-[9px] md:text-[10px] text-muted-foreground">{rt.bedType} · {rt.areaSqFt} sq ft</p>
+                <p className="text-[9px] md:text-[10px] text-muted-foreground">Floor {rt.floorNumber} · {rt.areaSqFt} sq ft</p>
                 <div className="flex items-center gap-1 mt-1">
                   <Star size={10} className="text-yellow-500 fill-yellow-500" />
                   <span className="text-[9px] md:text-[10px] font-semibold text-foreground">{hotel.rating}</span>
                   <span className="text-[9px] text-muted-foreground">({hotel.reviews})</span>
                 </div>
-                {topAmenities.length > 0 && (
+                <p className="text-[9px] md:text-[10px] text-muted-foreground mt-1">
+                  Up to {rt.maxGuests} guests ({rt.maxAdults} adults{rt.maxChildren ? `, ${rt.maxChildren} children` : ''})
+                </p>
+                {rt.cancellationTitle && (
+                  <p className="text-[9px] md:text-[10px] text-green-600 mt-1">{rt.cancellationTitle}</p>
+                )}
+                {rt.customAmenities && rt.customAmenities.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1.5">
-                    {topAmenities.map((a, i) => (
-                      <span key={i} className="text-[8px] text-muted-foreground bg-gray-100 rounded-full px-1.5 py-0.5">{a}</span>
+                    {rt.customAmenities.map((a, i) => (
+                      <span key={i} className="text-[8px] text-muted-foreground bg-gray-100 rounded-full px-1.5 py-0.5">{a.name}</span>
                     ))}
-                    {(rt.roomFacilities || []).length > 3 && (
-                      <span className="text-[8px] text-muted-foreground">+{(rt.roomFacilities || []).length - 3}</span>
-                    )}
                   </div>
                 )}
                 <div className="flex items-end justify-between mt-2 pt-2 border-t border-border">
