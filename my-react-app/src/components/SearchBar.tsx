@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, MapPin, Calendar, Users, Wallet, ChevronDown, Plus, Minus, Check } from "lucide-react";
+import { Search, MapPin, Calendar, Users, ChevronDown, Plus, Minus, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { popularSearchDestinations } from "../data/searchDestinations";
-import { budgetOptionKeys } from "../data/budgetOptions";
 import { formatDateRange, buildGuestLabel } from "../utils/format";
 
 interface GuestCount {
@@ -20,24 +19,19 @@ export function SearchBar() {
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState<GuestCount>({ adults: 2, children: 0, infants: 0 });
-  const [budget, setBudget] = useState("anyBudget");
-
   const [showWhere, setShowWhere] = useState(false);
   const [showDates, setShowDates] = useState(false);
   const [showGuests, setShowGuests] = useState(false);
-  const [showBudget, setShowBudget] = useState(false);
 
   const whereRef = useRef<HTMLDivElement>(null);
   const datesRef = useRef<HTMLDivElement>(null);
   const guestsRef = useRef<HTMLDivElement>(null);
-  const budgetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (whereRef.current && !whereRef.current.contains(e.target as Node)) setShowWhere(false);
       if (datesRef.current && !datesRef.current.contains(e.target as Node)) setShowDates(false);
       if (guestsRef.current && !guestsRef.current.contains(e.target as Node)) setShowGuests(false);
-      if (budgetRef.current && !budgetRef.current.contains(e.target as Node)) setShowBudget(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -59,7 +53,6 @@ export function SearchBar() {
     if (checkIn) params.set("checkin", checkIn);
     if (checkOut) params.set("checkout", checkOut);
     if (totalGuests > 0) params.set("guests", String(totalGuests));
-    if (budget !== "anyBudget") params.set("budget", t(budget));
     navigate(`/search?${params}`);
   };
 
@@ -67,11 +60,11 @@ export function SearchBar() {
 
   return (
     <div className="bg-white rounded-2xl shadow-card border border-brand-primary-extra-light p-1.5 md:p-1 mb-3 md:mb-4 w-full">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-0 md:items-center">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-0 md:items-center">
         {/* Where */}
         <div ref={whereRef} className="relative min-w-0 md:flex-1">
           <button
-            onClick={() => { setShowWhere((v) => !v); setShowDates(false); setShowGuests(false); setShowBudget(false); }}
+            onClick={() => { setShowWhere((v) => !v); setShowDates(false); setShowGuests(false); }}
             className="w-full px-4 sm:px-5 py-2.5 md:py-2 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-l-2xl md:rounded-tr-none"
           >
             <MapPin size={13} className="text-brand-accent shrink-0" />
@@ -124,7 +117,7 @@ export function SearchBar() {
         {/* Check in – Check out */}
         <div ref={datesRef} className="relative min-w-0 md:flex-1">
           <button
-            onClick={() => { setShowDates((v) => !v); setShowWhere(false); setShowGuests(false); setShowBudget(false); }}
+            onClick={() => { setShowDates((v) => !v); setShowWhere(false); setShowGuests(false); }}
             className="w-full px-4 sm:px-5 py-2.5 md:py-2 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
           >
             <Calendar size={13} className="text-brand-accent shrink-0" />
@@ -172,7 +165,7 @@ export function SearchBar() {
         {/* Guests */}
         <div ref={guestsRef} className="relative min-w-0 md:flex-1">
           <button
-            onClick={() => { setShowGuests((v) => !v); setShowWhere(false); setShowDates(false); setShowBudget(false); }}
+            onClick={() => { setShowGuests((v) => !v); setShowWhere(false); setShowDates(false); }}
             className="w-full px-4 sm:px-5 py-2.5 md:py-2 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
           >
             <Users size={13} className="text-brand-accent shrink-0" />
@@ -219,38 +212,6 @@ export function SearchBar() {
               >
                 {t("apply")}
               </button>
-            </div>
-          )}
-        </div>
-
-        {/* Budget */}
-        <div ref={budgetRef} className="relative min-w-0 md:flex-1">
-          <button
-            onClick={() => { setShowBudget((v) => !v); setShowWhere(false); setShowDates(false); setShowGuests(false); }}
-            className="w-full px-4 sm:px-5 py-2.5 md:py-2 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-r-2xl md:rounded-bl-none"
-          >
-            <Wallet size={13} className="text-brand-accent shrink-0" />
-            <div className="min-w-0">
-              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("budgetPerNight")}</div>
-              <div className="text-[11px] md:text-xs font-medium text-gray-800 truncate">{t(budget)}</div>
-            </div>
-            <ChevronDown size={13} className={`ml-auto shrink-0 text-gray-400 transition-transform hidden sm:block ${showBudget ? "rotate-180" : ""}`} />
-          </button>
-          {showBudget && (
-            <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-modal border border-brand-primary-extra-light z-50 p-2 animate-in">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1 px-2 pt-1">{t("budgetPerNightTitle")}</p>
-              {budgetOptionKeys.map((key) => (
-                <button
-                  key={key}
-                  onClick={() => { setBudget(key); setShowBudget(false); }}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm rounded-lg transition-colors text-left ${
-                    budget === key ? "bg-brand-accent-light text-brand-accent font-semibold" : "text-gray-700 hover:bg-brand-primary-extra-light"
-                  }`}
-                >
-                  {budget === key && <Check size={14} className="text-brand-accent shrink-0" />}
-                  {t(key)}
-                </button>
-              ))}
             </div>
           )}
         </div>

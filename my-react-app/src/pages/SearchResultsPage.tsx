@@ -1,12 +1,24 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Navbar } from "../components/Navbar";
 import { SearchBar } from "../components/SearchBar";
 import { StickySearchHeader } from "../components/StickySearchHeader";
 import { Footer } from "../components/Footer";
-import { hotels } from "../data/hotels";
-import { MapPin, Star, Heart, ChevronLeft, ChevronRight, SlidersHorizontal, X, Bed, Wifi, Utensils, Waves, TreePine, Home, Building2, Castle, ExternalLink } from "lucide-react";
+import { MapPin, Heart, SlidersHorizontal, X, Utensils, Home, Building2, Waves, Wifi, Castle, TreePine, Bed, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { useFavorites } from "../context/FavoritesContext";
+import api from "../api";
+
+interface ApiProperty {
+  property_id: string;
+  name: string;
+  country: string;
+  state: string;
+  city: string;
+  address: string;
+  amenities: string[];
+  total_price: number;
+  nights: number;
+}
 
 const propertyTypes = [
   { label: "All types", icon: Home, count: 342 },
@@ -60,8 +72,42 @@ export default function SearchResultsPage() {
   const guests = searchParams.get("guests") || "2 guests";
   const whereParam = searchParams.get("where") || "";
   const checkinParam = searchParams.get("checkin") || "";
-  const budgetParam = searchParams.get("budget") || "";
+  const checkoutParam = searchParams.get("checkout") || "";
   const { isFavorite, toggleFavorite } = useFavorites();
+
+  const [apiHotels, setApiHotels] = useState<ApiProperty[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchSearch = useCallback(async () => {
+    if (!whereParam) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const queryParams: Record<string, string> = {
+        destination: whereParam,
+        check_in: checkinParam || new Date().toISOString().split("T")[0],
+        check_out: checkoutParam || new Date(Date.now() + 86400000).toISOString().split("T")[0],
+      };
+      const guestParts = guests.match(/\d+/g);
+      queryParams.adults = guestParts?.[0] || "1";
+      queryParams.children = guestParts?.[1] || "0";
+      queryParams.rooms = "1";
+
+      const { data } = await api.get("/search", { params: queryParams });
+      const results = data?.data?.results || (Array.isArray(data?.data) ? data.data : []);
+      setApiHotels(results);
+    } catch {
+      setApiHotels([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [whereParam, checkinParam, checkoutParam, guests]);
+
+  useEffect(() => {
+    fetchSearch();
+  }, [fetchSearch]);
 
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>(() => {
@@ -108,70 +154,31 @@ export default function SearchResultsPage() {
   };
 
   const filteredHotels = useMemo(() => {
-    return hotels.filter((h) => {
-      // Where filter
+    return apiHotels.filter((h) => {
       if (whereParam) {
-        const q = whereParam.toLowerCase();
-        const matches = h.location.toLowerCase().includes(q) || h.city.toLowerCase().includes(q) || h.name.toLowerCase().includes(q) || h.country.toLowerCase().includes(q);
-        if (!matches) return false;
-      }
-
-      if (h.price < priceRange[0] || h.price > priceRange[1]) return false;
-
-      // Budget filter
-      if (budgetParam && budgetParam !== "Any budget") {
-        const budgetMap: Record<string, [number, number]> = {
-          "Under $50": [0, 50],
-          "$50 – $100": [50, 100],
-          "$100 – $200": [100, 200],
-          "$200 – $500": [200, 500],
-          "$500+": [500, Infinity],
-        };
-        const [min, max] = budgetMap[budgetParam] || [0, Infinity];
-        if (h.price < min || h.price > max) return false;
-      }
-
-      // Property type filter
-      if (!selectedPropertyTypes.includes("All types")) {
-        const typeMap: Record<string, string[]> = {
-          "Villas": ["villa"],
-          "Hotels": ["resort", "hotel"],
-          "Apartments": ["apartment", "loft"],
-          "Resorts": ["resort", "eco"],
-          "Cottages": ["cottage", "chalet", "lodge"],
-        };
-        const matches = selectedPropertyTypes.some((t) =>
-          typeMap[t]?.some((k) => h.category.toLowerCase().includes(k) || h.name.toLowerCase().includes(k))
+        const parts = whereParam.toLowerCase().split(",").map((s) => s.trim());
+        const matches = parts.some((p) =>
+          (h.address || "").toLowerCase().includes(p) ||
+          h.city.toLowerCase().includes(p) ||
+          h.name.toLowerCase().includes(p) ||
+          h.country.toLowerCase().includes(p) ||
+          (h.state || "").toLowerCase().includes(p)
         );
         if (!matches) return false;
       }
 
-      // Amenities filter
+      if (h.total_price < priceRange[0] || h.total_price > priceRange[1]) return false;
+
       if (selectedAmenities.length > 0) {
         const matches = selectedAmenities.every((a) =>
-          h.amenities.some((ha) => ha.toLowerCase().includes(a.toLowerCase()))
+          (h.amenities || []).some((ha) => ha.toLowerCase().includes(a.toLowerCase()))
         );
         if (!matches) return false;
-      }
-
-      // Bed types filter
-      if (selectedBedTypes.length > 0) {
-        const hotelBedTypes = h.roomTypes.map((r) => r.bedType?.toLowerCase() || "");
-        const matches = selectedBedTypes.some((bt) =>
-          hotelBedTypes.some((hbt) => hbt.includes(bt.toLowerCase().replace(" bed", "")))
-        );
-        if (!matches) return false;
-      }
-
-      // Guest rating filter
-      if (guestRating !== "Any") {
-        const minRating = parseFloat(guestRating);
-        if (h.rating < minRating) return false;
       }
 
       return true;
     });
-  }, [whereParam, budgetParam, priceRange, selectedPropertyTypes, selectedAmenities, selectedBedTypes, guestRating]);
+  }, [apiHotels, whereParam, priceRange, selectedAmenities]);
 
   const clearAll = () => {
     setPriceRange([0, 500]);
@@ -182,45 +189,11 @@ export default function SearchResultsPage() {
     setGuestRating("Any");
   };
 
-  const [cardImages, setCardImages] = useState<Record<number, number>>({});
-  const [showPrevBtn, setShowPrevBtn] = useState<Record<number, boolean>>({});
-
   const buildFilterParams = () => {
     const params = new URLSearchParams();
     params.set("guests", guests);
     if (selectedAmenities.length > 0) params.set("amenities", selectedAmenities.join(","));
-    if (selectedBedTypes.length > 0) params.set("bedTypes", selectedBedTypes.join(","));
-    if (guestRating !== "Any") params.set("guestRating", guestRating);
-    if (priceRange[0] > 0 || priceRange[1] < 500) params.set("priceMin", String(priceRange[0]));
-    if (priceRange[1] < 500) params.set("priceMax", String(priceRange[1]));
-    if (!selectedPropertyTypes.includes("All types")) params.set("propertyTypes", selectedPropertyTypes.join(","));
     return params.toString();
-  };
-
-  const getCardImage = (hotel: typeof hotels[0], index: number) => {
-    const images = hotel.images?.length ? hotel.images : [hotel.imageUrl];
-    return images[index % images.length];
-  };
-
-  const getCardImageCount = (hotel: typeof hotels[0]) => {
-    return hotel.images?.length || 1;
-  };
-
-  const prevImage = (hotelId: number, total: number) => {
-    setCardImages((prev) => {
-      const current = prev[hotelId] || 0;
-      const newIdx = current === 0 ? total - 1 : current - 1;
-      if (newIdx === 0) setShowPrevBtn((p) => ({ ...p, [hotelId]: false }));
-      return { ...prev, [hotelId]: newIdx };
-    });
-  };
-
-  const nextImage = (hotelId: number, total: number) => {
-    setCardImages((prev) => {
-      const current = prev[hotelId] || 0;
-      return { ...prev, [hotelId]: current === total - 1 ? 0 : current + 1 };
-    });
-    setShowPrevBtn((prev) => ({ ...prev, [hotelId]: true }));
   };
 
   return (
@@ -385,7 +358,7 @@ export default function SearchResultsPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold" style={{ fontFamily: "'Sora', sans-serif", color: "var(--brand-heading)" }}>
-                {filteredHotels.length} stays in Bali
+                {isLoading ? "Searching..." : `${filteredHotels.length} stays${whereParam ? ` in ${whereParam}` : ""}`}
               </h2>
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ color: "var(--brand-text-secondary)" }}>Sort by:</span>
@@ -405,53 +378,32 @@ export default function SearchResultsPage() {
 
             {/* Hotel Cards */}
             <div className="space-y-4">
-              {filteredHotels.map((hotel) => (
+              {isLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <span className="w-8 h-8 border-3 border-gray-200 border-t-brand-accent rounded-full animate-spin" />
+                </div>
+              ) : filteredHotels.length === 0 ? (
+                <div className="text-center py-20">
+                  <p className="text-sm" style={{ color: "var(--brand-text-secondary)" }}>{!whereParam ? "Enter a destination to search for properties." : "No properties found. Try a different search."}</p>
+                </div>
+              ) : (
+              filteredHotels.map((hotel) => (
                 <div
-                  key={hotel.id}
-                  onClick={() => navigate(`/hotel/${hotel.id}?${buildFilterParams()}`)}
+                  key={hotel.property_id}
+                  onClick={() => navigate(`/hotel/${hotel.property_id}?${buildFilterParams()}`)}
                   className="flex bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100"
                 >
-                  {/* Image Carousel */}
+                  {/* Image Placeholder */}
                   <div className="relative w-[320px] shrink-0">
-                    <img
-                      src={getCardImage(hotel, cardImages[hotel.id] || 0)}
-                      alt={hotel.name}
-                      className="w-full h-full object-cover"
-                    />
-                    {hotel.tag && (
-                      <span className="absolute top-3 left-3 px-2.5 py-1 bg-brand-primary text-white text-[10px] font-semibold rounded-lg">
-                        {hotel.tag}
-                      </span>
-                    )}
+                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                      <Building2 size={40} className="text-gray-300" />
+                    </div>
                     <button
-                      onClick={(e) => { e.stopPropagation(); toggleFavorite(hotel.id); }}
+                      onClick={(e) => { e.stopPropagation(); toggleFavorite(hotel.property_id); }}
                       className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
                     >
-                      <Heart size={16} className={isFavorite(hotel.id) ? "text-red-500 fill-red-500" : "text-gray-600 hover:text-red-500 transition-colors"} />
+                      <Heart size={16} className={isFavorite(hotel.property_id) ? "text-red-500 fill-red-500" : "text-gray-600 hover:text-red-500 transition-colors"} />
                     </button>
-                    {getCardImageCount(hotel) > 1 && (
-                      <>
-                        {showPrevBtn[hotel.id] && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); prevImage(hotel.id, getCardImageCount(hotel)); }}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors"
-                          >
-                            <ChevronLeft size={16} className="text-gray-700" />
-                          </button>
-                        )}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); nextImage(hotel.id, getCardImageCount(hotel)); }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors"
-                        >
-                          <ChevronRight size={16} className="text-gray-700" />
-                        </button>
-                      </>
-                    )}
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                      {Array.from({ length: getCardImageCount(hotel) }).map((_, i) => (
-                        <div key={i} className={`w-1.5 h-1.5 rounded-full ${(cardImages[hotel.id] || 0) === i ? "bg-white" : "bg-white/50"}`} />
-                      ))}
-                    </div>
                   </div>
 
                   {/* Hotel Info */}
@@ -459,57 +411,32 @@ export default function SearchResultsPage() {
                     <div>
                       <h3 className="text-base font-bold mb-1" style={{ color: "var(--brand-heading)" }}>{hotel.name}</h3>
                       <p className="text-xs flex items-center gap-1 mb-2" style={{ color: "var(--brand-text-secondary)" }}>
-                        <MapPin size={12} /> {hotel.location}, {hotel.city}
-                        <a
-                          href={`https://www.google.com/maps?q=${hotel.lat},${hotel.lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-0.5 ml-2 text-[10px] font-semibold text-brand-accent hover:underline"
-                        >
-                          <ExternalLink size={10} /> View in map
-                        </a>
+                        <MapPin size={12} /> {hotel.address}, {hotel.city}, {hotel.state}
                       </p>
-                      <div className="flex items-center gap-1 mb-3">
-                        <Star size={12} className="text-yellow-500 fill-yellow-500" />
-                        <span className="text-xs font-semibold" style={{ color: "var(--brand-heading)" }}>{hotel.rating}</span>
-                        <span className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>({hotel.reviews} reviews)</span>
-                      </div>
                       <div className="flex items-center gap-2 flex-wrap mb-3">
-                        {hotel.amenities?.slice(0, 5).map((amenity, i) => (
+                        {(hotel.amenities || []).slice(0, 5).map((amenity, i) => (
                           <span key={i} className="text-[10px] px-2 py-0.5 bg-gray-100 rounded-full" style={{ color: "var(--brand-text-secondary)" }}>
                             {amenity}
                           </span>
                         ))}
-                        {(hotel.amenities?.length || 0) > 5 && (
+                        {(hotel.amenities || []).length > 5 && (
                           <span className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>+{hotel.amenities.length - 5} more</span>
                         )}
                       </div>
                       <p className="text-[11px] font-semibold text-green-600">
-                        {hotel.roomTypes.reduce((sum, rt) => sum + rt.availableRooms, 0)} rooms available
+                        Available
                       </p>
                     </div>
 
                     {/* Price */}
                     <div className="text-right flex flex-col justify-between">
-                      <div className="flex items-start justify-end gap-3">
-                        <div>
-                          <p className="text-xs font-semibold" style={{ color: "var(--brand-heading)" }}>
-                            {hotel.rating >= 8 ? "Excellent" : hotel.rating >= 7 ? "Very good" : hotel.rating >= 6 ? "Good" : "Average"}
-                          </p>
-                          <p className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>{hotel.reviews} reviews</p>
-                        </div>
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: "#003580" }}>
-                          {hotel.rating}
-                        </div>
-                      </div>
                       <div className="mt-4">
-                        <p className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>{checkinParam ? "1 night" : "1 night"}, {guests} guests</p>
-                        <p className="text-lg font-bold mt-0.5" style={{ color: "var(--brand-heading)" }}>${hotel.price * 1}</p>
+                        <p className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>{hotel.nights} night{hotel.nights > 1 ? "s" : ""}, {guests} guests</p>
+                        <p className="text-lg font-bold mt-0.5" style={{ color: "var(--brand-heading)" }}>${hotel.total_price}</p>
                         <p className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>Includes taxes and charges</p>
                       </div>
                       <button
-                        onClick={(e) => { e.stopPropagation(); navigate(`/hotel/${hotel.id}?${buildFilterParams()}`); }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/hotel/${hotel.property_id}?${buildFilterParams()}`); }}
                         className="mt-3 px-4 py-2 text-xs font-semibold rounded-lg transition-colors"
                         style={{ backgroundColor: "#EBF6EF", color: "#1E8449" }}
                         onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#D4EDDA"; }}
@@ -520,7 +447,8 @@ export default function SearchResultsPage() {
                     </div>
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
 
             {/* Pagination */}
