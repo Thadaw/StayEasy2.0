@@ -52,7 +52,7 @@ function App() {
           <Route path="/language-currency" element={<ComingSoon />} />
           <Route path="/booking-details/:id" element={<ProtectedRoute><BookingDetailsPage /></ProtectedRoute>} />
           <Route path="/reserve/:id" element={<ProtectedRoute><ReservePage /></ProtectedRoute>} />
-          <Route path="/booking-confirmation" element={<ProtectedRoute><BookingConfirmationPage /></ProtectedRoute>} />
+          <Route path="/booking-confirmation/:refNumber?" element={<ProtectedRoute><BookingConfirmationPage /></ProtectedRoute>} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </ErrorBoundary>

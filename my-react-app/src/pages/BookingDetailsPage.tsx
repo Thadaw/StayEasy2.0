@@ -150,6 +150,8 @@ export default function BookingDetailsPage() {
   const checkOut = searchParams.get("checkOut") || ""
   const roomsParam = searchParams.get("rooms") || ""
   const guestCountsParam = searchParams.get("guestCounts") || ""
+  const refParam = searchParams.get("ref") || ""
+  const [refNumber, setRefNumber] = useState(refParam)
   const parsedRooms: Record<string, number> = roomsParam ? JSON.parse(roomsParam) : {}
   const parsedGuestCounts: Record<string, number> = guestCountsParam ? JSON.parse(guestCountsParam) : {}
   const totalGuests = Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0)
@@ -157,12 +159,11 @@ export default function BookingDetailsPage() {
   const [apiProperty, setApiProperty] = useState<ApiProperty | null>(null)
   const [apiRooms, setApiRooms] = useState<ApiRoom[]>([])
   const [loading, setLoading] = useState(true)
+  const [bookingRooms, setBookingRooms] = useState<{ room_id: string; room_name: string; room_type: string; bed_type: string; max_adults: number; max_children: number; base_rate: number; nights: number; subtotal: number }[]>([])
 
-  const [title, setTitle] = useState("")
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
-  const [confirmEmail, setConfirmEmail] = useState("")
   const [phoneCode, setPhoneCode] = useState("+977")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [country, setCountry] = useState("")
@@ -212,6 +213,54 @@ export default function BookingDetailsPage() {
   }, [])
 
   useEffect(() => {
+    if (!id || refNumber) return
+    const createBooking = async () => {
+      try {
+        const today = new Date().toISOString().split("T")[0]
+        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0]
+        const rooms: Record<string, number> = roomsParam ? JSON.parse(roomsParam) : {}
+        const roomIds = Object.entries(rooms)
+          .filter(([, qty]) => qty > 0)
+          .flatMap(([roomId, qty]) => Array(qty).fill(roomId))
+        const guestsParam = searchParams.get("guests")
+        const adultsParam = searchParams.get("adults")
+        const childrenParam = searchParams.get("children")
+        const adults = adultsParam ? Number(adultsParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[0] || "2") : 2)
+        const children = childrenParam ? Number(childrenParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[1] || "0") : 0)
+        const { data } = await api.post('/bookings/', {
+          idempotency_key: crypto.randomUUID(),
+          property_id: id,
+          room_ids: roomIds,
+          check_in: checkIn || today,
+          check_out: checkOut || tomorrow,
+          adults,
+          children,
+        })
+        const ref = data?.data?.ref_number || data?.ref_number || ''
+        if (ref) setRefNumber(ref)
+      } catch (err) {
+        console.error('Failed to create booking:', err)
+      }
+    }
+    createBooking()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, refNumber, roomsParam, checkIn, checkOut])
+
+  useEffect(() => {
+    if (!refNumber) return
+    const fetchBooking = async () => {
+      try {
+        const { data } = await api.get(`/bookings/${refNumber}`)
+        const booking = data?.data || data
+        if (booking?.rooms) setBookingRooms(booking.rooms)
+      } catch {
+        // fallback to URL params
+      }
+    }
+    fetchBooking()
+  }, [refNumber])
+
+  useEffect(() => {
     if (!id) return
     const fetchData = async () => {
       setLoading(true)
@@ -254,15 +303,32 @@ export default function BookingDetailsPage() {
 
   const hotel = apiHotel || hotels.find((h) => h.id === Number(id))
 
-  const selectedRoomTypes = hotel ? hotel.roomTypes.filter(rt => parsedRooms[rt.id] && parsedRooms[rt.id] > 0) : []
+  const selectedRoomTypes = useMemo(() => {
+    if (!hotel) return []
+    if (bookingRooms.length > 0) {
+      return hotel.roomTypes.filter(rt => bookingRooms.some(br => br.room_id === rt.id))
+    }
+    return hotel.roomTypes.filter(rt => parsedRooms[rt.id] && parsedRooms[rt.id] > 0)
+  }, [hotel, bookingRooms, parsedRooms])
 
-  const roomLines = selectedRoomTypes.map(rt => {
-    const qty = parsedRooms[rt.id] || 0
-    const gc = parsedGuestCounts[rt.id] || 1
-    const ep = calcPrice(rt.price, rt.maxGuests, gc)
-    const lineTotal = qty * ep
-    return { room: rt, qty, gc, ep, lineTotal }
-  })
+  const roomLines = useMemo(() => {
+    if (bookingRooms.length > 0) {
+      return bookingRooms.map(br => {
+        const rt = hotel?.roomTypes.find(r => r.id === br.room_id)
+        const qty = 1
+        const gc = br.max_adults + br.max_children
+        const ep = br.base_rate
+        return { room: rt || { id: br.room_id, name: br.room_name, price: br.base_rate, maxGuests: gc } as RoomType, qty, gc, ep, lineTotal: qty * ep }
+      })
+    }
+    return selectedRoomTypes.map(rt => {
+      const qty = parsedRooms[rt.id] || 0
+      const gc = parsedGuestCounts[rt.id] || 1
+      const ep = calcPrice(rt.price, rt.maxGuests, gc)
+      const lineTotal = qty * ep
+      return { room: rt, qty, gc, ep, lineTotal }
+    })
+  }, [bookingRooms, selectedRoomTypes, hotel, parsedRooms, parsedGuestCounts])
 
   const nights = checkIn && checkOut
     ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
@@ -282,6 +348,7 @@ export default function BookingDetailsPage() {
     params.set("guestEmail", email)
     params.set("guestPhone", `${phoneCode}${phoneNumber}`)
     if (country) params.set("guestCountry", country)
+    if (refNumber) params.set("ref", refNumber)
     navigate(`/reserve/${id}?${params.toString()}`)
   }
 
@@ -450,21 +517,7 @@ export default function BookingDetailsPage() {
               <p className="text-sm text-gray-500 mb-5">Almost done! Just fill in the <span className="text-red-500">*</span> required info</p>
 
               {/* Name row */}
-              <div className="grid grid-cols-1 sm:grid-cols-[100px_1fr_1fr] gap-3 mb-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Title *</label>
-                  <select
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2E86AB] transition-colors text-gray-900 bg-white"
-                  >
-                    <option value="">-</option>
-                    <option value="Mr">Mr</option>
-                    <option value="Mrs">Mrs</option>
-                    <option value="Ms">Ms</option>
-                    <option value="Dr">Dr</option>
-                  </select>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">First name *</label>
                   <input
@@ -495,22 +548,6 @@ export default function BookingDetailsPage() {
                   placeholder="Watch out for typos..."
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2E86AB] transition-colors text-gray-900 placeholder:text-gray-400"
                 />
-              </div>
-
-              {/* Confirm email */}
-              <div className="mb-4">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Confirm email address *</label>
-                <input
-                  type="email"
-                  value={confirmEmail}
-                  onChange={e => setConfirmEmail(e.target.value)}
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm outline-none transition-colors text-gray-900 ${
-                    confirmEmail && email !== confirmEmail ? "border-red-400 focus:border-red-500" : "border-gray-300 focus:border-[#2E86AB]"
-                  }`}
-                />
-                {confirmEmail && email !== confirmEmail && (
-                  <p className="text-xs text-red-500 mt-1">Email addresses do not match</p>
-                )}
               </div>
 
               {/* Phone */}

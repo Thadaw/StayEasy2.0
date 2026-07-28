@@ -22,6 +22,8 @@ export interface RazorpayCheckoutOptions {
     name?: string
     email?: string
     contact?: string
+    vpa?: string
+    bank?: string
   }
   theme?: {
     color?: string
@@ -30,7 +32,16 @@ export interface RazorpayCheckoutOptions {
     ondismiss?: () => void
   }
   config?: {
-    display?: Record<string, unknown>
+    display?: {
+      blocks?: Record<string, {
+        name?: string
+        instruments?: Array<{ method: string }>
+      }>
+      sequence?: string[]
+      preferences?: {
+        show_default_blocks?: boolean
+      }
+    }
   }
 }
 

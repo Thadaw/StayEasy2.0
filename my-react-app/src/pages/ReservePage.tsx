@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react"
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
-import { Star, X, Loader2, CreditCard, ShieldCheck, Wifi, Plane, UtensilsCrossed } from "lucide-react"
+import { Star, X, Loader2, CreditCard, ShieldCheck, Wifi, Plane, UtensilsCrossed, Smartphone, Building2, CheckCircle2 } from "lucide-react"
 import toast from "react-hot-toast"
+import { useRazorpay } from "../hooks/useRazorpay"
+import type { RazorpayPaymentResponse } from "../types/razorpay"
 import { hotels, Hotel, RoomType } from "../data/hotels"
 import { useBookings } from "../context/BookingContext"
 import { Navbar } from "../components/Navbar"
@@ -71,6 +73,20 @@ function mapApiPropertyToHotel(apiProp: ApiProperty, rooms: ApiRoom[]): Hotel {
   }
 }
 
+interface BookingRoom {
+  room_id: string; room_name: string; room_type: string; bed_type: string;
+  max_adults: number; max_children: number; base_rate: number; nights: number; subtotal: number;
+}
+
+interface BookingData {
+  booking_id: string; ref_number: string; status: string;
+  check_in: string; check_out: string; nights: number; payment_gateway: string | null;
+  property: { id: string; name: string; type: string; city: string; country: string; currency: string };
+  rooms: BookingRoom[];
+  total_amount: number; subtotal: number; special_offer_discount: number;
+  coupon_code: string | null; coupon_discount: number;
+}
+
 const paymentOptions: { key: PaymentMethod; label: string; sub: string; logo: JSX.Element }[] = [
   {
     key: "stripe",
@@ -103,6 +119,7 @@ export default function ReservePage() {
   const [apiProperty, setApiProperty] = useState<ApiProperty | null>(null)
   const [apiRooms, setApiRooms] = useState<ApiRoom[]>([])
   const [apiLoading, setApiLoading] = useState(true)
+  const [bookingData, setBookingData] = useState<BookingData | null>(null)
 
   const apiHotel = useMemo(() => {
     if (!apiProperty) return null
@@ -115,47 +132,52 @@ export default function ReservePage() {
   const [promoInput, setPromoInput] = useState('')
   const [appliedDiscount, setAppliedDiscount] = useState<{ type: 'percentage' | 'fixed'; amount: number; code: string } | null>(null)
   const [promoError, setPromoError] = useState('')
-  const [cardNumber, setCardNumber] = useState('')
-  const [cardExpiry, setCardExpiry] = useState('')
-  const [cardCvv, setCardCvv] = useState('')
-  const [cardName, setCardName] = useState('')
   const [marketingOptIn, setMarketingOptIn] = useState(false)
+  const [razorpayResponse, setRazorpayResponse] = useState<RazorpayPaymentResponse | null>(null)
+  const [upiId, setUpiId] = useState('')
+  const [selectedBank, setSelectedBank] = useState('')
+  const [paySubMethod, setPaySubMethod] = useState<'upi' | 'card' | 'netbanking' | null>(null)
+
+  const refNumber = searchParams.get('ref') || ''
+  const { isLoaded: razorpayLoaded, openCheckout } = useRazorpay()
 
   useEffect(() => {
-    if (!id) return
-    const fetchData = async () => {
+    if (!refNumber) return
+    const fetchBooking = async () => {
       setApiLoading(true)
       try {
-        const today = new Date().toISOString().split("T")[0]
-        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0]
-        const checkInDate = searchParams.get('checkIn') || today
-        const checkOutDate = searchParams.get('checkOut') || tomorrow
-        const guestsParam = searchParams.get("guests")
-        const adultsParam = searchParams.get("adults")
-        const childrenParam = searchParams.get("children")
-        const roomsParamQ = searchParams.get("rooms")
-        const adults = adultsParam ? Number(adultsParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[0] || "2") : 2)
-        const children = childrenParam ? Number(childrenParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[1] || "0") : 0)
-        const rooms = roomsParamQ ? Number(roomsParamQ) : 1
-        const propRes = await api.get(`/properties/${id}/public`)
-        setApiProperty(propRes.data?.data || null)
+        const { data } = await api.get(`/bookings/${refNumber}`)
+        const booking = data?.data || data
+        setBookingData(booking)
+
+        const propertyId = booking?.property?.id || id
         try {
-          const roomsRes = await api.get(`/properties/${id}/rooms/available-rooms`, {
-            params: { checkin_date: checkInDate, checkout_date: checkOutDate, adults, children, rooms },
-          })
+          const propRes = await api.get(`/properties/${propertyId}/public`)
+          setApiProperty(propRes.data?.data || null)
+        } catch { setApiProperty(null) }
+        try {
+          const roomsRes = await api.get(`/properties/${propertyId}/rooms/available-rooms`)
           setApiRooms(roomsRes.data?.data || [])
-        } catch {
-          setApiRooms([])
-        }
+        } catch { setApiRooms([]) }
       } catch {
-        setApiProperty(null)
-        setApiRooms([])
+        setBookingData(null)
+        if (id) {
+          try {
+            const propRes = await api.get(`/properties/${id}/public`)
+            setApiProperty(propRes.data?.data || null)
+            const roomsRes = await api.get(`/properties/${id}/rooms/available-rooms`)
+            setApiRooms(roomsRes.data?.data || [])
+          } catch {
+            setApiProperty(null)
+            setApiRooms([])
+          }
+        }
       } finally {
         setApiLoading(false)
       }
     }
-    fetchData()
-  }, [id, searchParams])
+    fetchBooking()
+  }, [id, refNumber])
 
   const validPromos: Record<string, { type: 'percentage' | 'fixed'; amount: number }> = {
     SUMMER20: { type: 'percentage', amount: 20 },
@@ -187,8 +209,9 @@ export default function ReservePage() {
   const parsedGuestCounts: Record<string, number> = guestCountsParam ? JSON.parse(guestCountsParam) : {};
 
   const { addBooking } = useBookings()
-  const [checkIn] = useState(searchParams.get('checkIn') || '')
-  const [checkOut] = useState(searchParams.get('checkOut') || '')
+
+  const checkIn = bookingData?.check_in || searchParams.get('checkIn') || ''
+  const checkOut = bookingData?.check_out || searchParams.get('checkOut') || ''
 
   const guestFirstName = searchParams.get('guestFirstName') || ''
   const guestLastName = searchParams.get('guestLastName') || ''
@@ -196,43 +219,40 @@ export default function ReservePage() {
   const guestPhone = searchParams.get('guestPhone') || ''
   const specialRequests = searchParams.get('specialRequests') || ''
 
-  if (apiLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-        <span className="w-8 h-8 border-3 border-gray-200 border-t-[#2E86AB] rounded-full animate-spin" />
-        <p className="text-sm text-gray-500">Loading reservation...</p>
-      </div>
-    )
-  }
+  const hotelName = bookingData?.property?.name || hotel?.name || ''
+  const hotelCity = bookingData?.property?.city || hotel?.city || ''
+  const hotelCountry = bookingData?.property?.country || hotel?.country || ''
 
-  if (!hotel) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-        <p className="text-2xl">🏨</p>
-        <p className="text-lg font-semibold text-gray-900">Property not found</p>
-        <Link to="/" className="px-5 py-2.5 bg-[#1A3C5E] text-white rounded-full text-sm font-medium hover:opacity-90">
-          Back to home
-        </Link>
-      </div>
-    )
-  }
+  const selectedRoomTypes = useMemo(() => {
+    if (!hotel) return []
+    if (bookingData?.rooms?.length) {
+      return hotel.roomTypes.filter(rt => bookingData.rooms.some(br => br.room_id === rt.id))
+    }
+    return hotel.roomTypes.filter(rt => parsedRooms[rt.id] && parsedRooms[rt.id] > 0)
+  }, [hotel, bookingData, parsedRooms])
 
-  const selectedRoomTypes = hotel.roomTypes.filter(rt => parsedRooms[rt.id] && parsedRooms[rt.id] > 0);
+  const roomLines = useMemo(() => {
+    if (bookingData?.rooms?.length) {
+      return bookingData.rooms.map(br => {
+        const rt = hotel?.roomTypes.find(r => r.id === br.room_id)
+        return { room: rt || { id: br.room_id, name: br.room_name, price: br.base_rate, maxGuests: br.max_adults + br.max_children } as RoomType, qty: 1, gc: br.max_adults + br.max_children, ep: br.base_rate, lineTotal: br.subtotal }
+      })
+    }
+    return selectedRoomTypes.map(rt => {
+      const qty = parsedRooms[rt.id] || 0;
+      const gc = parsedGuestCounts[rt.id] || 1;
+      const ep = calcPrice(rt.price, rt.maxGuests, gc);
+      const lineTotal = qty * ep;
+      return { room: rt, qty, gc, ep, lineTotal };
+    })
+  }, [bookingData, selectedRoomTypes, hotel, parsedRooms, parsedGuestCounts])
 
-  const roomLines = selectedRoomTypes.map(rt => {
-    const qty = parsedRooms[rt.id] || 0;
-    const gc = parsedGuestCounts[rt.id] || 1;
-    const ep = calcPrice(rt.price, rt.maxGuests, gc);
-    const lineTotal = qty * ep;
-    return { room: rt, qty, gc, ep, lineTotal };
-  });
+  const totalGuests = bookingData?.rooms?.reduce((s, r) => s + r.max_adults + r.max_children, 0) || Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0);
 
-  const totalGuests = Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0);
-
-  const nights = checkIn && checkOut
+  const nights = bookingData?.nights || (checkIn && checkOut
     ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
-    : 1
-  const subtotal = roomLines.reduce((s, l) => s + l.lineTotal * nights, 0);
+    : 1)
+  const subtotal = bookingData?.subtotal || roomLines.reduce((s, l) => s + l.lineTotal * nights, 0);
   const taxesAndFees = Math.round(subtotal * 0.10);
   const resortFee = Math.round(roomLines.reduce((s, l) => s + l.ep * l.qty, 0) * 0.06);
 
@@ -243,7 +263,28 @@ export default function ReservePage() {
       : appliedDiscount.amount;
   }
 
-  const total = subtotal + taxesAndFees + resortFee - discountAmount;
+  const total = bookingData?.total_amount || (subtotal + taxesAndFees + resortFee - discountAmount);
+
+  if (apiLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <span className="w-8 h-8 border-3 border-gray-200 border-t-[#2E86AB] rounded-full animate-spin" />
+        <p className="text-sm text-gray-500">Loading reservation...</p>
+      </div>
+    )
+  }
+
+  if (!hotel && !bookingData) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <p className="text-2xl">🏨</p>
+        <p className="text-lg font-semibold text-gray-900">Property not found</p>
+        <Link to="/" className="px-5 py-2.5 bg-[#1A3C5E] text-white rounded-full text-sm font-medium hover:opacity-90">
+          Back to home
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#f8f9fa]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
@@ -278,29 +319,31 @@ export default function ReservePage() {
           <div className="order-2 lg:order-1">
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <img
-                src={hotel.imageUrl || hotel.images[0]}
-                alt={hotel.name}
+                src={hotel?.imageUrl || hotel?.images?.[0] || ''}
+                alt={hotelName}
                 className="w-full h-56 object-cover"
               />
               <div className="p-5">
                 <div className="flex items-center gap-1 mb-2">
-                  {Array.from({ length: 5 }).map((_, i) => (
+                  {hotel && Array.from({ length: 5 }).map((_, i) => (
                     <Star key={i} size={14} className={i < Math.floor(hotel.rating) ? "fill-[#febb02] stroke-[#febb02]" : "fill-gray-200 stroke-gray-200"} />
                   ))}
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
-                  {hotel.name}
+                  {hotelName}
                 </h2>
-                <p className="text-sm text-gray-500 mb-2">{hotel.location}</p>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-bold text-white bg-[#003580] px-2 py-1 rounded">
-                    {hotel.rating.toFixed(1)}
-                  </span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {hotel.rating >= 4 ? "Excellent" : hotel.rating >= 3 ? "Good" : "Bad"}
-                  </span>
-                  <span className="text-sm text-gray-500">· {hotel.reviews} reviews</span>
-                </div>
+                <p className="text-sm text-gray-500 mb-2">{hotelCity}{hotelCountry ? `, ${hotelCountry}` : ''}</p>
+                {hotel && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-bold text-white bg-[#003580] px-2 py-1 rounded">
+                      {hotel.rating.toFixed(1)}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {hotel.rating >= 4 ? "Excellent" : hotel.rating >= 3 ? "Good" : "Bad"}
+                    </span>
+                    <span className="text-sm text-gray-500">· {hotel.reviews} reviews</span>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2">
                   <span className="inline-flex items-center gap-1 text-xs text-gray-600">
                     <Wifi size={12} /> Free WiFi
@@ -355,12 +398,12 @@ export default function ReservePage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Original price</span>
-                    <span className="text-sm text-gray-900">${subtotal.toFixed(2)}</span>
+                    <span className="text-sm text-gray-900">₹{subtotal.toFixed(2)}</span>
                   </div>
                   {appliedDiscount && (
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-[#d4111e] font-medium">Bonus savings</span>
-                      <span className="text-sm text-[#d4111e] font-medium">-${discountAmount.toFixed(2)}</span>
+                      <span className="text-sm text-[#d4111e] font-medium">-₹{discountAmount.toFixed(2)}</span>
                     </div>
                   )}
                 </div>
@@ -373,9 +416,9 @@ export default function ReservePage() {
 
                 <div className="border-t border-gray-200 mt-4 pt-4">
                   {appliedDiscount && (
-                    <p className="text-sm text-[#d4111e] line-through mb-1">${subtotal.toFixed(2)}</p>
+                    <p className="text-sm text-[#d4111e] line-through mb-1">₹{subtotal.toFixed(2)}</p>
                   )}
-                  <p className="text-xl font-bold text-gray-900">Total ${Math.max(0, total).toFixed(2)}</p>
+                  <p className="text-xl font-bold text-gray-900">Total ₹{Math.max(0, total).toFixed(2)}</p>
                   <p className="text-xs text-gray-500">Includes taxes and fees</p>
                 </div>
 
@@ -386,8 +429,8 @@ export default function ReservePage() {
                       <CreditCard size={14} className="text-gray-500" />
                     </div>
                     <div className="text-xs text-gray-600">
-                      <p className="font-semibold text-gray-900">Includes ${taxesAndFees.toFixed(2)} in taxes and fees</p>
-                      <p>10% taxes · ${taxesAndFees.toFixed(2)}</p>
+                      <p className="font-semibold text-gray-900">Includes ₹{taxesAndFees.toFixed(2)} in taxes and fees</p>
+                      <p>10% taxes · ₹{taxesAndFees.toFixed(2)}</p>
                     </div>
                   </div>
                 </div>
@@ -401,7 +444,7 @@ export default function ReservePage() {
                 </p>
                 <div className="flex justify-between text-sm text-gray-600 mt-2">
                   <span>After 12:00 AM on {checkIn ? formatDate(checkIn) : "check-in"}</span>
-                  <span className="font-medium">${total.toFixed(2)}</span>
+                  <span className="font-medium">₹{total.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -457,8 +500,8 @@ export default function ReservePage() {
                 </p>
               </div>
               <img
-                src={hotel.imageUrl || hotel.images[0]}
-                alt={hotel.name}
+                src={hotel?.imageUrl || hotel?.images?.[0] || ''}
+                alt={hotelName}
                 className="w-16 h-16 rounded-lg object-cover shrink-0 ml-4"
               />
             </div>
@@ -522,76 +565,292 @@ export default function ReservePage() {
               ))}
             </div>
 
-            {/* Card form */}
-            {selectedPayment && (
-              <div className="space-y-5">
-                {selectedPayment === "stripe" ? (
-                  <p className="text-sm text-gray-500">Stripe integration is coming soon. Please select Razorpay to proceed.</p>
-                ) : (
-                  <>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Name on card</label>
+            {/* Payment form */}
+            {selectedPayment === "stripe" && (
+              <p className="text-sm text-gray-500 mb-6">Stripe integration is coming soon. Please select Razorpay to proceed.</p>
+            )}
+
+            {selectedPayment === "razorpay" && !razorpayResponse && (
+              <div className="space-y-4 mb-6">
+                {/* Sub-method selector */}
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    onClick={() => setPaySubMethod('upi')}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                      paySubMethod === 'upi'
+                        ? 'border-[#0071c2] bg-blue-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      paySubMethod === 'upi' ? 'bg-[#0071c2] text-white' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      <Smartphone size={18} />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-900">UPI</span>
+                    <span className="text-[10px] text-gray-500">GPay, PhonePe, etc.</span>
+                  </button>
+
+                  <button
+                    onClick={() => setPaySubMethod('card')}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                      paySubMethod === 'card'
+                        ? 'border-[#0071c2] bg-blue-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      paySubMethod === 'card' ? 'bg-[#0071c2] text-white' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      <CreditCard size={18} />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-900">Card</span>
+                    <span className="text-[10px] text-gray-500">Debit / Credit</span>
+                  </button>
+
+                  <button
+                    onClick={() => setPaySubMethod('netbanking')}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                      paySubMethod === 'netbanking'
+                        ? 'border-[#0071c2] bg-blue-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      paySubMethod === 'netbanking' ? 'bg-[#0071c2] text-white' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      <Building2 size={18} />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-900">Net Banking</span>
+                    <span className="text-[10px] text-gray-500">All major banks</span>
+                  </button>
+                </div>
+
+                {/* UPI input */}
+                {paySubMethod === 'upi' && (
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <label className="block text-xs font-semibold text-gray-700">Enter your UPI ID</label>
+                    <div className="flex gap-2">
                       <input
                         type="text"
-                        placeholder="Amara Osei"
-                        value={cardName}
-                        onChange={e => setCardName(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#0071c2] transition-colors"
+                        placeholder="yourname@upi"
+                        value={upiId}
+                        onChange={e => setUpiId(e.target.value)}
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0071c2] transition-colors"
                       />
                     </div>
+                    <p className="text-[11px] text-gray-400">Supported: Google Pay, PhonePe, Paytm, BHIM, etc.</p>
+                    <button
+                      disabled={!upiId.trim() || paymentLoading}
+                      onClick={async () => {
+                        if (!upiId.trim() || !refNumber) return
+                        setPaymentLoading(true)
+                        try {
+                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
+                          const orderId = data?.razorpay_order_id || data?.data?.razorpay_order_id || data?.order_id || data?.data?.order_id
+                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
+                          const paymentRes = await openCheckout({
+                            key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+                            amount: Math.round(total * 100),
+                            currency: "INR",
+                            name: "StayEasy",
+                            description: `Booking at ${hotelName}`,
+                            order_id: orderId,
+                            config: {
+                              display: {
+                                blocks: {
+                                  upib: {
+                                    name: "Pay via UPI",
+                                    instruments: [
+                                      { method: "upi" }
+                                    ]
+                                  }
+                                },
+                                sequence: ["block.upib"],
+                                preferences: {
+                                  show_default_blocks: false
+                                }
+                              }
+                            },
+                            prefill: {
+                              name: `${guestFirstName} ${guestLastName}`.trim(),
+                              email: guestEmail,
+                              contact: guestPhone,
+                              vpa: upiId.trim(),
+                            },
+                            theme: { color: "#0071c2" },
+                          })
+                          setRazorpayResponse(paymentRes)
+                          toast.success("Payment successful!")
+                        } catch (err: unknown) {
+                          const msg = err instanceof Error ? err.message : "Unknown error"
+                          if (msg !== "Payment cancelled") toast.error("Payment failed: " + msg)
+                        } finally { setPaymentLoading(false) }
+                      }}
+                      className="w-full py-2.5 rounded-lg bg-[#0071c2] text-white text-sm font-semibold hover:bg-[#005fa3] transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay ₹{Math.max(0, total).toFixed(2)} via UPI</>}
+                    </button>
+                  </div>
+                )}
+
+                {/* Card */}
+                {paySubMethod === 'card' && (
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <p className="text-xs text-gray-600">You'll be redirected to Razorpay's secure card checkout.</p>
+                    <div className="flex items-center gap-2">
+                      {['Visa', 'Mastercard', 'RuPay', 'Amex'].map(b => (
+                        <span key={b} className="text-[10px] font-medium bg-white border border-gray-200 rounded px-2 py-1 text-gray-600">{b}</span>
+                      ))}
+                    </div>
+                    <button
+                      disabled={paymentLoading}
+                      onClick={async () => {
+                        if (!refNumber) return
+                        setPaymentLoading(true)
+                        try {
+                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
+                          const orderId = data?.razorpay_order_id || data?.data?.razorpay_order_id || data?.order_id || data?.data?.order_id
+                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
+                          const paymentRes = await openCheckout({
+                            key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+                            amount: Math.round(total * 100),
+                            currency: "INR",
+                            name: "StayEasy",
+                            description: `Booking at ${hotelName}`,
+                            order_id: orderId,
+                            prefill: {
+                              name: `${guestFirstName} ${guestLastName}`.trim(),
+                              email: guestEmail,
+                              contact: guestPhone,
+                            },
+                            theme: {
+                              color: "#0071c2",
+                            },
+                          })
+                          setRazorpayResponse(paymentRes)
+                          toast.success("Payment successful!")
+                        } catch (err: unknown) {
+                          const msg = err instanceof Error ? err.message : "Unknown error"
+                          if (msg !== "Payment cancelled") toast.error("Payment failed: " + msg)
+                        } finally { setPaymentLoading(false) }
+                      }}
+                      className="w-full py-2.5 rounded-lg bg-[#0071c2] text-white text-sm font-semibold hover:bg-[#005fa3] transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay ₹{Math.max(0, total).toFixed(2)} via Card</>}
+                    </button>
+                  </div>
+                )}
+
+                {/* Net Banking */}
+                {paySubMethod === 'netbanking' && (
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <label className="block text-xs font-semibold text-gray-700">Select your bank</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { code: "HDFC", name: "HDFC Bank" },
+                        { code: "ICICI", name: "ICICI Bank" },
+                        { code: "SBIN", name: "SBI" },
+                        { code: "KKBK", name: "Kotak Bank" },
+                        { code: "UTIB", name: "Axis Bank" },
+                        { code: "PUNB", name: "PNB" },
+                        { code: "IDFB", name: "IDFC First" },
+                        { code: "YESB", name: "Yes Bank" },
+                      ].map(bank => (
+                        <button
+                          key={bank.code}
+                          onClick={() => setSelectedBank(bank.code)}
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-left transition-all cursor-pointer text-xs ${
+                            selectedBank === bank.code
+                              ? 'border-[#0071c2] bg-blue-50 text-[#0071c2] font-semibold'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          {selectedBank === bank.code && <CheckCircle2 size={14} className="text-[#0071c2] shrink-0" />}
+                          {bank.name}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      disabled={!selectedBank || paymentLoading}
+                      onClick={async () => {
+                        if (!selectedBank || !refNumber) return
+                        setPaymentLoading(true)
+                        try {
+                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
+                          const orderId = data?.razorpay_order_id || data?.data?.razorpay_order_id || data?.order_id || data?.data?.order_id
+                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
+                          const paymentRes = await openCheckout({
+                            key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+                            amount: Math.round(total * 100),
+                            currency: "INR",
+                            name: "StayEasy",
+                            description: `Booking at ${hotelName}`,
+                            order_id: orderId,
+                            config: {
+                              display: {
+                                blocks: {
+                                  nbb: {
+                                    name: "Pay via Net Banking",
+                                    instruments: [
+                                      { method: "netbanking" }
+                                    ]
+                                  }
+                                },
+                                sequence: ["block.nbb"],
+                                preferences: {
+                                  show_default_blocks: false
+                                }
+                              }
+                            },
+                            prefill: {
+                              name: `${guestFirstName} ${guestLastName}`.trim(),
+                              email: guestEmail,
+                              contact: guestPhone,
+                              bank: selectedBank,
+                            },
+                            theme: { color: "#0071c2" },
+                          })
+                          setRazorpayResponse(paymentRes)
+                          toast.success("Payment successful!")
+                        } catch (err: unknown) {
+                          const msg = err instanceof Error ? err.message : "Unknown error"
+                          if (msg !== "Payment cancelled") toast.error("Payment failed: " + msg)
+                        } finally { setPaymentLoading(false) }
+                      }}
+                      className="w-full py-2.5 rounded-lg bg-[#0071c2] text-white text-sm font-semibold hover:bg-[#005fa3] transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay ₹{Math.max(0, total).toFixed(2)} via Net Banking</>}
+                    </button>
+                  </div>
+                )}
+
+                {!paySubMethod && !razorpayResponse && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                    <ShieldCheck size={18} className="text-blue-600 shrink-0 mt-0.5" />
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Card number</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="4821 •••• •••• ••••"
-                          maxLength={19}
-                          value={cardNumber}
-                          onChange={e => {
-                            const v = e.target.value.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim()
-                            setCardNumber(v)
-                          }}
-                          className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#0071c2] transition-colors pr-12"
-                        />
-                        <CreditCard size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Expiry</label>
-                        <input
-                          type="text"
-                          placeholder="08/29"
-                          maxLength={5}
-                          value={cardExpiry}
-                          onChange={e => {
-                            let v = e.target.value.replace(/\D/g, '')
-                            if (v.length >= 2) v = v.slice(0, 2) + '/' + v.slice(2)
-                            setCardExpiry(v)
-                          }}
-                          className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#0071c2] transition-colors"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">CVV</label>
-                        <input
-                          type="password"
-                          placeholder="•••"
-                          maxLength={4}
-                          value={cardCvv}
-                          onChange={e => setCardCvv(e.target.value.replace(/\D/g, ''))}
-                          className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#0071c2] transition-colors"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
-                      <ShieldCheck size={16} className="text-gray-500 shrink-0 mt-0.5" />
-                      <p className="text-xs text-gray-500 leading-relaxed">
-                        Your payment information is encrypted and securely processed. We never store your full card details, ensuring a PCI-compliant and safe transaction.
+                      <p className="text-sm font-semibold text-gray-900 mb-1">Secure Payment via Razorpay</p>
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        Select a payment method above to proceed. All transactions are encrypted and PCI-compliant.
                       </p>
                     </div>
-                  </>
+                  </div>
                 )}
+
+                {!razorpayLoaded && (
+                  <p className="text-xs text-gray-400 text-center">Loading Razorpay...</p>
+                )}
+              </div>
+            )}
+
+            {/* Payment success */}
+            {razorpayResponse && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+                <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-green-700">Payment completed!</p>
+                  <p className="text-xs text-green-600 mt-1">Click "Complete booking" below to confirm your reservation.</p>
+                </div>
               </div>
             )}
 
@@ -610,7 +869,7 @@ export default function ReservePage() {
               </label>
 
               <button
-                disabled={!selectedPayment || paymentLoading}
+                disabled={!selectedPayment || paymentLoading || (selectedPayment === "razorpay" && !razorpayResponse)}
                 onClick={async () => {
                   if (!selectedPayment) return
 
@@ -619,42 +878,68 @@ export default function ReservePage() {
                     return
                   }
 
-                  if (!cardNumber.trim() || !cardExpiry.trim() || !cardCvv.trim() || !cardName.trim()) {
-                    toast.error("Please fill in all card details")
+                  if (selectedPayment === "razorpay" && !razorpayResponse) {
+                    toast.error("Please complete payment first by clicking the Razorpay tab")
                     return
                   }
 
                   setPaymentLoading(true)
-                  await new Promise(resolve => setTimeout(resolve, 2500))
+                  try {
+                    if (selectedPayment === "razorpay" && razorpayResponse && refNumber) {
+                      await api.post(`/bookings/${refNumber}/confirm`, {
+                        idempotency_key: crypto.randomUUID(),
+                        gateway_payload: {
+                          razorpay_order_id: razorpayResponse.razorpay_order_id,
+                          razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+                          razorpay_signature: razorpayResponse.razorpay_signature,
+                        },
+                      })
+                    }
 
-                  const roomTypeName = selectedRoomTypes.map(r => r.name).join(", ")
-                  const bookingData = {
-                    hotelId: hotel.id,
-                    hotelName: hotel.name,
-                    hotelCity: hotel.city,
-                    hotelCountry: hotel.country,
-                    hotelImage: hotel.imageUrl || hotel.images[0],
-                    checkIn,
-                    checkOut,
-                    roomTypeName,
-                    guests: totalGuests,
-                    totalPrice: Math.max(0, total),
-                    discountApplied: appliedDiscount ? {
-                      code: appliedDiscount.code,
-                      type: appliedDiscount.type,
-                      amount: appliedDiscount.amount,
-                    } : undefined,
+                    const roomTypeName = roomLines.map(l => l.room.name).join(", ")
+                    const localBookingData = {
+                      hotelId: bookingData?.property?.id || hotel?.id || id,
+                      hotelName: hotelName,
+                      hotelCity: hotelCity,
+                      hotelCountry: hotelCountry,
+                      hotelImage: hotel?.imageUrl || hotel?.images?.[0] || '',
+                      checkIn,
+                      checkOut,
+                      roomTypeName,
+                      guests: totalGuests,
+                      totalPrice: Math.max(0, total),
+                      discountApplied: appliedDiscount ? {
+                        code: appliedDiscount.code,
+                        type: appliedDiscount.type,
+                        amount: appliedDiscount.amount,
+                      } : undefined,
+                    }
+                    addBooking(localBookingData)
+                    const booking = {
+                      id: refNumber || `${Date.now().toString(36)}`,
+                      ...localBookingData,
+                      status: "upcoming" as const,
+                      createdAt: new Date().toISOString(),
+                    }
+                    toast.success("Booking confirmed!")
+                    navigate(`/booking-confirmation/${refNumber || booking.id}`, {
+                      state: {
+                        propertyImages: hotel?.images || [],
+                        amenities: hotel?.amenities || [],
+                        guestFirstName,
+                        guestLastName,
+                        guestEmail,
+                        guestPhone,
+                        rating: hotel?.rating,
+                        reviews: hotel?.reviews,
+                      }
+                    })
+                  } catch (err: unknown) {
+                    const msg = err instanceof Error ? err.message : "Unknown error"
+                    toast.error("Booking confirmation failed: " + msg)
+                  } finally {
+                    setPaymentLoading(false)
                   }
-                  addBooking(bookingData)
-                  const booking = {
-                    id: `${Date.now().toString(36)}`,
-                    ...bookingData,
-                    status: "upcoming" as const,
-                    createdAt: new Date().toISOString(),
-                  }
-                  toast.success("Payment successful!")
-                  navigate("/booking-confirmation", { state: { booking } })
-                  setPaymentLoading(false)
                 }}
                 className="w-full py-3.5 rounded-xl bg-[#0071c2] text-white font-semibold text-sm hover:bg-[#005fa3] transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
@@ -674,7 +959,7 @@ export default function ReservePage() {
                 )}
               </button>
               <p className="text-center text-xs text-gray-400 mt-3">
-                {paymentLoading ? "Please do not close this page" : "Demo mode — no real charges"}
+                {paymentLoading ? "Please do not close this page" : "Secure payment via Razorpay"}
               </p>
             </div>
           </div>

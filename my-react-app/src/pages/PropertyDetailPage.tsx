@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, BedDouble, Bath, Users } from "lucide-react";
+import toast from "react-hot-toast";
 import { hotels, Hotel, RoomType } from "../data/hotels";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
@@ -387,21 +388,30 @@ export default function PropertyDetailPage() {
       return;
     }
 
-    const roomsPayload = selected.map(([roomId, qty]) => ({
-      room_id: roomId,
-      quantity: qty,
-      guests: roomGuestCounts[roomId] || 1,
-    }));
+    const roomIds = selected.flatMap(([roomId, qty]) => Array(qty).fill(roomId));
 
+    let refNumber = '';
     try {
-      await api.post('/bookings/', {
+      const idempotencyKey = crypto.randomUUID();
+      const { data } = await api.post('/bookings/', {
+        idempotency_key: idempotencyKey,
         property_id: id,
-        check_in_date: checkIn,
-        check_out_date: checkOut,
-        rooms: roomsPayload,
+        room_ids: roomIds,
+        check_in: checkIn,
+        check_out: checkOut,
+        adults: guests.adults,
+        children: guests.children,
       });
-    } catch {
-      // Proceed to details page even if the API call fails
+      console.log('POST /bookings full response:', JSON.stringify(data, null, 2));
+      refNumber = data?.data?.ref_number || data?.ref_number || '';
+      console.log('Extracted ref_number:', refNumber);
+    } catch (err) {
+      console.error('Failed to create booking:', err);
+    }
+
+    if (!refNumber) {
+      toast.error('Could not create booking. Please try again.');
+      return;
     }
 
     const params = new URLSearchParams();
@@ -411,6 +421,7 @@ export default function PropertyDetailPage() {
     params.set('guestCounts', JSON.stringify(
       Object.fromEntries(Object.entries(roomGuestCounts).filter(([roomId]) => selected.some(([sId]) => sId === roomId)))
     ));
+    if (refNumber) params.set('ref', refNumber);
     navigate('/booking-details/' + id + '?' + params.toString());
   };
 

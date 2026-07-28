@@ -82,7 +82,6 @@ export const allCountries: Country[] = [
   { code: "BH", flag: "🇧🇭", name: "Bahrain" },
   { code: "KW", flag: "🇰🇼", name: "Kuwait" },
   { code: "OM", flag: "🇴🇲", name: "Oman" },
-  { code: "LK", flag: "🇱🇰", name: "Sri Lanka" },
   { code: "BD", flag: "🇧🇩", name: "Bangladesh" },
   { code: "MM", flag: "🇲🇲", name: "Myanmar" },
   { code: "KH", flag: "🇰🇭", name: "Cambodia" },
