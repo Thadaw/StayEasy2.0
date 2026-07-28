@@ -6,24 +6,33 @@ import BuildingScene from '../components/BuildingScene'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
 
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function extractError(err: unknown): string {
+  if (err instanceof AxiosError && err.response?.data) {
+    const data = err.response.data as Record<string, unknown>
+    if (typeof data.detail === 'string') return data.detail
+    if (typeof data.message === 'string') return data.message
+  }
+  return 'Invalid email or password.'
+}
 
 export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
+  const { login: authLogin } = useAuth()
   const isHost = location.pathname.startsWith('/host') || searchParams.get('host') === 'true'
-  const { login } = useAuth()
-  const redirect = searchParams.get('redirect') || '/'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(true)
   const [pwFocused, setPwFocused] = useState(false)
+  const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
 
-  
   const [loginClicked, setLoginClicked] = useState(false)
 
   const fieldsReady = email.trim().length > 0 && password.trim().length > 0
@@ -31,63 +40,39 @@ export default function Login() {
   const handleLogin = async () => {
     setError('')
     setLoginClicked(true)
-    setLoading(true)
 
     if (!email.trim()) { setError('Email is required.'); setLoginClicked(false); return }
     if (!password.trim()) { setError('Password is required.'); setLoginClicked(false); return }
     if (!EMAIL_RE.test(email)) { setError('Please enter a valid email address.'); setLoginClicked(false); return }
 
-    const params = new URLSearchParams()
-    params.append('grant_type', 'password')
-    params.append('username', email)
-    params.append('password', password)
-
-    let userType: 'guest' | 'host' = 'guest'
-    let res
-
+    setLoading(true)
     try {
-      res = await api.post('/auth/guests/login', params, {
+      const params = new URLSearchParams()
+      params.append('grant_type', 'password')
+      params.append('username', email)
+      params.append('password', password)
+      const res = await api.post('/auth/login', params, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       })
-      userType = 'guest'
-    } catch {
-      try {
-        res = await api.post('/auth/users/login', params, {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        })
-        userType = 'host'
-      } catch (err) {
-        const isAxiosError = err instanceof AxiosError
-        const status = isAxiosError ? err.response?.status : undefined
-        const detail = isAxiosError ? err.response?.data?.detail || '' : ''
-        if (status === 404) {
-          setError('No account found with this email. Please sign up first.')
-        } else if (status === 403 || /verified|verify|activate/i.test(detail)) {
-          setError('Account not verified. Please check your email for the verification code.')
-        } else if (status === 401) {
-          setError('Invalid email or password.')
-        } else {
-          setError(detail || 'Invalid email or password.')
-        }
-        setLoginClicked(false)
-        setLoading(false)
-        return
-      }
+      localStorage.setItem('token', res.data.access_token)
+      await authLogin(res.data.access_token)
+      setTimeout(() => navigate('/'), 1500)
+    } catch (err) {
+      setError(extractError(err))
+      setLoginClicked(false)
+      setLoading(false)
     }
-
-    await login(res!.data.access_token, userType)
-    setTimeout(() => navigate(userType === 'host' ? '/become-a-host' : redirect), 1700)
   }
 
   return (
     <div
       style={{
         minHeight: '100vh',
-        background: 'var(--brand-secondary-surface)',
+        background: '#e8e8e8',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 'var(--space-6)',
+        padding: 20,
         fontFamily: "'Segoe UI', sans-serif",
       }}
     >
@@ -95,15 +80,15 @@ export default function Login() {
         style={{
           width: 640,
           height: 440,
-          background: 'var(--brand-surface)',
-          borderRadius: 'var(--radius-xl)',
+          background: '#fff',
+          borderRadius: 16,
           display: 'flex',
           overflow: 'hidden',
-          boxShadow: 'var(--shadow-modal)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.13)',
         }}
       >
         {/* Animated scene panel */}
-        <div style={{ width: '50%', background: 'var(--brand-secondary-surface)', order: 1, flexShrink: 0 }}>
+        <div style={{ width: '50%', background: '#dde0ee', order: 1, flexShrink: 0 }}>
           <BuildingScene
             mode="login"
             fieldsReady={fieldsReady}
@@ -117,35 +102,35 @@ export default function Login() {
         <div
           style={{
             width: '50%',
-            background: 'var(--brand-surface)',
+            background: '#fff',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            padding: 'var(--space-9) var(--space-8) var(--space-11)',
+            padding: '36px 32px 42px',
             order: 2,
             flexShrink: 0,
           }}
         >
           {/* Tabs */}
-          <div style={{ display: 'flex', marginBottom: 'var(--space-2)' }}>
+          <div style={{ display: 'flex', marginBottom: 8 }}>
             <div
               style={{
-                padding: 'var(--space-1) 0',
+                padding: '3px 0',
                 fontSize: 11,
                 fontWeight: 700,
                 letterSpacing: '0.8px',
                 textTransform: 'uppercase',
-                color: 'var(--brand-heading)',
-                borderBottom: '2px solid var(--brand-heading)',
-                marginRight: 'var(--space-4)',
+                color: '#111',
+                borderBottom: '2px solid #111',
+                marginRight: 18,
               }}
             >
               Login
             </div>
             <div
-              onClick={() => navigate(isHost ? '/host/signup' : redirect ? `/signup?redirect=${encodeURIComponent(redirect)}` : '/signup')}
+              onClick={() => navigate(isHost ? '/host/signup' : '/signup')}
               style={{
-                padding: 'var(--space-1) 0',
+                padding: '3px 0',
                 fontSize: 11,
                 fontWeight: 700,
                 letterSpacing: '0.8px',
@@ -159,22 +144,20 @@ export default function Login() {
             </div>
           </div>
 
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--brand-heading)', marginBottom: 'var(--space-1)' }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 3 }}>
             {isHost ? 'Welcome Back, Host' : 'Welcome back!'}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--brand-text-secondary)', marginBottom: 'var(--space-4)' }}>
+          <div style={{ fontSize: 12, color: '#999', marginBottom: 20 }}>
             {isHost ? 'Manage your properties' : 'Please enter your details'}
           </div>
 
-
-
           {/* Email */}
-          <div style={{ position: 'relative', marginBottom: 'var(--space-3)' }}>
+          <div style={{ position: 'relative', marginBottom: 13 }}>
             <label
               style={{
                 fontSize: 11,
-                color: 'var(--brand-text-secondary)',
-                marginBottom: 'var(--space-1)',
+                color: '#666',
+                marginBottom: 3,
                 display: 'block',
                 textTransform: 'uppercase',
                 letterSpacing: '0.4px',
@@ -185,18 +168,17 @@ export default function Login() {
             <input
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value.slice(0, 254))}
+              onChange={e => setEmail(e.target.value)}
               onFocus={() => setPwFocused(false)}
               placeholder="Enter your email"
               autoComplete="off"
-              maxLength={254}
               style={{
                 width: '100%',
                 border: 'none',
                 borderBottom: '1.5px solid #ddd',
-                padding: 'var(--space-2) var(--space-6) var(--space-2) 0',
+                padding: '7px 26px 7px 0',
                 fontSize: 14,
-                color: 'var(--brand-heading)',
+                color: '#111',
                 outline: 'none',
                 background: 'transparent',
               }}
@@ -204,12 +186,12 @@ export default function Login() {
           </div>
 
           {/* Password */}
-          <div style={{ position: 'relative', marginBottom: 'var(--space-3)' }}>
+          <div style={{ position: 'relative', marginBottom: 13 }}>
             <label
               style={{
                 fontSize: 11,
-                color: 'var(--brand-text-secondary)',
-                marginBottom: 'var(--space-1)',
+                color: '#666',
+                marginBottom: 3,
                 display: 'block',
                 textTransform: 'uppercase',
                 letterSpacing: '0.4px',
@@ -220,19 +202,18 @@ export default function Login() {
             <input
               type={showPw ? 'text' : 'password'}
               value={password}
-              onChange={e => setPassword(e.target.value.slice(0, 128))}
+              onChange={e => setPassword(e.target.value)}
               onFocus={() => setPwFocused(true)}
               onBlur={() => setPwFocused(false)}
               placeholder="Set your password"
               autoComplete="off"
-              maxLength={128}
               style={{
                 width: '100%',
                 border: 'none',
                 borderBottom: '1.5px solid #ddd',
-                padding: 'var(--space-2) var(--space-6) var(--space-2) 0',
+                padding: '7px 26px 7px 0',
                 fontSize: 14,
-                color: 'var(--brand-heading)',
+                color: '#111',
                 outline: 'none',
                 background: 'transparent',
               }}
@@ -249,7 +230,7 @@ export default function Login() {
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                color: 'var(--brand-text-secondary)',
+                color: '#bbb',
                 fontSize: 15,
                 padding: 0,
               }}
@@ -258,8 +239,25 @@ export default function Login() {
             </button>
           </div>
 
+          {/* Remember / forgot */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 13 }}>
+            <input
+              type="checkbox"
+              id="remember"
+              checked={remember}
+              onChange={e => setRemember(e.target.checked)}
+              style={{ width: 12, height: 12, accentColor: '#111' }}
+            />
+            <label htmlFor="remember" style={{ fontSize: 11, color: '#999' }}>
+              Remember for 30 days
+            </label>
+            <span style={{ fontSize: 11, color: '#bbb', cursor: 'pointer', marginLeft: 'auto' }}>
+              Forgot password?
+            </span>
+          </div>
+
           {error && (
-            <p style={{ color: 'var(--brand-danger)', fontSize: 12, marginBottom: 'var(--space-3)' }}>{error}</p>
+            <p style={{ color: '#e94560', fontSize: 12, marginBottom: 10 }}>{error}</p>
           )}
 
           <button
@@ -267,26 +265,26 @@ export default function Login() {
             disabled={loading}
             style={{
               width: '100%',
-              padding: 'var(--space-3)',
+              padding: 11,
               background: '#111',
               border: 'none',
-              borderRadius: 'var(--radius-card)',
+              borderRadius: 8,
               color: '#fff',
               fontSize: 14,
               fontWeight: 600,
               cursor: loading ? 'default' : 'pointer',
-              marginTop: 'var(--space-1)',
+              marginTop: 2,
               opacity: loading ? 0.7 : 1,
             }}
           >
             {loading ? 'Signing in...' : 'Log In'}
           </button>
 
-          <div style={{ textAlign: 'center', marginTop: 'var(--space-3)', fontSize: 12, color: 'var(--brand-text-secondary)' }}>
+          <div style={{ textAlign: 'center', marginTop: 11, fontSize: 12, color: '#aaa' }}>
             Don't have an account?{' '}
             <span
-              onClick={() => navigate(isHost ? '/host/signup' : redirect ? `/signup?redirect=${encodeURIComponent(redirect)}` : '/signup')}
-              style={{ color: 'var(--brand-heading)', fontWeight: 600, cursor: 'pointer' }}
+              onClick={() => navigate(isHost ? '/host/signup' : '/signup')}
+              style={{ color: '#111', fontWeight: 600, cursor: 'pointer' }}
             >
               Sign up
             </span>

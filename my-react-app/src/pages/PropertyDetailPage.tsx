@@ -383,9 +383,9 @@ export default function PropertyDetailPage() {
     ));
     const query = params.toString();
     if (!user) {
-      navigate('/login?redirect=' + encodeURIComponent('/reserve/' + id + '?' + query));
+      navigate('/login?redirect=' + encodeURIComponent('/booking-details/' + id + '?' + query));
     } else {
-      navigate('/reserve/' + id + '?' + query);
+      navigate('/booking-details/' + id + '?' + query);
     }
   };
 

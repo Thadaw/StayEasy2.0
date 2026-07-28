@@ -1,7 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useUserProfile } from '../../hooks/useUserProfile'
-import { Camera, Pencil, Check, X, Star, Calendar, Shield, Mail, Phone, User } from 'lucide-react'
+import { Camera, Pencil, Check, X, Star, Calendar, Shield, Mail, Phone, User, MapPin } from 'lucide-react'
+import api from '../../api'
+
+interface GuestProfile {
+  full_name: string
+  email: string
+  phone: string
+  nationality: string
+  id: string
+  created_at: string
+}
 
 export default function AboutMe() {
   const { user, updateProfile } = useAuth()
@@ -15,6 +25,7 @@ export default function AboutMe() {
   const [editingBio, setEditingBio] = useState(false)
   const [aboutText, setAboutText] = useState(user?.aboutMe || '')
   const [saving, setSaving] = useState(false)
+  const [guestProfile, setGuestProfile] = useState<GuestProfile | null>(null)
 
   const [editFirstName, setEditFirstName] = useState(user?.firstName || '')
   const [editLastName, setEditLastName] = useState(user?.lastName || '')
@@ -27,6 +38,18 @@ export default function AboutMe() {
   useEffect(() => {
     setAboutText(user?.aboutMe || '')
   }, [user?.aboutMe])
+
+  useEffect(() => {
+    const fetchGuestProfile = async () => {
+      try {
+        const { data } = await api.get<GuestProfile>('/auth/guests/me')
+        setGuestProfile(data)
+      } catch (error) {
+        console.error('Failed to fetch guest profile:', error)
+      }
+    }
+    fetchGuestProfile()
+  }, [])
 
   const handleSaveProfile = async () => {
     setSaving(true)
@@ -92,7 +115,7 @@ export default function AboutMe() {
             {/* Info */}
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl font-bold text-brand-heading mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
-                {firstName} {lastName}
+                {guestProfile?.full_name || `${firstName} ${lastName}`}
               </h1>
               <div className="flex items-center gap-3 mb-4">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-accent-light text-brand-primary">
@@ -137,13 +160,13 @@ export default function AboutMe() {
                       />
                     </div>
                   ) : (
-                    <span className="text-brand-heading font-medium">{firstName} {lastName}</span>
+                    <span className="text-brand-heading font-medium">{guestProfile?.full_name || firstName} {lastName}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <Mail size={15} className="text-brand-text-secondary shrink-0" />
                   <span className="w-16 text-brand-text-secondary">Email</span>
-                  <span className="text-brand-heading">{user?.email || '—'}</span>
+                  <span className="text-brand-heading">{guestProfile?.email || user?.email || '—'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <Phone size={15} className="text-brand-text-secondary shrink-0" />
@@ -156,17 +179,22 @@ export default function AboutMe() {
                       className="flex-1 max-w-[220px] px-3 py-1.5 text-sm border border-brand-card-border rounded-lg outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent text-brand-heading"
                     />
                   ) : (
-                    <span className="text-brand-heading">{user?.phone || <span className="text-brand-placeholder italic">Not provided</span>}</span>
+                    <span className="text-brand-heading">{guestProfile?.phone || user?.phone || <span className="text-brand-placeholder italic">Not provided</span>}</span>
                   )}
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <MapPin size={15} className="text-brand-text-secondary shrink-0" />
+                  <span className="w-16 text-brand-text-secondary">Location</span>
+                  <span className="text-brand-heading">{guestProfile?.nationality || <span className="text-brand-placeholder italic">Not provided</span>}</span>
                 </div>
               </div>
 
-              {user?.countryFlag && user?.country && (
+              {(guestProfile?.nationality || user?.country) && (
                 <div className="flex items-center gap-1.5 mt-4 text-sm text-brand-text-secondary">
-                  <span>{user.countryFlag}</span>
-                  <span>{user.country}</span>
-                  {user?.joinedDate && (
-                    <span>· Member since {new Date(user.joinedDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</span>
+                  {user?.countryFlag && <span>{user.countryFlag}</span>}
+                  <span>{guestProfile?.nationality || user?.country}</span>
+                  {(guestProfile?.created_at || user?.joinedDate) && (
+                    <span>· Member since {new Date(guestProfile?.created_at || user?.joinedDate || '').toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</span>
                   )}
                 </div>
               )}
