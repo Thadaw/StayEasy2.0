@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { CheckCircle2, Copy, Download, Share2, QrCode, MapPin, ShieldCheck, CircleAlert, ArrowRight, ChevronDown } from 'lucide-react'
+import { CheckCircle2, Copy, Download, Share2, QrCode, MapPin, ShieldCheck, CircleAlert, ArrowRight } from 'lucide-react'
 import { Navbar } from '../components/Navbar'
 import { Footer } from '../components/Footer'
 import { formatDate, formatShortDate } from '../utils/format'
@@ -117,11 +117,27 @@ export default function BookingConfirmationPage() {
   return (
     <div className="min-h-screen bg-brand-background pb-8" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       <Navbar />
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-5">
+          <div className="flex items-center justify-center">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-full bg-[#1A3C5E] text-white flex items-center justify-center text-sm font-bold">1</span>
+              <span className="text-sm font-semibold text-[#1A3C5E]">Your Selection</span>
+            </div>
+            <div className="flex-1 h-[2px] bg-[#1A3C5E] mx-4 min-w-[60px] max-w-[120px]"></div>
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-full bg-[#1A3C5E] text-white flex items-center justify-center text-sm font-bold">2</span>
+              <span className="text-sm font-semibold text-[#1A3C5E]">Your Details</span>
+            </div>
+            <div className="flex-1 h-[2px] bg-[#1A3C5E] mx-4 min-w-[60px] max-w-[120px]"></div>
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-full bg-[#1A3C5E] text-white flex items-center justify-center text-sm font-bold">3</span>
+              <span className="text-sm font-semibold text-[#1A3C5E]">Finish booking</span>
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="max-w-screen-2xl mx-auto px-6 py-8">
-        <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 text-sm text-brand-text-secondary hover:text-[var(--brand-dark)] mb-6 transition-colors">
-          <ChevronDown size={15} className="rotate-90" /> Back
-        </button>
-
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-10 items-start">
           <div>
             <div className="bg-white border border-brand-card-border rounded-[24px] p-6 shadow-card">

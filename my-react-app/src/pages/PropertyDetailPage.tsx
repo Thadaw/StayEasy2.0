@@ -371,9 +371,39 @@ export default function PropertyDetailPage() {
     setTimeout(() => document.getElementById('room-selection')?.scrollIntoView({ behavior: 'smooth' }), 100);
   };
 
-  const handleReserve = () => {
+  const handleReserve = async () => {
     const selected = Object.entries(roomQuantities).filter(([, q]) => q > 0);
     if (selected.length === 0) return;
+
+    if (!user) {
+      const params = new URLSearchParams();
+      if (checkIn) params.set('checkIn', checkIn);
+      if (checkOut) params.set('checkOut', checkOut);
+      params.set('rooms', JSON.stringify(Object.fromEntries(selected)));
+      params.set('guestCounts', JSON.stringify(
+        Object.fromEntries(Object.entries(roomGuestCounts).filter(([roomId]) => selected.some(([sId]) => sId === roomId)))
+      ));
+      navigate('/login?redirect=' + encodeURIComponent('/booking-details/' + id + '?' + params.toString()));
+      return;
+    }
+
+    const roomsPayload = selected.map(([roomId, qty]) => ({
+      room_id: roomId,
+      quantity: qty,
+      guests: roomGuestCounts[roomId] || 1,
+    }));
+
+    try {
+      await api.post('/bookings/', {
+        property_id: id,
+        check_in_date: checkIn,
+        check_out_date: checkOut,
+        rooms: roomsPayload,
+      });
+    } catch {
+      // Proceed to details page even if the API call fails
+    }
+
     const params = new URLSearchParams();
     if (checkIn) params.set('checkIn', checkIn);
     if (checkOut) params.set('checkOut', checkOut);
@@ -381,12 +411,7 @@ export default function PropertyDetailPage() {
     params.set('guestCounts', JSON.stringify(
       Object.fromEntries(Object.entries(roomGuestCounts).filter(([roomId]) => selected.some(([sId]) => sId === roomId)))
     ));
-    const query = params.toString();
-    if (!user) {
-      navigate('/login?redirect=' + encodeURIComponent('/booking-details/' + id + '?' + query));
-    } else {
-      navigate('/booking-details/' + id + '?' + query);
-    }
+    navigate('/booking-details/' + id + '?' + params.toString());
   };
 
   const detailRoom = detailRoomId ? hotel.roomTypes.find(rt => rt.id === detailRoomId) : null;

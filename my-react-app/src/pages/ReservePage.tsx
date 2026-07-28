@@ -505,6 +505,7 @@ export default function ReservePage() {
             )}
 
             {/* Payment method tabs */}
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Payment Method</h3>
             <div className="flex border-b border-gray-200 mb-6">
               {paymentOptions.map(({ key, label }) => (
                 <button
