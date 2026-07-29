@@ -9,13 +9,11 @@ import { SearchBar } from "../components/SearchBar";
 import { StickySearchHeader } from "../components/StickySearchHeader";
 import { useAuth } from "../context/AuthContext";
 import { useFavorites } from "../context/FavoritesContext";
-import { calcPrice } from "../utils/pricing";
 import { haversineDistance } from "../utils/geo";
 import { HotelHeader } from "../components/property/HotelHeader";
 import { ImageGallery } from "../components/property/ImageGallery";
 import { HostInfo } from "../components/property/HostInfo";
 import { AmenitiesSection } from "../components/property/AmenitiesSection";
-import { RoomGrid } from "../components/property/RoomGrid";
 import { RoomSelectionPanel } from "../components/property/RoomSelectionPanel";
 import { ReviewSection } from "../components/property/ReviewSection";
 import { ThingsToKnow } from "../components/property/ThingsToKnow";
@@ -110,6 +108,8 @@ function mapApiPropertyToHotel(apiProp: ApiProperty, rooms: ApiRoom[]): Hotel {
     smokingPolicy: "No smoking",
     cancellationPolicy: r.cancellation_description || "",
     breakfastIncluded: false,
+    room_type_id: r.room_type_id,
+    bed_type_id: r.bed_type_id,
   }));
   return {
     id: 0,
@@ -274,8 +274,7 @@ export default function PropertyDetailPage() {
 
         if (filterPriceMin > 0 || filterPriceMax < 500) {
           total += 1;
-          const effectivePrice = calcPrice(rt.price, rt.maxGuests, guestCount);
-          if (effectivePrice >= filterPriceMin && effectivePrice <= filterPriceMax) score += 1;
+          if (rt.price >= filterPriceMin && rt.price <= filterPriceMax) score += 1;
         }
 
         return { rt, score, total };
@@ -482,54 +481,6 @@ export default function PropertyDetailPage() {
               </div>
             </div>
           )}
-
-          <RoomGrid hotel={hotel} roomQuantities={roomQuantities} onSelectRoom={handleSelectRoom} />
-
-          <div className="mb-8">
-            <h2 className="text-lg font-bold text-foreground mb-4" style={{ fontFamily: "'Sora', sans-serif" }}>About this property</h2>
-            <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
-              <p>
-                <span className="font-semibold text-foreground">{hotel.name}</span> — {hotel.description}
-              </p>
-              <p>
-                The property features <span className="font-medium text-foreground">{hotel.amenities.slice(0, 6).join(", ").toLowerCase()}</span>, and more. Each accommodation is designed for comfort with modern amenities and thoughtful touches throughout.
-              </p>
-              <p>
-                Located in <span className="font-medium text-foreground">{hotel.location}, {hotel.city}, {hotel.country}</span>, the property is ideally situated for exploring the area's attractions. Guests particularly enjoy the location — rating it <span className="font-semibold text-foreground">{hotel.rating}</span> for stays with multiple people.
-              </p>
-              {hotel.isSuperhost && (
-                <p>
-                  <span className="font-medium text-foreground">Superhost status:</span> {hotel.hostName} is a Superhost with <span className="font-medium text-foreground">{hotel.hostReviews} reviews</span>, committed to providing exceptional hospitality.
-                </p>
-              )}
-            </div>
-
-            <div className="mt-6">
-              <h3 className="text-sm font-bold text-foreground mb-3">Most popular facilities</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {hotel.amenities.slice(0, 8).map((a) => (
-                  <div key={a} className="flex items-center gap-2 text-[12px] text-foreground bg-gray-50 rounded-lg px-3 py-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                    {a}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <h3 className="text-sm font-bold text-foreground mb-3">Room views available</h3>
-              <div className="flex flex-wrap gap-2">
-                {hotel.amenities.filter(a => a.toLowerCase().includes("view")).map((v) => (
-                  <span key={v} className="text-[11px] text-foreground bg-gray-100 rounded-full px-3 py-1">{v}</span>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[12px] text-muted-foreground">
-              <span>Free private parking available on-site</span>
-              <span>Distance in property description is calculated using © OpenStreetMap</span>
-            </div>
-          </div>
 
           <RoomSelectionPanel
             hotel={hotel}

@@ -11,7 +11,15 @@ import { trustBadges } from "../data/trustBadges";
 import { testimonials } from "../data/testimonials";
 import { Star, ArrowRight, ChevronLeft, ChevronRight, Heart, MapPin, Quote, Building2 } from "lucide-react";
 import { useFavorites } from "../context/FavoritesContext";
+import { worldCountries } from "../data/worldCountries";
 import api from "../api";
+
+function getCurrencySymbol(code: string): string {
+  for (const c of worldCountries) {
+    if (c.currency === code) return c.symbol || code;
+  }
+  return code || "$";
+}
 
 interface NearbyProperty {
   property_id: string;
@@ -25,6 +33,7 @@ interface NearbyProperty {
   cover_photo: string;
   distance_km: number;
   total_price?: number;
+  lowest_rate?: number;
   nights?: number;
   description?: string;
   total_rooms?: number;
@@ -89,6 +98,8 @@ export default function LandingPage() {
                 email: prop?.email || "",
                 system_amenities: prop?.system_amenities || [],
                 custom_amenities: prop?.custom_amenities || [],
+                total_price: p.lowest_rate ?? p.total_price ?? 0,
+                currency: prop?.currency || p.currency,
               };
             } catch {
               return p;
@@ -216,14 +227,14 @@ export default function LandingPage() {
         </div>
 
         {nearbyLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[1, 2, 3].map((i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse">
-                <div className="h-[200px] bg-gray-200" />
-                <div className="p-4 space-y-3">
-                  <div className="h-4 bg-gray-200 rounded w-3/4" />
-                  <div className="h-3 bg-gray-200 rounded w-1/2" />
-                  <div className="h-3 bg-gray-200 rounded w-2/3" />
+                <div className="h-[130px] md:h-[150px] bg-gray-200" />
+                <div className="px-3 py-2 space-y-2">
+                  <div className="h-3 bg-gray-200 rounded w-3/4" />
+                  <div className="h-2 bg-gray-200 rounded w-1/2" />
+                  <div className="h-3 bg-gray-200 rounded w-1/3" />
                 </div>
               </div>
             ))}
@@ -236,70 +247,45 @@ export default function LandingPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             {nearbyProperties.map((property) => (
               <div
                 key={property.property_id}
                 onClick={() => navigate(`/hotel/${property.property_id}`)}
-                className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group cursor-pointer border border-gray-100"
+                className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
               >
-                {/* Image */}
-                <div className="relative h-[200px] overflow-hidden">
+                <div className="relative h-[130px] md:h-[150px] overflow-hidden">
                   {getPropertyImage(property) ? (
                     <img
                       src={getPropertyImage(property)}
                       alt={property.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex items-center justify-center">
                       <Building2 size={40} className="text-gray-300" />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                   <button
                     onClick={(e) => { e.stopPropagation(); toggleFavorite(property.property_id); }}
-                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
                   >
                     <Heart size={14} className={isFavorite(property.property_id) ? "text-red-500 fill-red-500" : "text-gray-600 hover:text-red-500 transition-colors"} />
                   </button>
-                  <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
-                    <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-semibold text-white">
-                      {property.type}
-                    </span>
-                  </div>
+                  <span className="absolute top-2 left-2 px-2 py-0.5 bg-white/90 backdrop-blur-sm rounded-full text-[9px] font-semibold" style={{ color: "var(--brand-heading)" }}>{property.type}</span>
                 </div>
-
-                {/* Content */}
-                <div className="p-4">
-                  <h3 className="text-sm font-bold mb-1 line-clamp-1" style={{ color: "var(--brand-heading)" }}>
-                    {property.name}
-                  </h3>
-                  <p className="text-[11px] flex items-center gap-1 mb-1" style={{ color: "var(--brand-text-secondary)" }}>
-                    <MapPin size={10} /> {property.address}, {property.city}, {property.state}
+                <div className="px-3 py-2 relative">
+                  <h3 className="text-xs md:text-sm font-bold leading-tight line-clamp-1" style={{ color: "var(--brand-heading)" }}>{property.name}</h3>
+                  <p className="text-[9px] md:text-[10px] flex items-center gap-0.5 mb-1" style={{ color: "var(--brand-text-secondary)" }}>
+                    <MapPin size={9} /> {property.city}, {property.state}
                   </p>
-                  <p className="text-[11px] mb-2" style={{ color: "var(--brand-text-secondary)" }}>
-                    {property.distance_km} km away · {property.total_rooms || 0} rooms
-                  </p>
-                  {property.description && (
-                    <p className="text-[11px] line-clamp-2 mb-2" style={{ color: "var(--brand-text-secondary)" }}>
-                      {property.description}
-                    </p>
-                  )}
-                  {property.custom_amenities && property.custom_amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {property.custom_amenities.slice(0, 3).map((a, i) => (
-                        <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-full border border-gray-200" style={{ color: "var(--brand-text-secondary)" }}>{a.name}</span>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-gray-100" style={{ color: "var(--brand-heading)" }}>{property.type}</span>
-                    {property.total_price != null && (
-                      <p className="text-sm font-bold" style={{ color: "var(--brand-heading)" }}>
-                        ${property.total_price} <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}>/ night</span>
-                      </p>
+                  <div className="flex items-end justify-between">
+                    {property.distance_km != null && (
+                      <span className="text-[9px]" style={{ color: "var(--brand-text-secondary)" }}>{property.distance_km} km</span>
                     )}
+                    <div>
+                      <p className="text-xs md:text-sm font-bold leading-tight" style={{ color: "var(--brand-heading)" }}>{getCurrencySymbol(property.currency)}{property.lowest_rate ?? property.total_price} <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}>/ night</span></p>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, MapPin, Calendar, Users, ChevronDown, Plus, Minus, Check } from "lucide-react";
+import { Search, MapPin, Calendar, Users, ChevronDown, Plus, Minus, Check, Clock, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { popularSearchDestinations } from "../data/searchDestinations";
@@ -9,6 +9,23 @@ interface GuestCount {
   adults: number;
   children: number;
   infants: number;
+}
+
+const RECENT_SEARCHES_KEY = "recentSearches";
+
+function getRecentSearches(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentSearch(where: string) {
+  if (!where.trim()) return;
+  const searches = getRecentSearches().filter(s => s !== where);
+  searches.unshift(where);
+  localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches.slice(0, 5)));
 }
 
 export function SearchBar() {
@@ -29,6 +46,7 @@ export function SearchBar() {
   const [showWhere, setShowWhere] = useState(false);
   const [showDates, setShowDates] = useState(false);
   const [showGuests, setShowGuests] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches);
 
   const whereRef = useRef<HTMLDivElement>(null);
   const datesRef = useRef<HTMLDivElement>(null);
@@ -59,11 +77,21 @@ export function SearchBar() {
     const params = new URLSearchParams();
     const rawWhere = where || localStorage.getItem("nearbyLocation") || "";
     const searchWhere = rawWhere.replace(/\s*\([\d.]+,\s*[\d.]+\)/, "").trim();
-    if (searchWhere) params.set("where", searchWhere);
+    if (searchWhere) {
+      params.set("where", searchWhere);
+      saveRecentSearch(searchWhere);
+      setRecentSearches(getRecentSearches());
+    }
     if (checkIn) params.set("checkin", checkIn);
     if (checkOut) params.set("checkout", checkOut);
     if (totalGuests > 0) params.set("guests", String(totalGuests));
     navigate(`/search?${params}`);
+  };
+
+  const removeRecentSearch = (search: string) => {
+    const updated = recentSearches.filter(s => s !== search);
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+    setRecentSearches(updated);
   };
 
   const dateDisplay = formatDateRange(checkIn, checkOut);
@@ -106,7 +134,29 @@ export function SearchBar() {
                   <MapPin size={13} className="text-brand-accent shrink-0" />
                   {t("nearby")}
                 </button>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1 px-1 mt-1">{t("popularDestinations")}</p>
+                {recentSearches.length > 0 && (
+                  <>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1 px-1 mt-2">Recent searches</p>
+                    {recentSearches.map((search) => (
+                      <div key={search} className="flex items-center group">
+                        <button
+                          onClick={() => { setWhere(search); setShowWhere(false); }}
+                          className="w-full flex items-center gap-2.5 px-2 py-2 text-sm text-gray-700 hover:bg-brand-primary-extra-light rounded-lg transition-colors text-left"
+                        >
+                          <Clock size={13} className="text-gray-400 shrink-0" />
+                          {search}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeRecentSearch(search); }}
+                          className="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </>
+                )}
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1 px-1 mt-2">{t("popularDestinations")}</p>
                 {popularSearchDestinations
                   .filter((d) => where === "" || d.toLowerCase().includes(where.toLowerCase()))
                   .map((d) => (
@@ -132,8 +182,8 @@ export function SearchBar() {
           >
             <Calendar size={13} className="text-brand-accent shrink-0" />
             <div className="min-w-0">
-              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("checkIn")} – {t("checkOut")}</div>
               <div className={`text-[11px] md:text-xs font-medium truncate ${checkIn ? "text-gray-800" : "text-gray-400"}`}>{checkIn && checkOut ? `${formatDateShort(checkIn)} – ${formatDateShort(checkOut)}` : dateDisplay}</div>
+              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("checkIn")} – {t("checkOut")}</div>
             </div>
             <ChevronDown size={13} className={`ml-auto shrink-0 text-gray-400 transition-transform hidden sm:block ${showDates ? "rotate-180" : ""}`} />
           </button>
@@ -232,9 +282,10 @@ export function SearchBar() {
         {/* Search button */}
         <button
           onClick={handleSearch}
-          className="col-span-2 md:col-span-1 w-full h-9 rounded-xl bg-brand-accent flex items-center justify-center text-white hover:bg-brand-accent-hover transition-all duration-200 hover:shadow-lg hover:shadow-brand-accent/30 active:scale-95 mt-2 md:mt-0 md:shrink-0"
+          className="col-span-2 md:col-span-1 w-full h-9 rounded-xl bg-brand-accent flex items-center justify-center gap-2 text-white hover:bg-brand-accent-hover transition-all duration-200 hover:shadow-lg hover:shadow-brand-accent/30 active:scale-95 mt-2 md:mt-0 md:shrink-0"
         >
           <Search size={15} />
+          <span className="hidden md:inline text-sm font-semibold">Search</span>
         </button>
       </div>
     </div>

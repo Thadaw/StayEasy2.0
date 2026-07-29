@@ -6,7 +6,15 @@ import { StickySearchHeader } from "../components/StickySearchHeader";
 import { Footer } from "../components/Footer";
 import { MapPin, Heart, SlidersHorizontal, X, Utensils, Home, Building2, Waves, Wifi, Castle, TreePine, Bed, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { useFavorites } from "../context/FavoritesContext";
+import { worldCountries } from "../data/worldCountries";
 import api from "../api";
+
+function getCurrencySymbol(code: string): string {
+  for (const c of worldCountries) {
+    if (c.currency === code) return c.symbol || code;
+  }
+  return code || "$";
+}
 
 interface ApiProperty {
   property_id: string;
@@ -19,6 +27,7 @@ interface ApiProperty {
   total_price: number;
   nights: number;
   cover_photo: string;
+  currency: string;
 }
 
 const propertyTypes = [
@@ -399,10 +408,10 @@ export default function SearchResultsPage() {
                 <div
                   key={hotel.property_id}
                   onClick={() => navigate(`/hotel/${hotel.property_id}?${buildFilterParams()}`)}
-                  className="flex bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100"
+                  className="flex bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100 h-[200px]"
                 >
                   {/* Image */}
-                  <div className="relative w-[320px] shrink-0">
+                  <div className="relative w-[280px] h-[200px] shrink-0 overflow-hidden">
                     {hotel.cover_photo ? (
                       <img src={hotel.cover_photo} alt={hotel.name} className="w-full h-full object-cover" />
                     ) : (
@@ -444,7 +453,7 @@ export default function SearchResultsPage() {
                     <div className="text-right flex flex-col justify-between">
                       <div className="mt-4">
                         <p className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>{hotel.nights} night{hotel.nights > 1 ? "s" : ""}, {guests} guests</p>
-                        <p className="text-lg font-bold mt-0.5" style={{ color: "var(--brand-heading)" }}>${hotel.total_price}</p>
+                        <p className="text-lg font-bold mt-0.5" style={{ color: "var(--brand-heading)" }}>{getCurrencySymbol(hotel.currency)}{hotel.total_price}</p>
                         <p className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>Includes taxes and charges</p>
                       </div>
                       <button

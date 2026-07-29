@@ -28,6 +28,8 @@ export interface RoomType {
   breakfastIncluded?: boolean;
   bedComfortRating?: number;
   bedComfortReviews?: number;
+  room_type_id?: string;
+  bed_type_id?: string;
 }
 
 export interface Hotel {

@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Minus, Plus, Calendar, Users, Search, ChevronDown } from "lucide-react";
 import { Hotel } from "../../data/hotels";
-import { calcPrice } from "../../utils/pricing";
 import { formatDateShort } from "../../utils/format";
 
 interface GuestCount {
@@ -74,7 +73,7 @@ export function RoomSelectionPanel({
   };
 
   return (
-    <div id="room-selection" className="border border-border rounded-2xl shadow-xl p-6 bg-white mb-10">
+    <div id="room-selection" className="p-6 bg-white mb-10">
       <h2 className="font-semibold text-foreground mb-6" style={{ fontSize: "1.125rem" }}>Choose your room</h2>
 
       {/* Search bar header */}
@@ -190,9 +189,10 @@ export function RoomSelectionPanel({
         {/* Search button */}
         <button
           onClick={onSearch}
-          className="w-full h-9 rounded-xl bg-brand-accent flex items-center justify-center text-white hover:bg-brand-accent-hover transition-all duration-200 hover:shadow-lg hover:shadow-brand-accent/30 active:scale-95 mt-2 md:mt-0 md:shrink-0"
+          className="w-full h-9 rounded-xl bg-brand-accent flex items-center justify-center gap-2 text-white hover:bg-brand-accent-hover transition-all duration-200 hover:shadow-lg hover:shadow-brand-accent/30 active:scale-95 mt-2 md:mt-0 md:shrink-0"
         >
           <Search size={15} />
+          <span className="hidden md:inline text-sm font-semibold">Search</span>
         </button>
         </div>
       </div>
@@ -203,23 +203,30 @@ export function RoomSelectionPanel({
             {hotel.roomTypes.map((rt) => {
               const qty = roomQuantities[rt.id] || 0;
               const gc = roomGuestCounts[rt.id] || 1;
-              const effectivePrice = calcPrice(rt.price, rt.maxGuests, gc);
-              const lineTotal = qty * effectivePrice * nights;
+              const lineTotal = qty * rt.price * nights;
               return (
-                <div key={rt.id} id={`room-${rt.id}`} className={`flex items-stretch gap-4 p-4 rounded-xl border transition-all scroll-mt-32 ${selectedRoomId === rt.id ? 'border-primary bg-brand-primary-extra-light ring-2 ring-brand-primary-extra-light' : 'border-border hover:border-muted-foreground/30'}`}>
+                <div key={rt.id} id={`room-${rt.id}`} className={`flex flex-col md:flex-row items-stretch gap-4 p-4 rounded-xl border border-brand-primary-extra-light transition-all scroll-mt-32 ${selectedRoomId === rt.id ? 'bg-brand-primary-extra-light ring-2 ring-brand-primary-extra-light' : 'hover:bg-gray-50'}`}>
                   <div className="flex gap-3 flex-1 min-w-0">
-                    <img src={rt.image} alt={rt.name} className="w-20 h-20 rounded-lg object-cover shrink-0" />
+                    <img src={rt.image} alt={rt.name} className="w-full md:w-36 h-48 md:h-36 rounded-lg object-cover shrink-0" />
                     <div>
-                      <p className="text-sm font-semibold text-foreground">{rt.name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Floor {rt.floorNumber} · {rt.areaSqFt} sq ft</p>
-                      <p className="text-xs text-muted-foreground mt-1">Up to {rt.maxGuests} guests ({rt.maxAdults} adults{rt.maxChildren ? `, ${rt.maxChildren} children` : ''})</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-foreground">{rt.name}</p>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${rt.availableRooms > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {rt.availableRooms > 0 ? 'Available' : 'Sold out'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">Floor {rt.floorNumber}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Up to {rt.maxGuests} guests ({rt.maxAdults} adults{rt.maxChildren ? `, ${rt.maxChildren} children` : ''})</p>
                       {rt.cancellationTitle && (
                         <p className="text-xs text-green-600 mt-1">{rt.cancellationTitle}</p>
+                      )}
+                      {rt.cancellationPolicy && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{rt.cancellationPolicy}</p>
                       )}
                       {rt.customAmenities && rt.customAmenities.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1.5">
                           {rt.customAmenities.map((a, i) => (
-                            <span key={i} className="text-[11px] text-muted-foreground border border-border rounded-full px-2 py-0.5">{a.name}</span>
+                            <span key={i} className="text-[11px] text-muted-foreground bg-gray-100 rounded-full px-2 py-0.5">{a.name}</span>
                           ))}
                         </div>
                       )}
@@ -231,38 +238,40 @@ export function RoomSelectionPanel({
                       </button>
                     </div>
                   </div>
-                  <div className="shrink-0 flex flex-col gap-6">
-                    <div className="flex items-center justify-end gap-3">
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-foreground">${effectivePrice}</p>
-                        <p className="text-xs text-muted-foreground">/ night</p>
-                      </div>
+                  <div className="shrink-0 flex flex-row md:flex-col items-center md:items-end justify-between gap-3 md:gap-4">
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-foreground">${rt.price}<span className="text-[10px] font-normal text-muted-foreground">/night</span></p>
                     </div>
-                    <div className="flex items-center justify-end gap-3">
-                      <div className="text-right min-w-[70px]">
-                        <p className="text-sm font-bold text-foreground">${lineTotal.toLocaleString()}</p>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="flex items-center gap-2 border border-border rounded-lg px-2.5 py-1.5">
-                          <button
-                            onClick={() => onQtyChange(rt.id, -1)}
-                            disabled={qty <= 0}
-                            className="w-7 h-7 rounded-full border border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
-                          >
-                            <Minus size={10} />
-                          </button>
-                          <span className="w-6 text-center text-sm font-bold tabular-nums text-foreground">{qty}</span>
-                          <button
-                            onClick={() => onQtyChange(rt.id, 1)}
-                            disabled={qty >= rt.availableRooms}
-                            className="w-7 h-7 rounded-full border border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
-                          >
-                            <Plus size={10} />
-                          </button>
+                    {rt.availableRooms > 0 ? (
+                      <div className="flex items-center gap-3">
+                        <div className="text-right min-w-[70px]">
+                          <p className="text-sm font-bold text-foreground">${lineTotal.toLocaleString()}</p>
+                          <p className="text-[10px] text-muted-foreground">{nights} night{nights > 1 ? 's' : ''}</p>
                         </div>
-                        <span className="text-[10px] text-muted-foreground">rooms</span>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-2.5 py-1.5">
+                            <button
+                              onClick={() => onQtyChange(rt.id, -1)}
+                              disabled={qty <= 0}
+                              className="w-7 h-7 rounded-full border border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
+                            >
+                              <Minus size={10} />
+                            </button>
+                            <span className="w-6 text-center text-sm font-bold tabular-nums text-foreground">{qty}</span>
+                            <button
+                              onClick={() => onQtyChange(rt.id, 1)}
+                              disabled={qty >= rt.availableRooms}
+                              className="w-7 h-7 rounded-full border border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:border-primary transition-all"
+                            >
+                              <Plus size={10} />
+                            </button>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">rooms</span>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <p className="text-xs text-red-500 text-right">No rooms available</p>
+                    )}
                   </div>
                 </div>
               );
@@ -290,12 +299,11 @@ export function RoomSelectionPanel({
                     if (qty <= 0) return null;
                     const room = hotel.roomTypes.find(r => r.id === roomId);
                     if (!room) return null;
-                    const gc = roomGuestCounts[roomId] || 1;
-                    const ep = calcPrice(room.price, room.maxGuests, gc);
-                    const roomTotal = qty * ep * nights;
+                    const totalGuests = guests.adults + guests.children;
+                    const roomTotal = qty * room.price * nights;
                     return (
                       <div key={roomId} className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{room.name} × {qty} ({gc} guest{gc > 1 ? 's' : ''})</span>
+                        <span className="text-muted-foreground">{room.name} × {qty} ({totalGuests} guest{totalGuests > 1 ? 's' : ''})</span>
                         <span className="text-foreground">${roomTotal.toLocaleString()}</span>
                       </div>
                     );
@@ -308,9 +316,7 @@ export function RoomSelectionPanel({
                     .reduce((sum, [roomId, qty]) => {
                       const room = hotel.roomTypes.find(r => r.id === roomId);
                       if (!room) return sum;
-                      const gc = roomGuestCounts[roomId] || 1;
-                      const ep = calcPrice(room.price, room.maxGuests, gc);
-                      return sum + qty * ep * nights;
+                      return sum + qty * room.price * nights;
                     }, 0).toLocaleString()}</span>
                 </div>
                 <button

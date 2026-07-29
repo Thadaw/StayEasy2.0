@@ -59,7 +59,7 @@ export function HeroSection() {
   };
 
   return (
-    <section className="relative w-full min-h-[240px] md:min-h-[280px] lg:min-h-[320px] overflow-hidden bg-brand-background">
+    <section className="relative w-full min-h-[240px] md:min-h-[280px] lg:min-h-[320px] overflow-visible bg-brand-background">
       {/* Decorative wavy lines */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30" viewBox="0 0 1440 320" fill="none" preserveAspectRatio="xMidYMid slice">
         <path d="M-100 200 Q200 150 400 220 T800 180 T1200 240 T1600 200" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="6 4" fill="none" opacity="0.4" />

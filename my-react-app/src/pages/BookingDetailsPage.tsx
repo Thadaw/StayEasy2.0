@@ -5,7 +5,6 @@ import { hotels, Hotel, RoomType } from "../data/hotels"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
 import { useAuth } from "../context/AuthContext"
-import { calcPrice } from "../utils/pricing"
 import { formatDate } from "../utils/format"
 import { phoneCodes } from "../data/phoneCodes"
 import { allCountries } from "../data/countries"
@@ -161,8 +160,7 @@ export default function BookingDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [bookingRooms, setBookingRooms] = useState<{ room_id: string; room_name: string; room_type: string; bed_type: string; max_adults: number; max_children: number; base_rate: number; nights: number; subtotal: number }[]>([])
 
-  const [firstName, setFirstName] = useState("")
-  const [lastName, setLastName] = useState("")
+  const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [phoneCode, setPhoneCode] = useState("+977")
   const [phoneNumber, setPhoneNumber] = useState("")
@@ -174,9 +172,7 @@ export default function BookingDetailsPage() {
       try {
         const { data } = await api.get<GuestProfile>('/auth/guests/me')
         if (data.full_name) {
-          const parts = data.full_name.split(' ')
-          setFirstName(parts[0] || '')
-          setLastName(parts.slice(1).join(' ') || '')
+          setFullName(data.full_name)
         }
         if (data.email) setEmail(data.email)
         if (data.phone) {
@@ -200,8 +196,7 @@ export default function BookingDetailsPage() {
         }
       } catch {
         // fallback to basic user data
-        setFirstName(user.firstName || user.first_name || '')
-        setLastName(user.lastName || user.last_name || '')
+        setFullName(user.fullName || user.full_name || `${user.firstName || user.first_name || ''} ${user.lastName || user.last_name || ''}`.trim())
         setEmail(user.email || '')
       }
     }
@@ -324,7 +319,7 @@ export default function BookingDetailsPage() {
     return selectedRoomTypes.map(rt => {
       const qty = parsedRooms[rt.id] || 0
       const gc = parsedGuestCounts[rt.id] || 1
-      const ep = calcPrice(rt.price, rt.maxGuests, gc)
+      const ep = rt.price
       const lineTotal = qty * ep
       return { room: rt, qty, gc, ep, lineTotal }
     })
@@ -334,8 +329,7 @@ export default function BookingDetailsPage() {
     ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
     : 1
   const subtotal = roomLines.reduce((s, l) => s + l.lineTotal * nights, 0)
-  const taxesAndFees = Math.round(subtotal * 0.10)
-  const total = subtotal + taxesAndFees
+  const total = subtotal
 
   const handleNext = () => {
     const params = new URLSearchParams()
@@ -343,8 +337,7 @@ export default function BookingDetailsPage() {
     if (checkOut) params.set("checkOut", checkOut)
     if (roomsParam) params.set("rooms", roomsParam)
     if (guestCountsParam) params.set("guestCounts", guestCountsParam)
-    params.set("guestFirstName", firstName)
-    params.set("guestLastName", lastName)
+    params.set("guestName", fullName)
     params.set("guestEmail", email)
     params.set("guestPhone", `${phoneCode}${phoneNumber}`)
     if (country) params.set("guestCountry", country)
@@ -505,7 +498,7 @@ export default function BookingDetailsPage() {
                     <span className="text-sm font-bold text-gray-900">Total</span>
                     <span className="text-sm font-bold text-gray-900">${Math.max(0, total).toFixed(2)}</span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Includes taxes and fees</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Taxes & fees included</p>
                 </div>
               </div>
             </div>
@@ -516,26 +509,15 @@ export default function BookingDetailsPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <p className="text-sm text-gray-500 mb-5">Almost done! Just fill in the <span className="text-red-500">*</span> required info</p>
 
-              {/* Name row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">First name *</label>
-                  <input
-                    type="text"
-                    value={firstName}
-                    onChange={e => setFirstName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2E86AB] transition-colors text-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Last name *</label>
-                  <input
-                    type="text"
-                    value={lastName}
-                    onChange={e => setLastName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2E86AB] transition-colors text-gray-900"
-                  />
-                </div>
+              {/* Name */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-600 mb-1">Full name *</label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2E86AB] transition-colors text-gray-900"
+                />
               </div>
 
               {/* Email */}

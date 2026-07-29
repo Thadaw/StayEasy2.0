@@ -8,11 +8,18 @@ import { hotels, Hotel, RoomType } from "../data/hotels"
 import { useBookings } from "../context/BookingContext"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
-import { calcPrice } from "../utils/pricing"
 import { formatDate } from "../utils/format"
+import { worldCountries } from "../data/worldCountries"
 import api from "../api"
 
 type PaymentMethod = "stripe" | "razorpay"
+
+function getCurrencySymbol(currencyCode: string): string {
+  const found = worldCountries.find(
+    (c) => c.currency.toLowerCase() === currencyCode.toLowerCase()
+  )
+  return found?.symbol || '$'
+}
 
 interface ApiProperty {
   id: string; tenant_id: string; name: string; type: string; description: string;
@@ -127,6 +134,7 @@ export default function ReservePage() {
   }, [apiProperty, apiRooms])
 
   const hotel = apiHotel || hotels.find((h) => h.id === Number(id))
+  const CUR = getCurrencySymbol(apiProperty?.currency || bookingData?.property?.currency || 'USD')
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null)
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [promoInput, setPromoInput] = useState('')
@@ -156,7 +164,9 @@ export default function ReservePage() {
           setApiProperty(propRes.data?.data || null)
         } catch { setApiProperty(null) }
         try {
-          const roomsRes = await api.get(`/properties/${propertyId}/rooms/available-rooms`)
+          const roomsRes = await api.get(`/properties/${propertyId}/rooms/available-rooms`, {
+            params: { checkin_date: booking?.check_in, checkout_date: booking?.check_out, adults: 2, children: 0, rooms: 1 },
+          })
           setApiRooms(roomsRes.data?.data || [])
         } catch { setApiRooms([]) }
       } catch {
@@ -165,7 +175,9 @@ export default function ReservePage() {
           try {
             const propRes = await api.get(`/properties/${id}/public`)
             setApiProperty(propRes.data?.data || null)
-            const roomsRes = await api.get(`/properties/${id}/rooms/available-rooms`)
+            const roomsRes = await api.get(`/properties/${id}/rooms/available-rooms`, {
+              params: { checkin_date: searchParams.get('checkIn'), checkout_date: searchParams.get('checkOut'), adults: 2, children: 0, rooms: 1 },
+            })
             setApiRooms(roomsRes.data?.data || [])
           } catch {
             setApiProperty(null)
@@ -179,23 +191,30 @@ export default function ReservePage() {
     fetchBooking()
   }, [id, refNumber])
 
-  const validPromos: Record<string, { type: 'percentage' | 'fixed'; amount: number }> = {
-    SUMMER20: { type: 'percentage', amount: 20 },
-    WELCOME10: { type: 'percentage', amount: 10 },
-    STAY50: { type: 'fixed', amount: 50 },
-    EARLY15: { type: 'percentage', amount: 15 },
-  }
-
-  const handleApplyPromo = () => {
+  const handleApplyPromo = async () => {
     const code = promoInput.trim().toUpperCase()
     if (!code) return
-    const promo = validPromos[code]
-    if (promo) {
-      setAppliedDiscount({ ...promo, code })
-      setPromoError('')
-      setPromoInput('')
-    } else {
-      setPromoError('Invalid promo code')
+    if (!refNumber) {
+      setPromoError('No booking reference found')
+      return
+    }
+    try {
+      const { data } = await api.post(`/bookings/${refNumber}/apply-discount`, { code })
+      const discount = data?.data || data
+      if (discount) {
+        setAppliedDiscount({
+          code,
+          type: discount.type || 'percentage',
+          amount: discount.amount || discount.discount || 0,
+        })
+        setPromoError('')
+        setPromoInput('')
+      } else {
+        setPromoError('Invalid promo code')
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Invalid promo code'
+      setPromoError(msg)
     }
   }
 
@@ -213,8 +232,7 @@ export default function ReservePage() {
   const checkIn = bookingData?.check_in || searchParams.get('checkIn') || ''
   const checkOut = bookingData?.check_out || searchParams.get('checkOut') || ''
 
-  const guestFirstName = searchParams.get('guestFirstName') || ''
-  const guestLastName = searchParams.get('guestLastName') || ''
+  const guestName = searchParams.get('guestName') || ''
   const guestEmail = searchParams.get('guestEmail') || ''
   const guestPhone = searchParams.get('guestPhone') || ''
   const specialRequests = searchParams.get('specialRequests') || ''
@@ -241,20 +259,18 @@ export default function ReservePage() {
     return selectedRoomTypes.map(rt => {
       const qty = parsedRooms[rt.id] || 0;
       const gc = parsedGuestCounts[rt.id] || 1;
-      const ep = calcPrice(rt.price, rt.maxGuests, gc);
+      const ep = rt.price;
       const lineTotal = qty * ep;
       return { room: rt, qty, gc, ep, lineTotal };
     })
   }, [bookingData, selectedRoomTypes, hotel, parsedRooms, parsedGuestCounts])
 
-  const totalGuests = bookingData?.rooms?.reduce((s, r) => s + r.max_adults + r.max_children, 0) || Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0);
+  const totalGuests = Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0) || bookingData?.rooms?.reduce((s, r) => s + r.max_adults + r.max_children, 0) || 0;
 
   const nights = bookingData?.nights || (checkIn && checkOut
     ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
     : 1)
   const subtotal = bookingData?.subtotal || roomLines.reduce((s, l) => s + l.lineTotal * nights, 0);
-  const taxesAndFees = Math.round(subtotal * 0.10);
-  const resortFee = Math.round(roomLines.reduce((s, l) => s + l.ep * l.qty, 0) * 0.06);
 
   let discountAmount = 0;
   if (appliedDiscount) {
@@ -263,7 +279,7 @@ export default function ReservePage() {
       : appliedDiscount.amount;
   }
 
-  const total = bookingData?.total_amount || (subtotal + taxesAndFees + resortFee - discountAmount);
+  const total = bookingData?.total_amount || (subtotal - discountAmount);
 
   if (apiLoading) {
     return (
@@ -313,10 +329,518 @@ export default function ReservePage() {
       </div>
 
       <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8 items-start">
 
-          {/* ========== LEFT COLUMN — Property Summary ========== */}
-          <div className="order-2 lg:order-1">
+        {/* ========== MOBILE LAYOUT ========== */}
+        <div className="lg:hidden space-y-5">
+          {/* Hotel Summary */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <img
+              src={hotel?.imageUrl || hotel?.images?.[0] || ''}
+              alt={hotelName}
+              className="w-full h-56 object-cover"
+            />
+            <div className="p-5">
+              <div className="flex items-center gap-1 mb-2">
+                {hotel && Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} size={14} className={i < Math.floor(hotel.rating) ? "fill-[#febb02] stroke-[#febb02]" : "fill-gray-200 stroke-gray-200"} />
+                ))}
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
+                {hotelName}
+              </h2>
+              <p className="text-sm text-gray-500 mb-2">{hotelCity}{hotelCountry ? `, ${hotelCountry}` : ''}</p>
+              {hotel && (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-bold text-white bg-[#003580] px-2 py-1 rounded">
+                    {hotel.rating.toFixed(1)}
+                  </span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {hotel.rating >= 4 ? "Excellent" : hotel.rating >= 3 ? "Good" : "Bad"}
+                  </span>
+                  <span className="text-sm text-gray-500">· {hotel.reviews} reviews</span>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                  <Wifi size={12} /> Free WiFi
+                </span>
+                <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                  <Plane size={12} /> Airport shuttle
+                </span>
+                <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                  <UtensilsCrossed size={12} /> Restaurant
+                </span>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 p-5">
+              <h3 className="text-sm font-bold text-gray-900 mb-4">Your booking details</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Check-in</p>
+                  <p className="text-sm font-bold text-gray-900">{checkIn ? formatDate(checkIn) : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Check-out</p>
+                  <p className="text-sm font-bold text-gray-900">{checkOut ? formatDate(checkOut) : '—'}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Guests</p>
+                  <p className="text-sm font-bold text-gray-900">
+                    {totalGuests} guest{totalGuests !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Stays</p>
+                  <p className="text-sm font-bold text-gray-900">
+                    {nights} night{nights !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 p-5">
+              <h3 className="text-sm font-bold text-gray-900 mb-3">Your price summary</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Original price</span>
+                  <span className="text-sm text-gray-900">{CUR}{subtotal.toFixed(2)}</span>
+                </div>
+                {appliedDiscount && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-[#d4111e] font-medium">Bonus savings</span>
+                    <span className="text-sm text-[#d4111e] font-medium">-{CUR}{discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+
+              {appliedDiscount && (
+                <p className="text-xs text-gray-500 italic mt-2">
+                  You're getting a reduced rate because this property is offering a discount.
+                </p>
+              )}
+
+              <div className="border-t border-gray-200 mt-4 pt-4 space-y-2">
+                {roomLines.map((l, i) => (
+                  <div key={i} className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">{l.room.name} × {nights} night{nights !== 1 ? 's' : ''}</span>
+                    <span className="text-gray-900">{CUR}{(l.lineTotal * nights).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-gray-200 mt-4 pt-4">
+                <p className="text-xs font-semibold text-gray-600 mb-2">Discount code</p>
+                {appliedDiscount ? (
+                  <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-green-700">{appliedDiscount.code}</span>
+                      <span className="text-xs text-green-600">
+                        {appliedDiscount.type === 'percentage' ? `${appliedDiscount.amount}% off` : `${CUR}${appliedDiscount.amount} off`}
+                      </span>
+                    </div>
+                    <button onClick={handleRemovePromo} className="text-green-600 hover:text-green-800 cursor-pointer">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      value={promoInput}
+                      onChange={e => { setPromoInput(e.target.value); setPromoError('') }}
+                      onKeyDown={e => e.key === 'Enter' && handleApplyPromo()}
+                      placeholder="Enter code"
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#0071c2] transition-colors"
+                    />
+                    <button
+                      onClick={handleApplyPromo}
+                      className="px-4 py-2 rounded-lg border-2 border-[#0071c2] text-[#0071c2] text-sm font-semibold hover:bg-[#0071c2] hover:text-white transition-colors cursor-pointer"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )}
+                {promoError && (
+                  <p className="text-xs text-red-500 mt-1">{promoError}</p>
+                )}
+              </div>
+
+              <div className="border-t border-gray-200 mt-4 pt-4">
+                {appliedDiscount && (
+                  <p className="text-sm text-[#d4111e] line-through mb-1">{CUR}{subtotal.toFixed(2)}</p>
+                )}
+                <p className="text-xl font-bold text-gray-900">Total {CUR}{Math.max(0, total).toFixed(2)}</p>
+                <p className="text-xs text-gray-500">Taxes & fees included</p>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 p-5">
+              <h3 className="text-sm font-bold text-gray-900 mb-2">How much will it cost to cancel?</h3>
+              <p className="text-sm text-[#008009] font-medium mb-1">
+                Free cancellation before {checkIn ? formatDate(checkIn) : "check-in date"}
+              </p>
+              <div className="flex justify-between text-sm text-gray-600 mt-2">
+                <span>After 12:00 AM on {checkIn ? formatDate(checkIn) : "check-in"}</span>
+                <span className="font-medium">{CUR}{total.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Guest details */}
+          {(guestName || guestEmail) && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-gray-900">Guest details</h3>
+                <button
+                  onClick={() => navigate(-1)}
+                  className="text-xs font-semibold text-[#0071c2] hover:underline cursor-pointer"
+                >
+                  Edit
+                </button>
+              </div>
+              <div className="space-y-2 text-sm">
+                {guestName && (
+                  <div className="flex gap-2">
+                    <span className="text-gray-500">Name:</span>
+                    <span className="text-gray-900 font-medium">{guestName}</span>
+                  </div>
+                )}
+                {guestEmail && (
+                  <div className="flex gap-2">
+                    <span className="text-gray-500">Email:</span>
+                    <span className="text-gray-900">{guestEmail}</span>
+                  </div>
+                )}
+                {guestPhone && (
+                  <div className="flex gap-2">
+                    <span className="text-gray-500">Phone:</span>
+                    <span className="text-gray-900">{guestPhone}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Payment method */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Payment Method</h3>
+            <div className="flex border-b border-gray-200 mb-6">
+              {paymentOptions.map(({ key, label, logo }) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedPayment(key)}
+                  className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors cursor-pointer ${
+                    selectedPayment === key
+                      ? "border-[#0071c2] text-[#0071c2]"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <span className="flex items-center justify-center gap-1.5">{logo} {label}</span>
+                </button>
+              ))}
+            </div>
+
+            {selectedPayment === "stripe" && (
+              <p className="text-sm text-gray-500">Stripe integration coming soon.</p>
+            )}
+
+            {selectedPayment === "razorpay" && !razorpayResponse && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    onClick={() => setPaySubMethod(paySubMethod === 'upi' ? null : 'upi')}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                      paySubMethod === 'upi'
+                        ? 'border-[#0071c2] bg-blue-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <Smartphone size={20} className={paySubMethod === 'upi' ? 'text-[#0071c2]' : 'text-gray-500'} />
+                    <span className={`text-xs font-medium ${paySubMethod === 'upi' ? 'text-[#0071c2]' : 'text-gray-600'}`}>UPI</span>
+                  </button>
+                  <button
+                    onClick={() => setPaySubMethod(paySubMethod === 'card' ? null : 'card')}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                      paySubMethod === 'card'
+                        ? 'border-[#0071c2] bg-blue-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <CreditCard size={20} className={paySubMethod === 'card' ? 'text-[#0071c2]' : 'text-gray-500'} />
+                    <span className={`text-xs font-medium ${paySubMethod === 'card' ? 'text-[#0071c2]' : 'text-gray-600'}`}>Card</span>
+                  </button>
+                  <button
+                    onClick={() => setPaySubMethod(paySubMethod === 'netbanking' ? null : 'netbanking')}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                      paySubMethod === 'netbanking'
+                        ? 'border-[#0071c2] bg-blue-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <Building2 size={20} className={paySubMethod === 'netbanking' ? 'text-[#0071c2]' : 'text-gray-500'} />
+                    <span className={`text-xs font-medium ${paySubMethod === 'netbanking' ? 'text-[#0071c2]' : 'text-gray-600'}`}>Net Banking</span>
+                  </button>
+                </div>
+
+                {paySubMethod === 'upi' && (
+                  <div className="space-y-3">
+                    <input
+                      value={upiId}
+                      onChange={e => setUpiId(e.target.value)}
+                      placeholder="yourname@upi"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0071c2] transition-colors"
+                    />
+                    <button
+                      disabled={!upiId || paymentLoading}
+                      onClick={async () => {
+                        setPaymentLoading(true)
+                        try {
+                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
+                          const orderId = data?.data?.order_id || data?.order_id
+                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
+                          const options = {
+                            key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
+                            amount: data?.data?.amount || data?.amount || Math.max(0, total) * 100,
+                            currency: data?.data?.currency || data?.currency || "INR",
+                            order_id: orderId,
+                            name: "StayEasy",
+                            description: `Booking for ${hotelName}`,
+                            handler: (response: RazorpayPaymentResponse) => { setRazorpayResponse(response) },
+                            prefill: { contact: guestPhone, email: guestEmail },
+                            theme: { color: "#0071c2" },
+                          }
+                          const razorpay = new (window as any).Razorpay(options)
+                          razorpay.on('payment.failed', (response: any) => { toast.error("Payment failed: " + response.error?.description || "Unknown error") })
+                          razorpay.open()
+                        } catch (err: unknown) {
+                          const msg = err instanceof Error ? err.message : "Unknown error"
+                          if (msg !== "Payment cancelled") toast.error("Payment failed: " + msg)
+                        } finally { setPaymentLoading(false) }
+                      }}
+                      className="w-full py-2.5 rounded-lg bg-[#0071c2] text-white text-sm font-semibold hover:bg-[#005fa3] transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay {CUR}{Math.max(0, total).toFixed(2)} via UPI</>}
+                    </button>
+                  </div>
+                )}
+
+                {paySubMethod === 'card' && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-gray-500">You will be redirected to Razorpay to complete payment.</p>
+                    <button
+                      disabled={paymentLoading}
+                      onClick={async () => {
+                        setPaymentLoading(true)
+                        try {
+                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
+                          const orderId = data?.data?.order_id || data?.order_id
+                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
+                          const options = {
+                            key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
+                            amount: data?.data?.amount || data?.amount || Math.max(0, total) * 100,
+                            currency: data?.data?.currency || data?.currency || "INR",
+                            order_id: orderId,
+                            name: "StayEasy",
+                            description: `Booking for ${hotelName}`,
+                            handler: (response: RazorpayPaymentResponse) => { setRazorpayResponse(response) },
+                            prefill: { contact: guestPhone, email: guestEmail },
+                            theme: { color: "#0071c2" },
+                          }
+                          const razorpay = new (window as any).Razorpay(options)
+                          razorpay.on('payment.failed', (response: any) => { toast.error("Payment failed: " + response.error?.description || "Unknown error") })
+                          razorpay.open()
+                        } catch (err: unknown) {
+                          const msg = err instanceof Error ? err.message : "Unknown error"
+                          if (msg !== "Payment cancelled") toast.error("Payment failed: " + msg)
+                        } finally { setPaymentLoading(false) }
+                      }}
+                      className="w-full py-2.5 rounded-lg bg-[#0071c2] text-white text-sm font-semibold hover:bg-[#005fa3] transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay {CUR}{Math.max(0, total).toFixed(2)} via Card</>}
+                    </button>
+                  </div>
+                )}
+
+                {paySubMethod === 'netbanking' && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      {["SBI", "HDFC", "ICICI", "Axis"].map(b => (
+                        <button
+                          key={b}
+                          onClick={() => setSelectedBank(b)}
+                          className={`py-2 rounded-lg border text-sm font-medium transition-all cursor-pointer ${
+                            selectedBank === b
+                              ? 'border-[#0071c2] bg-blue-50 text-[#0071c2] font-semibold'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          {b}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      disabled={!selectedBank || paymentLoading}
+                      onClick={async () => {
+                        setPaymentLoading(true)
+                        try {
+                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
+                          const orderId = data?.data?.order_id || data?.order_id
+                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
+                          const options = {
+                            key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
+                            amount: data?.data?.amount || data?.amount || Math.max(0, total) * 100,
+                            currency: data?.data?.currency || data?.currency || "INR",
+                            order_id: orderId,
+                            name: "StayEasy",
+                            description: `Booking for ${hotelName}`,
+                            handler: (response: RazorpayPaymentResponse) => { setRazorpayResponse(response) },
+                            prefill: { contact: guestPhone, email: guestEmail },
+                            theme: { color: "#0071c2" },
+                          }
+                          const razorpay = new (window as any).Razorpay(options)
+                          razorpay.on('payment.failed', (response: any) => { toast.error("Payment failed: " + response.error?.description || "Unknown error") })
+                          razorpay.open()
+                        } catch (err: unknown) {
+                          const msg = err instanceof Error ? err.message : "Unknown error"
+                          if (msg !== "Payment cancelled") toast.error("Payment failed: " + msg)
+                        } finally { setPaymentLoading(false) }
+                      }}
+                      className="w-full py-2.5 rounded-lg bg-[#0071c2] text-white text-sm font-semibold hover:bg-[#005fa3] transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay {CUR}{Math.max(0, total).toFixed(2)} via Net Banking</>}
+                    </button>
+                  </div>
+                )}
+
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                  <ShieldCheck size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 mb-1">Secure Payment via Razorpay</p>
+                    <p className="text-xs text-gray-600">Your payment info is encrypted. We never store card details.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {razorpayResponse && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
+                <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-green-700">Payment completed!</p>
+                  <p className="text-xs text-green-600 mt-1">Click "Complete booking" below to confirm your reservation.</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Confirm button */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <label className="flex items-start gap-3 cursor-pointer mb-5">
+              <input
+                type="checkbox"
+                checked={marketingOptIn}
+                onChange={e => setMarketingOptIn(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-[#0071c2] cursor-pointer"
+              />
+              <span className="text-sm text-gray-600 leading-relaxed">
+                I agree to receiving marketing emails from StayEasy.com, including promotions, personalized recommendations, rewards, travel experiences, and updates about StayEasy.com's products and services.
+              </span>
+            </label>
+
+            <button
+              disabled={!selectedPayment || paymentLoading || (selectedPayment === "razorpay" && !razorpayResponse)}
+              onClick={async () => {
+                if (!selectedPayment) return
+
+                if (selectedPayment === "stripe") {
+                  toast.error("Stripe integration coming soon")
+                  return
+                }
+
+                if (selectedPayment === "razorpay" && !razorpayResponse) {
+                  toast.error("Please complete payment first by clicking the Razorpay tab")
+                  return
+                }
+
+                setPaymentLoading(true)
+                try {
+                  if (selectedPayment === "razorpay" && razorpayResponse && refNumber) {
+                    await api.post(`/bookings/${refNumber}/confirm`, {
+                      idempotency_key: crypto.randomUUID(),
+                      gateway_payload: {
+                        razorpay_order_id: razorpayResponse.razorpay_order_id,
+                        razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+                        razorpay_signature: razorpayResponse.razorpay_signature,
+                      },
+                    })
+                  }
+
+                  const roomTypeName = roomLines.map(l => l.room.name).join(", ")
+                  const localBookingData = {
+                    hotelId: bookingData?.property?.id || hotel?.id || id,
+                    hotelName: hotelName,
+                    hotelCity: hotelCity,
+                    hotelCountry: hotelCountry,
+                    hotelImage: hotel?.imageUrl || hotel?.images?.[0] || '',
+                    checkIn,
+                    checkOut,
+                    roomTypeName,
+                    guests: totalGuests,
+                    totalPrice: Math.max(0, total),
+                    discountApplied: appliedDiscount ? {
+                      code: appliedDiscount.code,
+                      type: appliedDiscount.type,
+                      amount: appliedDiscount.amount,
+                    } : undefined,
+                  }
+
+                  try {
+                    addBooking(localBookingData)
+                  } catch {}
+
+                  const booking = {
+                    id: refNumber || `${Date.now().toString(36)}`,
+                    ...localBookingData,
+                    status: "upcoming" as const,
+                    createdAt: new Date().toISOString(),
+                  }
+                  toast.success("Booking confirmed!")
+                  navigate(`/booking-confirmation/${refNumber || booking.id}`, {
+                    state: {
+                      propertyImages: hotel?.images || [],
+                      amenities: hotel?.amenities || [],
+                      guestName,
+                      guestEmail,
+                      guestPhone,
+                      totalGuests,
+                      rating: hotel?.rating,
+                      reviews: hotel?.reviews,
+                    }
+                  })
+                } catch (err: unknown) {
+                  const msg = err instanceof Error ? err.message : "Unknown error"
+                  toast.error("Booking confirmation failed: " + msg)
+                } finally {
+                  setPaymentLoading(false)
+                }
+              }}
+              className="w-full py-3.5 rounded-xl text-white font-semibold text-sm transition-all hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ backgroundColor: "#1A3C5E" }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#163552"}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#1A3C5E"}
+            >
+              {paymentLoading ? "Processing..." : "Complete booking"}
+            </button>
+          </div>
+        </div>
+
+        {/* ========== DESKTOP LAYOUT ========== */}
+        <div className="hidden lg:grid lg:grid-cols-[380px_1fr] gap-8 items-start">
+
+          {/* LEFT COLUMN — Property Summary */}
+          <div>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <img
                 src={hotel?.imageUrl || hotel?.images?.[0] || ''}
@@ -398,12 +922,12 @@ export default function ReservePage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Original price</span>
-                    <span className="text-sm text-gray-900">₹{subtotal.toFixed(2)}</span>
+                    <span className="text-sm text-gray-900">{CUR}{subtotal.toFixed(2)}</span>
                   </div>
                   {appliedDiscount && (
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-[#d4111e] font-medium">Bonus savings</span>
-                      <span className="text-sm text-[#d4111e] font-medium">-₹{discountAmount.toFixed(2)}</span>
+                      <span className="text-sm text-[#d4111e] font-medium">-{CUR}{discountAmount.toFixed(2)}</span>
                     </div>
                   )}
                 </div>
@@ -414,25 +938,59 @@ export default function ReservePage() {
                   </p>
                 )}
 
+                {/* Price breakdown */}
+                <div className="border-t border-gray-200 mt-4 pt-4 space-y-2">
+                  {roomLines.map((l, i) => (
+                    <div key={i} className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">{l.room.name} × {nights} night{nights !== 1 ? 's' : ''}</span>
+                      <span className="text-gray-900">{CUR}{(l.lineTotal * nights).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Discount code */}
                 <div className="border-t border-gray-200 mt-4 pt-4">
-                  {appliedDiscount && (
-                    <p className="text-sm text-[#d4111e] line-through mb-1">₹{subtotal.toFixed(2)}</p>
+                  <p className="text-xs font-semibold text-gray-600 mb-2">Discount code</p>
+                  {appliedDiscount ? (
+                    <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-green-700">{appliedDiscount.code}</span>
+                        <span className="text-xs text-green-600">
+                          {appliedDiscount.type === 'percentage' ? `${appliedDiscount.amount}% off` : `${CUR}${appliedDiscount.amount} off`}
+                        </span>
+                      </div>
+                      <button onClick={handleRemovePromo} className="text-green-600 hover:text-green-800 cursor-pointer">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        value={promoInput}
+                        onChange={e => { setPromoInput(e.target.value); setPromoError('') }}
+                        onKeyDown={e => e.key === 'Enter' && handleApplyPromo()}
+                        placeholder="Enter code"
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#0071c2] transition-colors"
+                      />
+                      <button
+                        onClick={handleApplyPromo}
+                        className="px-4 py-2 rounded-lg border-2 border-[#0071c2] text-[#0071c2] text-sm font-semibold hover:bg-[#0071c2] hover:text-white transition-colors cursor-pointer"
+                      >
+                        Apply
+                      </button>
+                    </div>
                   )}
-                  <p className="text-xl font-bold text-gray-900">Total ₹{Math.max(0, total).toFixed(2)}</p>
-                  <p className="text-xs text-gray-500">Includes taxes and fees</p>
+                  {promoError && (
+                    <p className="text-xs text-red-500 mt-1">{promoError}</p>
+                  )}
                 </div>
 
                 <div className="border-t border-gray-200 mt-4 pt-4">
-                  <p className="text-sm font-bold text-gray-900 mb-2">Price information</p>
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                      <CreditCard size={14} className="text-gray-500" />
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      <p className="font-semibold text-gray-900">Includes ₹{taxesAndFees.toFixed(2)} in taxes and fees</p>
-                      <p>10% taxes · ₹{taxesAndFees.toFixed(2)}</p>
-                    </div>
-                  </div>
+                  {appliedDiscount && (
+                    <p className="text-sm text-[#d4111e] line-through mb-1">{CUR}{subtotal.toFixed(2)}</p>
+                  )}
+                  <p className="text-xl font-bold text-gray-900">Total {CUR}{Math.max(0, total).toFixed(2)}</p>
+                  <p className="text-xs text-gray-500">Taxes & fees included</p>
                 </div>
               </div>
 
@@ -444,52 +1002,14 @@ export default function ReservePage() {
                 </p>
                 <div className="flex justify-between text-sm text-gray-600 mt-2">
                   <span>After 12:00 AM on {checkIn ? formatDate(checkIn) : "check-in"}</span>
-                  <span className="font-medium">₹{total.toFixed(2)}</span>
+                  <span className="font-medium">{CUR}{total.toFixed(2)}</span>
                 </div>
-              </div>
-
-              {/* Promo code */}
-              <div className="border-t border-gray-200 p-5">
-                <h3 className="text-sm font-bold text-gray-900 mb-3">Do you have a promo code?</h3>
-                <p className="text-xs text-gray-500 mb-2">Enter your promo code</p>
-                {appliedDiscount ? (
-                  <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-green-700">{appliedDiscount.code}</span>
-                      <span className="text-xs text-green-600">
-                        {appliedDiscount.type === 'percentage' ? `${appliedDiscount.amount}% off` : `$${appliedDiscount.amount} off`}
-                      </span>
-                    </div>
-                    <button onClick={handleRemovePromo} className="text-green-600 hover:text-green-800 cursor-pointer">
-                      <X size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <input
-                      value={promoInput}
-                      onChange={e => { setPromoInput(e.target.value); setPromoError('') }}
-                      onKeyDown={e => e.key === 'Enter' && handleApplyPromo()}
-                      placeholder=""
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0071c2] transition-colors"
-                    />
-                    <button
-                      onClick={handleApplyPromo}
-                      className="px-5 py-2.5 rounded-lg border-2 border-[#0071c2] text-[#0071c2] text-sm font-semibold hover:bg-[#0071c2] hover:text-white transition-colors cursor-pointer"
-                    >
-                      Apply
-                    </button>
-                  </div>
-                )}
-                {promoError && (
-                  <p className="text-xs text-red-500 mt-1">{promoError}</p>
-                )}
               </div>
             </div>
           </div>
 
-          {/* ========== RIGHT COLUMN — Payment ========== */}
-          <div className="order-1 lg:order-2">
+          {/* RIGHT COLUMN — Payment */}
+          <div>
 
             {/* Credit card needed banner */}
             <div className="bg-[#febb02]/10 border border-[#febb02]/30 rounded-xl p-5 mb-6 flex items-center justify-between">
@@ -507,7 +1027,7 @@ export default function ReservePage() {
             </div>
 
             {/* Guest details */}
-            {(guestFirstName || guestLastName || guestEmail) && (
+            {(guestName || guestEmail) && (
               <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-bold text-gray-900">Guest details</h3>
@@ -519,10 +1039,10 @@ export default function ReservePage() {
                   </button>
                 </div>
                 <div className="space-y-2 text-sm">
-                  {guestFirstName && (
+                  {guestName && (
                     <div className="flex gap-2">
                       <span className="text-gray-500">Name:</span>
-                      <span className="text-gray-900 font-medium">{guestFirstName} {guestLastName}</span>
+                      <span className="text-gray-900 font-medium">{guestName}</span>
                     </div>
                   )}
                   {guestEmail && (
@@ -673,7 +1193,7 @@ export default function ReservePage() {
                               }
                             },
                             prefill: {
-                              name: `${guestFirstName} ${guestLastName}`.trim(),
+                              name: guestName,
                               email: guestEmail,
                               contact: guestPhone,
                               vpa: upiId.trim(),
@@ -689,7 +1209,7 @@ export default function ReservePage() {
                       }}
                       className="w-full py-2.5 rounded-lg bg-[#0071c2] text-white text-sm font-semibold hover:bg-[#005fa3] transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay ₹{Math.max(0, total).toFixed(2)} via UPI</>}
+                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay {CUR}{Math.max(0, total).toFixed(2)} via UPI</>}
                     </button>
                   </div>
                 )}
@@ -720,7 +1240,7 @@ export default function ReservePage() {
                             description: `Booking at ${hotelName}`,
                             order_id: orderId,
                             prefill: {
-                              name: `${guestFirstName} ${guestLastName}`.trim(),
+                              name: guestName,
                               email: guestEmail,
                               contact: guestPhone,
                             },
@@ -737,7 +1257,7 @@ export default function ReservePage() {
                       }}
                       className="w-full py-2.5 rounded-lg bg-[#0071c2] text-white text-sm font-semibold hover:bg-[#005fa3] transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay ₹{Math.max(0, total).toFixed(2)} via Card</>}
+                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay {CUR}{Math.max(0, total).toFixed(2)} via Card</>}
                     </button>
                   </div>
                 )}
@@ -804,7 +1324,7 @@ export default function ReservePage() {
                               }
                             },
                             prefill: {
-                              name: `${guestFirstName} ${guestLastName}`.trim(),
+                              name: guestName,
                               email: guestEmail,
                               contact: guestPhone,
                               bank: selectedBank,
@@ -820,7 +1340,7 @@ export default function ReservePage() {
                       }}
                       className="w-full py-2.5 rounded-lg bg-[#0071c2] text-white text-sm font-semibold hover:bg-[#005fa3] transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay ₹{Math.max(0, total).toFixed(2)} via Net Banking</>}
+                      {paymentLoading ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <>Pay {CUR}{Math.max(0, total).toFixed(2)} via Net Banking</>}
                     </button>
                   </div>
                 )}
@@ -926,10 +1446,10 @@ export default function ReservePage() {
                       state: {
                         propertyImages: hotel?.images || [],
                         amenities: hotel?.amenities || [],
-                        guestFirstName,
-                        guestLastName,
+                        guestName,
                         guestEmail,
                         guestPhone,
+                        totalGuests,
                         rating: hotel?.rating,
                         reviews: hotel?.reviews,
                       }
