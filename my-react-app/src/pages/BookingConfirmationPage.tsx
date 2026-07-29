@@ -214,6 +214,58 @@ export default function BookingConfirmationPage() {
           </div>
           
           <hr class="divider">
+
+          ${booking.rooms.map((r) => `
+          <div style="margin-bottom: 12px;">
+            <div class="row">
+              <span class="label">Room</span>
+              <span class="colon">:</span>
+              <span class="value">${r.room_name}</span>
+            </div>
+            <div class="row">
+              <span class="label" style="padding-left: 15px;">Type</span>
+              <span class="colon">:</span>
+              <span class="value">${r.room_type}</span>
+            </div>
+            <div class="row">
+              <span class="label" style="padding-left: 15px;">Bed</span>
+              <span class="colon">:</span>
+              <span class="value">${r.bed_type}</span>
+            </div>
+            <div class="row">
+              <span class="label" style="padding-left: 15px;">Guests</span>
+              <span class="colon">:</span>
+              <span class="value">Max ${r.max_adults} adults${r.max_children > 0 ? `, ${r.max_children} children` : ''}</span>
+            </div>
+            <div class="row">
+              <span class="label" style="padding-left: 15px;">Rate</span>
+              <span class="colon">:</span>
+              <span class="value">${CUR}${r.base_rate.toFixed(2)} × ${r.nights} night${r.nights > 1 ? 's' : ''}</span>
+            </div>
+            <div class="row">
+              <span class="label" style="padding-left: 15px;">Subtotal</span>
+              <span class="colon">:</span>
+              <span class="value">${CUR}${r.subtotal.toFixed(2)}</span>
+            </div>
+          </div>
+          `).join('')}
+
+          ${booking.special_offer_discount > 0 ? `
+          <div class="row">
+            <span class="label">Special Offer</span>
+            <span class="colon">:</span>
+            <span class="value" style="color: #16a34a;">-${CUR}${booking.special_offer_discount.toFixed(2)}</span>
+          </div>
+          ` : ''}
+          ${booking.coupon_code ? `
+          <div class="row">
+            <span class="label">Coupon (${booking.coupon_code})</span>
+            <span class="colon">:</span>
+            <span class="value" style="color: #16a34a;">-${CUR}${booking.coupon_discount.toFixed(2)}</span>
+          </div>
+          ` : ''}
+          
+          <hr class="divider">
           
           <div class="total-row">
             <span class="total-label">Total Paid</span>
@@ -374,6 +426,7 @@ export default function BookingConfirmationPage() {
                     <p className="text-sm font-bold text-gray-900">{r.room_name}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{r.room_type} · {r.bed_type}</p>
                     <p className="text-xs text-gray-500">Max {r.max_adults} adults{r.max_children > 0 ? `, ${r.max_children} children` : ''}</p>
+                    <p className="text-xs text-gray-500">{CUR}{r.base_rate.toFixed(2)}/night × {r.nights} night{r.nights > 1 ? 's' : ''}</p>
                   </div>
                   <div className="ml-auto text-right shrink-0">
                     <p className="text-sm font-bold text-gray-900">{CUR}{r.subtotal.toFixed(2)}</p>
@@ -616,6 +669,7 @@ export default function BookingConfirmationPage() {
                       <p className="text-sm font-bold text-gray-900">{r.room_name}</p>
                       <p className="text-xs text-gray-500 mt-0.5">{r.room_type} · {r.bed_type}</p>
                       <p className="text-xs text-gray-500">Max {r.max_adults} adults{r.max_children > 0 ? `, ${r.max_children} children` : ''}</p>
+                      <p className="text-xs text-gray-500">{CUR}{r.base_rate.toFixed(2)}/night × {r.nights} night{r.nights > 1 ? 's' : ''}</p>
                     </div>
                     <div className="ml-auto text-right shrink-0">
                       <p className="text-sm font-bold text-gray-900">{CUR}{r.subtotal.toFixed(2)}</p>

@@ -4,6 +4,7 @@ import { Star, X, Loader2, CreditCard, ShieldCheck, Wifi, Plane, UtensilsCrossed
 import toast from "react-hot-toast"
 import { useRazorpay } from "../hooks/useRazorpay"
 import type { RazorpayPaymentResponse } from "../types/razorpay"
+import StripeCardForm from "../components/StripeCardForm"
 import { hotels, Hotel, RoomType } from "../data/hotels"
 import { useBookings } from "../context/BookingContext"
 import { Navbar } from "../components/Navbar"
@@ -141,8 +142,13 @@ export default function ReservePage() {
   const [appliedDiscount, setAppliedDiscount] = useState<{ type: 'percentage' | 'fixed'; amount: number; code: string } | null>(null)
   const [promoError, setPromoError] = useState('')
   const [marketingOptIn, setMarketingOptIn] = useState(false)
-  const [razorpayResponse, setRazorpayResponse] = useState<RazorpayPaymentResponse | null>(null)
-  const [upiId, setUpiId] = useState('')
+const [razorpayResponse, setRazorpayResponse] = useState<RazorpayPaymentResponse | null>(null)
+const [razorpayOrderId, setRazorpayOrderId] = useState<string | null>(null)
+const [razorpayOrderLoading, setRazorpayOrderLoading] = useState(false)
+const [razorpayOrderError, setRazorpayOrderError] = useState<string | null>(null)
+const [stripePaymentIntentId, setStripePaymentIntentId] = useState<string | null>(null)
+const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null)
+const [upiId, setUpiId] = useState('')
   const [selectedBank, setSelectedBank] = useState('')
   const [paySubMethod, setPaySubMethod] = useState<'upi' | 'card' | 'netbanking' | null>(null)
 
@@ -190,6 +196,34 @@ export default function ReservePage() {
     }
     fetchBooking()
   }, [id, refNumber])
+
+  useEffect(() => {
+    if (selectedPayment !== "razorpay" || !refNumber) return
+    let cancelled = false
+    const createOrder = async () => {
+      setRazorpayOrderLoading(true)
+      setRazorpayOrderError(null)
+      setRazorpayOrderId(null)
+      try {
+        const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
+        if (cancelled) return
+        const orderId = data?.razorpay_order_id || data?.data?.razorpay_order_id || data?.order_id || data?.data?.order_id
+        if (!orderId) {
+          setRazorpayOrderError("Failed to initialize Razorpay")
+          return
+        }
+        setRazorpayOrderId(orderId)
+      } catch (err: unknown) {
+        if (cancelled) return
+        const msg = err instanceof Error ? err.message : "Failed to initialize Razorpay"
+        setRazorpayOrderError(msg)
+      } finally {
+        if (!cancelled) setRazorpayOrderLoading(false)
+      }
+    }
+    createOrder()
+    return () => { cancelled = true }
+  }, [selectedPayment, refNumber])
 
   const handleApplyPromo = async () => {
     const code = promoInput.trim().toUpperCase()
@@ -542,12 +576,33 @@ export default function ReservePage() {
               ))}
             </div>
 
-            {selectedPayment === "stripe" && (
-              <p className="text-sm text-gray-500">Stripe integration coming soon.</p>
+            {selectedPayment === "stripe" && !stripePaymentIntentId && (
+              <StripeCardForm
+                refNumber={refNumber}
+                amount={total}
+                hotelName={hotelName}
+                guestName={guestName}
+                guestEmail={guestEmail}
+                guestPhone={guestPhone}
+                onSuccess={(id, secret) => { setStripePaymentIntentId(id); setStripeClientSecret(secret) }}
+              />
             )}
 
             {selectedPayment === "razorpay" && !razorpayResponse && (
               <div className="space-y-4">
+                {razorpayOrderLoading && (
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <Loader2 size={16} className="animate-spin text-[#0071c2]" />
+                    <span className="text-sm text-gray-500">Initializing Razorpay...</span>
+                  </div>
+                )}
+                {razorpayOrderError && (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-red-500 mb-2">{razorpayOrderError}</p>
+                  </div>
+                )}
+
+                {!razorpayOrderLoading && !razorpayOrderError && razorpayOrderId && (
                 <div className="grid grid-cols-3 gap-3">
                   <button
                     onClick={() => setPaySubMethod(paySubMethod === 'upi' ? null : 'upi')}
@@ -583,6 +638,7 @@ export default function ReservePage() {
                     <span className={`text-xs font-medium ${paySubMethod === 'netbanking' ? 'text-[#0071c2]' : 'text-gray-600'}`}>Net Banking</span>
                   </button>
                 </div>
+                )}
 
                 {paySubMethod === 'upi' && (
                   <div className="space-y-3">
@@ -593,18 +649,16 @@ export default function ReservePage() {
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0071c2] transition-colors"
                     />
                     <button
-                      disabled={!upiId || paymentLoading}
+                      disabled={!upiId || paymentLoading || !razorpayOrderId}
                       onClick={async () => {
+                        if (!razorpayOrderId) { toast.error("Razorpay not ready"); return }
                         setPaymentLoading(true)
                         try {
-                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
-                          const orderId = data?.data?.order_id || data?.order_id
-                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
                           const options = {
                             key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
-                            amount: data?.data?.amount || data?.amount || Math.max(0, total) * 100,
-                            currency: data?.data?.currency || data?.currency || "INR",
-                            order_id: orderId,
+                            amount: Math.max(0, total) * 100,
+                            currency: "INR",
+                            order_id: razorpayOrderId,
                             name: "StayEasy",
                             description: `Booking for ${hotelName}`,
                             handler: (response: RazorpayPaymentResponse) => { setRazorpayResponse(response) },
@@ -630,18 +684,16 @@ export default function ReservePage() {
                   <div className="space-y-3">
                     <p className="text-xs text-gray-500">You will be redirected to Razorpay to complete payment.</p>
                     <button
-                      disabled={paymentLoading}
+                      disabled={paymentLoading || !razorpayOrderId}
                       onClick={async () => {
+                        if (!razorpayOrderId) { toast.error("Razorpay not ready"); return }
                         setPaymentLoading(true)
                         try {
-                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
-                          const orderId = data?.data?.order_id || data?.order_id
-                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
                           const options = {
                             key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
-                            amount: data?.data?.amount || data?.amount || Math.max(0, total) * 100,
-                            currency: data?.data?.currency || data?.currency || "INR",
-                            order_id: orderId,
+                            amount: Math.max(0, total) * 100,
+                            currency: "INR",
+                            order_id: razorpayOrderId,
                             name: "StayEasy",
                             description: `Booking for ${hotelName}`,
                             handler: (response: RazorpayPaymentResponse) => { setRazorpayResponse(response) },
@@ -681,18 +733,16 @@ export default function ReservePage() {
                       ))}
                     </div>
                     <button
-                      disabled={!selectedBank || paymentLoading}
+                      disabled={!selectedBank || paymentLoading || !razorpayOrderId}
                       onClick={async () => {
+                        if (!razorpayOrderId) { toast.error("Razorpay not ready"); return }
                         setPaymentLoading(true)
                         try {
-                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
-                          const orderId = data?.data?.order_id || data?.order_id
-                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
                           const options = {
                             key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
-                            amount: data?.data?.amount || data?.amount || Math.max(0, total) * 100,
-                            currency: data?.data?.currency || data?.currency || "INR",
-                            order_id: orderId,
+                            amount: Math.max(0, total) * 100,
+                            currency: "INR",
+                            order_id: razorpayOrderId,
                             name: "StayEasy",
                             description: `Booking for ${hotelName}`,
                             handler: (response: RazorpayPaymentResponse) => { setRazorpayResponse(response) },
@@ -714,6 +764,7 @@ export default function ReservePage() {
                   </div>
                 )}
 
+                {!razorpayOrderLoading && !razorpayOrderError && razorpayOrderId && (
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
                   <ShieldCheck size={18} className="text-blue-600 shrink-0 mt-0.5" />
                   <div>
@@ -721,10 +772,21 @@ export default function ReservePage() {
                     <p className="text-xs text-gray-600">Your payment info is encrypted. We never store card details.</p>
                   </div>
                 </div>
+                )}
               </div>
             )}
 
             {razorpayResponse && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
+                <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-green-700">Payment completed!</p>
+                  <p className="text-xs text-green-600 mt-1">Click "Complete booking" below to confirm your reservation.</p>
+                </div>
+              </div>
+            )}
+
+            {stripePaymentIntentId && (
               <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
                 <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
                 <div>
@@ -750,12 +812,12 @@ export default function ReservePage() {
             </label>
 
             <button
-              disabled={!selectedPayment || paymentLoading || (selectedPayment === "razorpay" && !razorpayResponse)}
+              disabled={!selectedPayment || paymentLoading || (selectedPayment === "razorpay" && !razorpayResponse) || (selectedPayment === "stripe" && !stripePaymentIntentId)}
               onClick={async () => {
                 if (!selectedPayment) return
 
-                if (selectedPayment === "stripe") {
-                  toast.error("Stripe integration coming soon")
+                if (selectedPayment === "stripe" && !stripePaymentIntentId) {
+                  toast.error("Please complete payment first")
                   return
                 }
 
@@ -773,6 +835,18 @@ export default function ReservePage() {
                         razorpay_order_id: razorpayResponse.razorpay_order_id,
                         razorpay_payment_id: razorpayResponse.razorpay_payment_id,
                         razorpay_signature: razorpayResponse.razorpay_signature,
+                      },
+                    })
+                  }
+
+                  if (selectedPayment === "stripe" && stripePaymentIntentId && refNumber) {
+                    await api.post(`/bookings/${refNumber}/confirm`, {
+                      idempotency_key: crypto.randomUUID(),
+                      payment_gateway: "stripe",
+                      gateway_payload: {
+                        payment_intent_id: stripePaymentIntentId,
+                        stripe_payment_intent_id: stripePaymentIntentId,
+                        client_secret: stripeClientSecret,
                       },
                     })
                   }
@@ -1086,13 +1160,34 @@ export default function ReservePage() {
             </div>
 
             {/* Payment form */}
-            {selectedPayment === "stripe" && (
-              <p className="text-sm text-gray-500 mb-6">Stripe integration is coming soon. Please select Razorpay to proceed.</p>
+            {selectedPayment === "stripe" && !stripePaymentIntentId && (
+              <div className="mb-6">
+                <StripeCardForm
+                  refNumber={refNumber}
+                  amount={total}
+                  hotelName={hotelName}
+                  guestName={guestName}
+                  guestEmail={guestEmail}
+                  guestPhone={guestPhone}
+                  onSuccess={(id, secret) => { setStripePaymentIntentId(id); setStripeClientSecret(secret) }}
+                />
+              </div>
             )}
 
             {selectedPayment === "razorpay" && !razorpayResponse && (
               <div className="space-y-4 mb-6">
-                {/* Sub-method selector */}
+                {razorpayOrderLoading && (
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <Loader2 size={16} className="animate-spin text-[#0071c2]" />
+                    <span className="text-sm text-gray-500">Initializing Razorpay...</span>
+                  </div>
+                )}
+                {razorpayOrderError && (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-red-500 mb-2">{razorpayOrderError}</p>
+                  </div>
+                )}
+                {!razorpayOrderLoading && !razorpayOrderError && razorpayOrderId && (
                 <div className="grid grid-cols-3 gap-3">
                   <button
                     onClick={() => setPaySubMethod('upi')}
@@ -1145,6 +1240,7 @@ export default function ReservePage() {
                     <span className="text-[10px] text-gray-500">All major banks</span>
                   </button>
                 </div>
+                )}
 
                 {/* UPI input */}
                 {paySubMethod === 'upi' && (
@@ -1161,21 +1257,18 @@ export default function ReservePage() {
                     </div>
                     <p className="text-[11px] text-gray-400">Supported: Google Pay, PhonePe, Paytm, BHIM, etc.</p>
                     <button
-                      disabled={!upiId.trim() || paymentLoading}
+                      disabled={!upiId.trim() || paymentLoading || !razorpayOrderId}
                       onClick={async () => {
-                        if (!upiId.trim() || !refNumber) return
+                        if (!upiId.trim() || !razorpayOrderId) return
                         setPaymentLoading(true)
                         try {
-                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
-                          const orderId = data?.razorpay_order_id || data?.data?.razorpay_order_id || data?.order_id || data?.data?.order_id
-                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
                           const paymentRes = await openCheckout({
                             key: import.meta.env.VITE_RAZORPAY_KEY_ID,
                             amount: Math.round(total * 100),
                             currency: "INR",
                             name: "StayEasy",
                             description: `Booking at ${hotelName}`,
-                            order_id: orderId,
+                            order_id: razorpayOrderId,
                             config: {
                               display: {
                                 blocks: {
@@ -1224,21 +1317,18 @@ export default function ReservePage() {
                       ))}
                     </div>
                     <button
-                      disabled={paymentLoading}
+                      disabled={paymentLoading || !razorpayOrderId}
                       onClick={async () => {
-                        if (!refNumber) return
+                        if (!razorpayOrderId) return
                         setPaymentLoading(true)
                         try {
-                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
-                          const orderId = data?.razorpay_order_id || data?.data?.razorpay_order_id || data?.order_id || data?.data?.order_id
-                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
                           const paymentRes = await openCheckout({
                             key: import.meta.env.VITE_RAZORPAY_KEY_ID,
                             amount: Math.round(total * 100),
                             currency: "INR",
                             name: "StayEasy",
                             description: `Booking at ${hotelName}`,
-                            order_id: orderId,
+                            order_id: razorpayOrderId,
                             prefill: {
                               name: guestName,
                               email: guestEmail,
@@ -1292,21 +1382,18 @@ export default function ReservePage() {
                       ))}
                     </div>
                     <button
-                      disabled={!selectedBank || paymentLoading}
+                      disabled={!selectedBank || paymentLoading || !razorpayOrderId}
                       onClick={async () => {
-                        if (!selectedBank || !refNumber) return
+                        if (!selectedBank || !razorpayOrderId) return
                         setPaymentLoading(true)
                         try {
-                          const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
-                          const orderId = data?.razorpay_order_id || data?.data?.razorpay_order_id || data?.order_id || data?.data?.order_id
-                          if (!orderId) { toast.error("Failed to get order ID"); setPaymentLoading(false); return }
                           const paymentRes = await openCheckout({
                             key: import.meta.env.VITE_RAZORPAY_KEY_ID,
                             amount: Math.round(total * 100),
                             currency: "INR",
                             name: "StayEasy",
                             description: `Booking at ${hotelName}`,
-                            order_id: orderId,
+                            order_id: razorpayOrderId,
                             config: {
                               display: {
                                 blocks: {
@@ -1374,6 +1461,16 @@ export default function ReservePage() {
               </div>
             )}
 
+            {stripePaymentIntentId && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+                <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-green-700">Payment completed!</p>
+                  <p className="text-xs text-green-600 mt-1">Click "Complete booking" below to confirm your reservation.</p>
+                </div>
+              </div>
+            )}
+
             {/* Marketing checkbox + Complete booking */}
             <div className="mt-8 bg-white rounded-xl border border-gray-200 p-5">
               <label className="flex items-start gap-3 cursor-pointer mb-5">
@@ -1389,12 +1486,12 @@ export default function ReservePage() {
               </label>
 
               <button
-                disabled={!selectedPayment || paymentLoading || (selectedPayment === "razorpay" && !razorpayResponse)}
+                disabled={!selectedPayment || paymentLoading || (selectedPayment === "razorpay" && !razorpayResponse) || (selectedPayment === "stripe" && !stripePaymentIntentId)}
                 onClick={async () => {
                   if (!selectedPayment) return
 
-                  if (selectedPayment === "stripe") {
-                    toast.error("Stripe integration coming soon")
+                  if (selectedPayment === "stripe" && !stripePaymentIntentId) {
+                    toast.error("Please complete payment first")
                     return
                   }
 
@@ -1412,6 +1509,18 @@ export default function ReservePage() {
                           razorpay_order_id: razorpayResponse.razorpay_order_id,
                           razorpay_payment_id: razorpayResponse.razorpay_payment_id,
                           razorpay_signature: razorpayResponse.razorpay_signature,
+                        },
+                      })
+                    }
+
+                    if (selectedPayment === "stripe" && stripePaymentIntentId && refNumber) {
+                      await api.post(`/bookings/${refNumber}/confirm`, {
+                        idempotency_key: crypto.randomUUID(),
+                        payment_gateway: "stripe",
+                        gateway_payload: {
+                          payment_intent_id: stripePaymentIntentId,
+                          stripe_payment_intent_id: stripePaymentIntentId,
+                          client_secret: stripeClientSecret,
                         },
                       })
                     }
