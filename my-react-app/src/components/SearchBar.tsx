@@ -33,15 +33,18 @@ export function SearchBar() {
   const navigate = useNavigate();
   const [urlParams] = useSearchParams();
 
+  const propertyTypesParam = urlParams.get("propertyTypes");
   const [where, setWhere] = useState(() => {
-    return urlParams.get("where") || localStorage.getItem("nearbyLocation") || "";
+    if (urlParams.get("where")) return urlParams.get("where")!;
+    if (propertyTypesParam) return propertyTypesParam;
+    return localStorage.getItem("nearbyLocation") || "";
   });
   const [checkIn, setCheckIn] = useState(() => urlParams.get("checkin") || "");
   const [checkOut, setCheckOut] = useState(() => urlParams.get("checkout") || "");
   const [guests, setGuests] = useState<GuestCount>(() => {
     const total = parseInt(urlParams.get("guests") || "0");
     if (total > 0) return { adults: total, children: 0, infants: 1 };
-    return { adults: 1, children: 0, infants: 1 };
+    return { adults: 2, children: 0, infants: 1 };
   });
   const [showWhere, setShowWhere] = useState(false);
   const [showDates, setShowDates] = useState(false);
@@ -82,6 +85,9 @@ export function SearchBar() {
       saveRecentSearch(searchWhere);
       setRecentSearches(getRecentSearches());
     }
+    if (propertyTypesParam) {
+      params.set("propertyTypes", propertyTypesParam);
+    }
     if (checkIn) params.set("checkin", checkIn);
     if (checkOut) params.set("checkout", checkOut);
     if (totalGuests > 0) params.set("guests", String(totalGuests));
@@ -97,13 +103,13 @@ export function SearchBar() {
   const dateDisplay = formatDateRange(checkIn, checkOut);
 
   return (
-    <div className="bg-white rounded-2xl shadow-card border border-brand-primary-extra-light p-1.5 md:p-1 mb-3 md:mb-4 w-full">
+    <div className="bg-white rounded-2xl shadow-card border border-brand-primary-extra-light p-2 md:p-1.5 mb-3 md:mb-4 w-full">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-0 md:items-center">
         {/* Where */}
         <div ref={whereRef} className="relative min-w-0 md:flex-1">
           <button
             onClick={() => { setShowWhere((v) => !v); setShowDates(false); setShowGuests(false); }}
-            className="w-full px-4 sm:px-5 py-2.5 md:py-2 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-l-2xl md:rounded-tr-none"
+            className="w-full px-4 sm:px-5 py-3.5 md:py-3 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-l-2xl md:rounded-tr-none"
           >
             <MapPin size={13} className="text-brand-accent shrink-0" />
             <div className="min-w-0">
@@ -178,7 +184,7 @@ export function SearchBar() {
         <div ref={datesRef} className="relative min-w-0 md:flex-1">
           <button
             onClick={() => { setShowDates((v) => !v); setShowWhere(false); setShowGuests(false); }}
-            className="w-full px-4 sm:px-5 py-2.5 md:py-2 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
+            className="w-full px-4 sm:px-5 py-3.5 md:py-3 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
           >
             <Calendar size={13} className="text-brand-accent shrink-0" />
             <div className="min-w-0">
@@ -218,7 +224,7 @@ export function SearchBar() {
                   onClick={() => setShowDates(false)}
                   className="w-full py-2 rounded-lg text-sm font-semibold text-white bg-brand-accent hover:bg-brand-accent-hover transition-colors"
                 >
-                  {t("apply")}
+                {t("done")}
                 </button>
               </div>
             </div>
@@ -229,7 +235,7 @@ export function SearchBar() {
         <div ref={guestsRef} className="relative min-w-0 md:flex-1">
           <button
             onClick={() => { setShowGuests((v) => !v); setShowWhere(false); setShowDates(false); }}
-            className="w-full px-4 sm:px-5 py-2.5 md:py-2 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
+            className="w-full px-4 sm:px-5 py-3.5 md:py-3 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
           >
             <Users size={13} className="text-brand-accent shrink-0" />
             <div className="min-w-0">
@@ -282,7 +288,7 @@ export function SearchBar() {
         {/* Search button */}
         <button
           onClick={handleSearch}
-          className="col-span-2 md:col-span-1 w-full h-9 rounded-xl bg-brand-accent flex items-center justify-center gap-2 text-white hover:bg-brand-accent-hover transition-all duration-200 hover:shadow-lg hover:shadow-brand-accent/30 active:scale-95 mt-2 md:mt-0 md:shrink-0"
+          className="col-span-2 md:col-span-1 w-full h-11 rounded-xl bg-brand-accent flex items-center justify-center gap-2 text-white hover:bg-brand-accent-hover transition-all duration-200 hover:shadow-lg hover:shadow-brand-accent/30 active:scale-95 mt-2 md:mt-0 md:shrink-0"
         >
           <Search size={15} />
           <span className="hidden md:inline text-sm font-semibold">Search</span>

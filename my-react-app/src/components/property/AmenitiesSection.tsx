@@ -46,7 +46,7 @@ export function AmenitiesSection({ hotel }: AmenitiesSectionProps) {
       <div>
         <h2 className="font-semibold text-foreground mb-4" style={{ fontSize: "1.125rem" }}>Location</h2>
         <p className="text-sm text-muted-foreground mb-3">{hotel.location}, {hotel.city}, {hotel.country}</p>
-        <div className="rounded-xl overflow-hidden border border-border h-[300px]">
+        <div className="rounded-xl overflow-hidden border border-border h-[200px]">
           <iframe
             title="Property location"
             src={`https://maps.google.com/maps?q=${hotel.lat},${hotel.lng}&z=14&output=embed`}

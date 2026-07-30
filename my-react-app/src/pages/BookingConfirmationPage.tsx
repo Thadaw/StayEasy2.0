@@ -3,16 +3,9 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { CheckCircle2, Copy, Download, Share2, QrCode, MapPin, ShieldCheck, CircleAlert, ArrowRight, Wifi, Plane, UtensilsCrossed, Star } from 'lucide-react'
 import { Navbar } from '../components/Navbar'
 import { Footer } from '../components/Footer'
-import { worldCountries } from '../data/worldCountries'
+import { getCurrencySymbol } from '../data/worldCountries'
 import api from '../api'
 import toast from 'react-hot-toast'
-
-function getCurrencySymbol(currencyCode: string): string {
-  const found = worldCountries.find(
-    (c) => c.currency.toLowerCase() === currencyCode.toLowerCase()
-  )
-  return found?.symbol || '$'
-}
 
 interface ConfirmationRoom {
   room_id: string; room_name: string; room_type: string; bed_type: string;
@@ -133,7 +126,7 @@ export default function BookingConfirmationPage() {
           .receipt { background: white; max-width: 500px; width: 100%; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
           .header { text-align: center; margin-bottom: 20px; }
           .logo { font-size: 28px; font-weight: 800; color: #1a1a1a; }
-          .tagline { font-size: 11px; color: #666; margin-top: 2px; }
+          .tagline { font-size: 11px; color: #666; margin-top: 2px; text-align: center; }
           .divider { border: none; border-top: 2px dashed #ccc; margin: 15px 0; }
           .title { text-align: center; font-size: 16px; font-weight: 700; letter-spacing: 2px; margin: 15px 0; }
           .row { display: flex; padding: 6px 0; }

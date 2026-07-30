@@ -284,7 +284,7 @@ export default function LandingPage() {
                       <span className="text-[9px]" style={{ color: "var(--brand-text-secondary)" }}>{property.distance_km} km</span>
                     )}
                     <div>
-                      <p className="text-xs md:text-sm font-bold leading-tight" style={{ color: "var(--brand-heading)" }}>{getCurrencySymbol(property.currency)}{property.lowest_rate ?? property.total_price} <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}>/ night</span></p>
+                      <p className="text-xs md:text-sm font-bold leading-tight" style={{ color: "var(--brand-heading)" }}><span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from</span> {getCurrencySymbol(property.currency)}{property.lowest_rate ?? property.total_price} <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}>/ night</span></p>
                     </div>
                   </div>
                 </div>

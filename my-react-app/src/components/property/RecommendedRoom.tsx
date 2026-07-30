@@ -5,12 +5,12 @@ interface RecommendedRoomProps {
   guestCount: number;
   checkIn: string;
   onReserve: (roomId: string) => void;
+  CUR?: string;
+  roomQuantities?: Record<string, number>;
 }
 
-export function RecommendedRoom({ room, guestCount, checkIn, onReserve }: RecommendedRoomProps) {
-  const cancelDate = checkIn
-    ? new Date(new Date(checkIn).getTime() - 2 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-    : new Date(Date.now() + 5 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+export function RecommendedRoom({ room, guestCount, checkIn, onReserve, CUR = '$', roomQuantities = {} }: RecommendedRoomProps) {
+  const selected = (roomQuantities[room.id] || 0) > 0;
 
   return (
     <div className="flex flex-col md:flex-row items-stretch gap-4 p-4 rounded-xl border border-brand-primary-extra-light bg-brand-primary-extra-light hover:border-primary/70 transition-all">
@@ -44,35 +44,26 @@ export function RecommendedRoom({ room, guestCount, checkIn, onReserve }: Recomm
           )}
         </div>
 
-        {/* Policies */}
-        <div className="flex flex-row md:flex-col flex-wrap gap-2 md:gap-1.5 shrink-0 md:justify-center md:w-1/3">
-          <div className="flex items-center gap-1.5">
-            <span className="w-1 h-1 rounded-full bg-green-600 shrink-0" />
-            <span className="text-[11px] text-green-700 font-medium">Free cancellation before {cancelDate}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-1 h-1 rounded-full bg-green-600 shrink-0" />
-            <span className="text-[11px] text-foreground">No prepayment needed – pay at the property</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-1 h-1 rounded-full bg-green-600 shrink-0" />
-            <span className="text-[11px] text-foreground">No credit card needed</span>
-          </div>
-        </div>
+
       </div>
 
       {/* Price & Reserve */}
       <div className="flex md:flex-col items-center md:items-end justify-between gap-3 md:gap-0">
         <div className="text-right">
-          <p className="text-sm font-bold text-foreground">${room.price}<span className="text-[10px] font-normal text-muted-foreground">/night</span></p>
+          <p className="text-sm font-bold text-foreground">{CUR}{room.price}<span className="text-[10px] font-normal text-muted-foreground">/night</span></p>
         </div>
-        <button
-          onClick={() => onReserve(room.id)}
-          disabled={room.availableRooms <= 0}
-          className="px-5 py-2.5 bg-brand-accent text-white text-xs font-semibold rounded-lg transition-colors hover:bg-brand-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {room.availableRooms > 0 ? 'Reserve' : 'Sold out'}
-        </button>
+        <div className="flex flex-col items-center md:items-end gap-1">
+          <button
+            onClick={() => onReserve(room.id)}
+            disabled={room.availableRooms <= 0}
+            className={`px-5 py-2.5 text-xs font-semibold rounded-lg transition-colors ${selected ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-brand-accent text-white hover:bg-brand-accent-hover'} disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            {room.availableRooms > 0 ? (selected ? 'Selected' : 'Select') : 'Sold out'}
+          </button>
+          {room.availableRooms > 0 && !selected && (
+            <p className="text-[10px] text-muted-foreground text-center md:text-right">Click to view in room list</p>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -591,3 +591,10 @@ export function getCityFromCountry(countryCode: string, cityName: string) {
   const country = getCountry(countryCode);
   return country?.cities.find((c) => c.name.toLowerCase() === cityName.toLowerCase());
 }
+
+export function getCurrencySymbol(currencyCode: string): string {
+  const found = worldCountries.find(
+    (c) => c.currency.toLowerCase() === currencyCode.toLowerCase()
+  );
+  return found?.symbol || '$';
+}

@@ -25,6 +25,9 @@ interface RoomSelectionPanelProps {
   onQtyChange: (roomId: string, delta: number) => void;
   onOpenDetail: (roomId: string) => void;
   onReserve: () => void;
+  CUR?: string;
+  capacityError?: string;
+  user?: { fullName?: string } | null;
 }
 
 export function RoomSelectionPanel({
@@ -43,6 +46,9 @@ export function RoomSelectionPanel({
   onQtyChange,
   onOpenDetail,
   onReserve,
+  CUR = '$',
+  capacityError = '',
+  user = null,
 }: RoomSelectionPanelProps) {
   const hasSelection = Object.values(roomQuantities).some(q => q > 0);
 
@@ -125,7 +131,7 @@ export function RoomSelectionPanel({
                   onClick={() => setShowDates(false)}
                   className="w-full py-2 rounded-lg text-sm font-semibold text-white bg-brand-accent hover:bg-brand-accent-hover transition-colors"
                 >
-                  Apply
+                  Done
                 </button>
               </div>
             </div>
@@ -180,7 +186,7 @@ export function RoomSelectionPanel({
                 onClick={() => setShowGuests(false)}
                 className="mt-3 w-full py-2 rounded-lg text-sm font-semibold text-white bg-brand-accent hover:bg-brand-accent-hover transition-colors"
               >
-                Apply
+                Done
               </button>
             </div>
           )}
@@ -215,6 +221,9 @@ export function RoomSelectionPanel({
                           {rt.availableRooms > 0 ? 'Available' : 'Sold out'}
                         </span>
                       </div>
+                      {(rt.roomTypeName || rt.bedType) && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{rt.roomTypeName}{rt.roomTypeName && rt.bedType ? ' · ' : ''}{rt.bedType}</p>
+                      )}
                       <p className="text-xs text-muted-foreground mt-0.5">Floor {rt.floorNumber}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Up to {rt.maxGuests} guests ({rt.maxAdults} adults{rt.maxChildren ? `, ${rt.maxChildren} children` : ''})</p>
                       {rt.cancellationTitle && (
@@ -240,12 +249,12 @@ export function RoomSelectionPanel({
                   </div>
                   <div className="shrink-0 flex flex-row md:flex-col items-center md:items-end justify-between gap-3 md:gap-4">
                     <div className="text-right">
-                      <p className="text-sm font-bold text-foreground">${rt.price}<span className="text-[10px] font-normal text-muted-foreground">/night</span></p>
+                      <p className="text-sm font-bold text-foreground">{CUR}{rt.price}<span className="text-[10px] font-normal text-muted-foreground">/night</span></p>
                     </div>
                     {rt.availableRooms > 0 ? (
                       <div className="flex items-center gap-3">
                         <div className="text-right min-w-[70px]">
-                          <p className="text-sm font-bold text-foreground">${lineTotal.toLocaleString()}</p>
+                          <p className="text-sm font-bold text-foreground">{CUR}{lineTotal.toLocaleString()}</p>
                           <p className="text-[10px] text-muted-foreground">{nights} night{nights > 1 ? 's' : ''}</p>
                         </div>
                         <div className="flex flex-col items-center gap-1">
@@ -304,14 +313,14 @@ export function RoomSelectionPanel({
                     return (
                       <div key={roomId} className="flex justify-between text-sm">
                         <span className="text-muted-foreground">{room.name} × {qty} ({totalGuests} guest{totalGuests > 1 ? 's' : ''})</span>
-                        <span className="text-foreground">${roomTotal.toLocaleString()}</span>
+                        <span className="text-foreground">{CUR}{roomTotal.toLocaleString()}</span>
                       </div>
                     );
                   })}
                 </div>
                 <div className="flex justify-between text-lg font-bold text-foreground mt-4 pt-4 border-t border-border">
                   <span>Total</span>
-                  <span>${Object.entries(roomQuantities)
+                  <span>{CUR}{Object.entries(roomQuantities)
                     .filter(([, q]) => q > 0)
                     .reduce((sum, [roomId, qty]) => {
                       const room = hotel.roomTypes.find(r => r.id === roomId);
@@ -319,9 +328,20 @@ export function RoomSelectionPanel({
                       return sum + qty * room.price * nights;
                     }, 0).toLocaleString()}</span>
                 </div>
+                {capacityError && (
+                  <p className="text-xs text-red-500 mt-3">{capacityError}</p>
+                )}
+                {user && (!checkIn || !checkOut || !hasSelection) && (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
+                    {!checkIn && !checkOut && 'Please select check-in and check-out dates. '}
+                    {checkIn && !checkOut && 'Please select a check-out date. '}
+                    {!checkIn && checkOut && 'Please select a check-in date. '}
+                    {checkIn && checkOut && !hasSelection && 'Please select a room to continue. '}
+                  </p>
+                )}
                 <button
                   onClick={onReserve}
-                  disabled={!hasSelection}
+                  disabled={!hasSelection || !!capacityError || (user && (!checkIn || !checkOut))}
                   className="w-full mt-4 py-3.5 rounded-xl text-white font-semibold text-sm transition-all hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ backgroundColor: "#1A3C5E" }}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#163552"}

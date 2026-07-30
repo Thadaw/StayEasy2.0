@@ -28,6 +28,7 @@ interface ApiProperty {
   nights: number;
   cover_photo: string;
   currency: string;
+  type?: string;
 }
 
 const propertyTypes = [
@@ -81,6 +82,7 @@ export default function SearchResultsPage() {
   const [searchParams] = useSearchParams();
   const guests = searchParams.get("guests") || "2 guests";
   const whereParam = searchParams.get("where") || "";
+  const propertyTypesParam = searchParams.get("propertyTypes") || "";
   const checkinParam = searchParams.get("checkin") || "";
   const checkoutParam = searchParams.get("checkout") || "";
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -89,17 +91,24 @@ export default function SearchResultsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchSearch = useCallback(async () => {
-    if (!whereParam) {
+    if (!whereParam && !propertyTypesParam) {
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
     try {
       const queryParams: Record<string, string> = {
-        destination: whereParam,
         check_in: checkinParam || new Date().toISOString().split("T")[0],
         check_out: checkoutParam || new Date(Date.now() + 86400000).toISOString().split("T")[0],
       };
+      if (whereParam) {
+        queryParams.destination = whereParam;
+      } else if (propertyTypesParam) {
+        queryParams.destination = propertyTypesParam;
+      }
+      if (propertyTypesParam) {
+        queryParams.property_type = propertyTypesParam;
+      }
       const guestParts = guests.match(/\d+/g);
       queryParams.adults = guestParts?.[0] || "1";
       queryParams.children = guestParts?.[1] || "0";
@@ -117,7 +126,7 @@ export default function SearchResultsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [whereParam, checkinParam, checkoutParam, guests]);
+  }, [whereParam, propertyTypesParam, checkinParam, checkoutParam, guests]);
 
   useEffect(() => {
     fetchSearch();
@@ -126,7 +135,18 @@ export default function SearchResultsPage() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>(() => {
     const fromUrl = searchParams.get("propertyTypes")?.split(",").filter(Boolean);
-    return fromUrl && fromUrl.length > 0 ? fromUrl : ["All types"];
+    if (fromUrl && fromUrl.length > 0) {
+      const mapped = fromUrl.map((t) => {
+        const lower = t.toLowerCase();
+        if (lower === "hotel" || lower === "hostel") return "Hotels";
+        if (lower === "apartment") return "Apartments";
+        if (lower === "villa") return "Villa";
+        if (lower === "resort") return "Resort";
+        return "Others";
+      });
+      return [...new Set(mapped)];
+    }
+    return ["All types"];
   });
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [selectedRules, setSelectedRules] = useState<string[]>([]);
@@ -169,7 +189,7 @@ export default function SearchResultsPage() {
 
   const filteredHotels = useMemo(() => {
     return apiHotels.filter((h) => {
-      if (whereParam) {
+      if (whereParam && whereParam.toLowerCase() !== (propertyTypesParam || "").toLowerCase()) {
         const parts = whereParam.toLowerCase().split(",").map((s) => s.trim());
         const matches = parts.some((p) =>
           (h.address || "").toLowerCase().includes(p) ||
@@ -192,7 +212,7 @@ export default function SearchResultsPage() {
 
       return true;
     });
-  }, [apiHotels, whereParam, priceRange, selectedAmenities]);
+  }, [apiHotels, whereParam, propertyTypesParam, selectedPropertyTypes, priceRange, selectedAmenities]);
 
   const clearAll = () => {
     setPriceRange([0, 500]);
@@ -375,7 +395,7 @@ export default function SearchResultsPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold" style={{ fontFamily: "'Sora', sans-serif", color: "var(--brand-heading)" }}>
-                {isLoading ? "Searching..." : `${filteredHotels.length} stays${whereParam ? ` in ${whereParam}` : ""}`}
+                {isLoading ? "Searching..." : `${filteredHotels.length} stays${whereParam ? ` in ${whereParam}` : propertyTypesParam ? ` - ${propertyTypesParam}` : ""}`}
               </h2>
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ color: "var(--brand-text-secondary)" }}>Sort by:</span>
@@ -401,7 +421,7 @@ export default function SearchResultsPage() {
                 </div>
               ) : filteredHotels.length === 0 ? (
                 <div className="text-center py-20">
-                  <p className="text-sm" style={{ color: "var(--brand-text-secondary)" }}>{!whereParam ? "Enter a destination to search for properties." : "No properties found. Try a different search."}</p>
+                  <p className="text-sm" style={{ color: "var(--brand-text-secondary)" }}>{!whereParam && !propertyTypesParam ? "Enter a destination to search for properties." : "No properties found. Try a different search."}</p>
                 </div>
               ) : (
               filteredHotels.map((hotel) => (

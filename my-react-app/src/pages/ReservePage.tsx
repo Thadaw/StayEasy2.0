@@ -10,17 +10,10 @@ import { useBookings } from "../context/BookingContext"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
 import { formatDate } from "../utils/format"
-import { worldCountries } from "../data/worldCountries"
+import { getCurrencySymbol } from "../data/worldCountries"
 import api from "../api"
 
 type PaymentMethod = "stripe" | "razorpay"
-
-function getCurrencySymbol(currencyCode: string): string {
-  const found = worldCountries.find(
-    (c) => c.currency.toLowerCase() === currencyCode.toLowerCase()
-  )
-  return found?.symbol || '$'
-}
 
 interface ApiProperty {
   id: string; tenant_id: string; name: string; type: string; description: string;
@@ -139,7 +132,13 @@ export default function ReservePage() {
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null)
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [promoInput, setPromoInput] = useState('')
-  const [appliedDiscount, setAppliedDiscount] = useState<{ type: 'percentage' | 'fixed'; amount: number; code: string } | null>(null)
+  const [appliedDiscount, setAppliedDiscount] = useState<{ type: 'percentage' | 'fixed'; amount: number; code: string } | null>(() => {
+    const dc = searchParams.get('discountCode')
+    const dt = searchParams.get('discountType') as 'percentage' | 'fixed' | null
+    const da = searchParams.get('discountAmount')
+    if (dc && dt && da) return { code: dc, type: dt, amount: Number(da) }
+    return null
+  })
   const [promoError, setPromoError] = useState('')
   const [marketingOptIn, setMarketingOptIn] = useState(false)
 const [razorpayResponse, setRazorpayResponse] = useState<RazorpayPaymentResponse | null>(null)
@@ -163,6 +162,14 @@ const [upiId, setUpiId] = useState('')
         const { data } = await api.get(`/bookings/${refNumber}`)
         const booking = data?.data || data
         setBookingData(booking)
+
+        if (booking?.coupon_code && booking.coupon_discount > 0 && !appliedDiscount) {
+          setAppliedDiscount({
+            code: booking.coupon_code,
+            type: 'fixed',
+            amount: booking.coupon_discount,
+          })
+        }
 
         const propertyId = booking?.property?.id || id
         try {
@@ -258,6 +265,8 @@ const [upiId, setUpiId] = useState('')
 
   const roomsParam = searchParams.get('rooms');
   const guestCountsParam = searchParams.get('guestCounts');
+  const adultsParam = searchParams.get('adults');
+  const childrenParam = searchParams.get('children');
   const parsedRooms: Record<string, number> = roomsParam ? JSON.parse(roomsParam) : {};
   const parsedGuestCounts: Record<string, number> = guestCountsParam ? JSON.parse(guestCountsParam) : {};
 
@@ -299,7 +308,9 @@ const [upiId, setUpiId] = useState('')
     })
   }, [bookingData, selectedRoomTypes, hotel, parsedRooms, parsedGuestCounts])
 
-  const totalGuests = Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0) || bookingData?.rooms?.reduce((s, r) => s + r.max_adults + r.max_children, 0) || 0;
+  const totalGuests = Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0)
+    || (adultsParam ? Number(adultsParam) : 0) + (childrenParam ? Number(childrenParam) : 0)
+    || bookingData?.rooms?.reduce((s, r) => s + r.max_adults + r.max_children, 0) || 0;
 
   const nights = bookingData?.nights || (checkIn && checkOut
     ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))

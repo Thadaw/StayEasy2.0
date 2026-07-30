@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
 import { ChevronRight, Star, Wifi, Plane, UtensilsCrossed, BedDouble } from "lucide-react"
 import { hotels, Hotel, RoomType } from "../data/hotels"
+import { getCurrencySymbol } from "../data/worldCountries"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
 import { useAuth } from "../context/AuthContext"
@@ -150,10 +151,13 @@ export default function BookingDetailsPage() {
   const roomsParam = searchParams.get("rooms") || ""
   const guestCountsParam = searchParams.get("guestCounts") || ""
   const refParam = searchParams.get("ref") || ""
+  const adultsParam = searchParams.get("adults")
+  const childrenParam = searchParams.get("children")
   const [refNumber, setRefNumber] = useState(refParam)
   const parsedRooms: Record<string, number> = roomsParam ? JSON.parse(roomsParam) : {}
   const parsedGuestCounts: Record<string, number> = guestCountsParam ? JSON.parse(guestCountsParam) : {}
   const totalGuests = Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0)
+    || (adultsParam ? Number(adultsParam) : 0) + (childrenParam ? Number(childrenParam) : 0)
 
   const [apiProperty, setApiProperty] = useState<ApiProperty | null>(null)
   const [apiRooms, setApiRooms] = useState<ApiRoom[]>([])
@@ -298,6 +302,8 @@ export default function BookingDetailsPage() {
 
   const hotel = apiHotel || hotels.find((h) => h.id === Number(id))
 
+  const CUR = getCurrencySymbol(apiProperty?.currency || 'USD')
+
   const selectedRoomTypes = useMemo(() => {
     if (!hotel) return []
     if (bookingRooms.length > 0) {
@@ -337,6 +343,8 @@ export default function BookingDetailsPage() {
     if (checkOut) params.set("checkOut", checkOut)
     if (roomsParam) params.set("rooms", roomsParam)
     if (guestCountsParam) params.set("guestCounts", guestCountsParam)
+    if (adultsParam) params.set("adults", adultsParam)
+    if (childrenParam) params.set("children", childrenParam)
     params.set("guestName", fullName)
     params.set("guestEmail", email)
     params.set("guestPhone", `${phoneCode}${phoneNumber}`)
@@ -490,13 +498,13 @@ export default function BookingDetailsPage() {
                 {roomLines.map(l => (
                   <div key={l.room.id} className="flex justify-between items-center mb-1">
                     <span className="text-xs text-gray-600">{l.room.name}</span>
-                    <span className="text-xs text-gray-900">${(l.lineTotal * nights).toFixed(2)}</span>
+                    <span className="text-xs text-gray-900">{CUR}{(l.lineTotal * nights).toFixed(2)}</span>
                   </div>
                 ))}
                 <div className="border-t border-gray-200 mt-3 pt-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-bold text-gray-900">Total</span>
-                    <span className="text-sm font-bold text-gray-900">${Math.max(0, total).toFixed(2)}</span>
+                    <span className="text-sm font-bold text-gray-900">{CUR}{Math.max(0, total).toFixed(2)}</span>
                   </div>
                   <p className="text-[10px] text-gray-400 mt-0.5">Taxes & fees included</p>
                 </div>

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
 import { ArrowLeft, BedDouble, Bath, Users } from "lucide-react";
 import toast from "react-hot-toast";
 import { hotels, Hotel, RoomType } from "../data/hotels";
+import { getCurrencySymbol } from "../data/worldCountries";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { SearchBar } from "../components/SearchBar";
@@ -63,6 +64,8 @@ interface ApiRoom {
   room_name: string;
   room_type_id: string;
   bed_type_id: string;
+  room_type?: string;
+  bed_type?: string;
   max_adults: number;
   max_children: number;
   base_rate: string;
@@ -94,7 +97,8 @@ function mapApiPropertyToHotel(apiProp: ApiProperty, rooms: ApiRoom[]): Hotel {
     totalRooms: 1,
     availableRooms: r.status === "AVAILABLE" ? 1 : 0,
     roomNumbers: [r.room_name],
-    bedType: "",
+    bedType: r.bed_type || r.bed_type_id || "",
+    roomTypeName: r.room_type || r.room_name || "",
     areaSqFt: 300,
     floorNumber: r.floor_number,
     maxAdults: r.max_adults,
@@ -190,7 +194,10 @@ export default function PropertyDetailPage() {
           const roomsRes = await api.get(`/properties/${id}/rooms/available-rooms`, {
             params: { checkin_date: checkInDate, checkout_date: checkOutDate, adults, children, rooms },
           });
-          setApiRooms(roomsRes.data?.data || []);
+          const roomsData = roomsRes.data?.data || [];
+          console.log('Available rooms response:', roomsData);
+          if (roomsData.length > 0) console.log('First room fields:', Object.keys(roomsData[0]), 'room_type:', roomsData[0].room_type, 'bed_type:', roomsData[0].bed_type);
+          setApiRooms(roomsData);
         } catch {
           setApiRooms([]);
         }
@@ -211,6 +218,8 @@ export default function PropertyDetailPage() {
 
   const hotel = apiHotel || hotels.find((h) => h.id === Number(id));
 
+  const CUR = getCurrencySymbol(apiProperty?.currency || 'USD')
+
   const liked = isFavorite(Number(id));
   const [checkIn, setCheckIn] = useState(checkinParam || "");
   const [checkOut, setCheckOut] = useState(checkoutParam || "");
@@ -226,10 +235,33 @@ export default function PropertyDetailPage() {
   });
 
   useEffect(() => {
-    if (hotel?.roomTypes) {
+    if (!hotel?.roomTypes) return;
+    const totalGuests = guests.adults + guests.children;
+    const selectedEntries = Object.entries(roomQuantities).filter(([, q]) => q > 0);
+    if (selectedEntries.length === 0 || totalGuests <= 0) {
       setRoomGuestCounts(hotel.roomTypes.reduce((acc, rt) => ({ ...acc, [rt.id]: 1 }), {}));
+      return;
     }
-  }, [hotel]);
+    const totalMaxCapacity = selectedEntries.reduce((s, [roomId]) => {
+      const rt = hotel.roomTypes.find(r => r.id === roomId);
+      return s + (rt ? rt.maxGuests : 2);
+    }, 0);
+    const newCounts: Record<string, number> = {};
+    let assigned = 0;
+    selectedEntries.forEach(([roomId, qty], idx) => {
+      const rt = hotel.roomTypes.find(r => r.id === roomId);
+      const maxGuests = rt ? rt.maxGuests : 2;
+      if (idx === selectedEntries.length - 1) {
+        newCounts[roomId] = Math.max(1, totalGuests - assigned);
+      } else {
+        const proportional = Math.round((totalGuests * maxGuests * qty) / totalMaxCapacity);
+        const count = Math.max(1, Math.min(proportional, totalGuests - assigned - (selectedEntries.length - idx - 1)));
+        newCounts[roomId] = count;
+        assigned += count;
+      }
+    });
+    setRoomGuestCounts(newCounts);
+  }, [hotel, roomQuantities, guests.adults, guests.children]);
 
   const handleQtyChange = (roomId: string, delta: number) => {
     setRoomQuantities(prev => {
@@ -248,6 +280,21 @@ export default function PropertyDetailPage() {
     if (!matches) return 2;
     return matches.reduce((sum, n) => sum + parseInt(n), 0);
   }, [guestsParam]);
+
+  const capacityError = useMemo(() => {
+    if (!hotel) return '';
+    const totalGuests = guests.adults + guests.children;
+    const selectedEntries = Object.entries(roomQuantities).filter(([, q]) => q > 0);
+    if (selectedEntries.length === 0 || totalGuests <= 0) return '';
+    const totalCapacity = selectedEntries.reduce((sum, [roomId, qty]) => {
+      const rt = hotel.roomTypes.find(r => r.id === roomId);
+      return sum + (rt ? rt.maxGuests * qty : 0);
+    }, 0);
+    if (totalGuests > totalCapacity) {
+      return `Selected rooms can accommodate ${totalCapacity} guest${totalCapacity !== 1 ? 's' : ''}, but you have ${totalGuests} guest${totalGuests !== 1 ? 's' : ''}. Please add more rooms or reduce guest count.`;
+    }
+    return '';
+  }, [hotel, roomQuantities, guests.adults, guests.children]);
 
   const recommendedRooms = useMemo(() => {
     if (!hotel || guestCount === 0) return [];
@@ -342,9 +389,7 @@ export default function PropertyDetailPage() {
 
   const handleSelectRoom = (roomId: string) => {
     const qty = roomQuantities[roomId] || 0;
-    if (qty === 0) {
-      setRoomQuantities(prev => ({ ...prev, [roomId]: 1 }));
-    }
+    setRoomQuantities(prev => ({ ...prev, [roomId]: qty > 0 ? 0 : 1 }));
     setSelectedRoomId(roomId);
     setTimeout(() => setSelectedRoomId(null), 3000);
     const el = document.getElementById(`room-${roomId}`);
@@ -377,13 +422,13 @@ export default function PropertyDetailPage() {
 
     if (!user) {
       const params = new URLSearchParams();
-      if (checkIn) params.set('checkIn', checkIn);
-      if (checkOut) params.set('checkOut', checkOut);
-      params.set('rooms', JSON.stringify(Object.fromEntries(selected)));
-      params.set('guestCounts', JSON.stringify(
-        Object.fromEntries(Object.entries(roomGuestCounts).filter(([roomId]) => selected.some(([sId]) => sId === roomId)))
-      ));
-      navigate('/login?redirect=' + encodeURIComponent('/booking-details/' + id + '?' + params.toString()));
+      if (checkIn) params.set('checkin', checkIn);
+      if (checkOut) params.set('checkout', checkOut);
+      params.set('guests', String(guests.adults + guests.children));
+      params.set('adults', String(guests.adults));
+      params.set('children', String(guests.children));
+      params.set('rooms', String(guests.rooms));
+      navigate('/login?redirect=' + encodeURIComponent('/hotel/' + id + '?' + params.toString()));
       return;
     }
 
@@ -420,6 +465,8 @@ export default function PropertyDetailPage() {
     params.set('guestCounts', JSON.stringify(
       Object.fromEntries(Object.entries(roomGuestCounts).filter(([roomId]) => selected.some(([sId]) => sId === roomId)))
     ));
+    params.set('adults', String(guests.adults));
+    params.set('children', String(guests.children));
     if (refNumber) params.set('ref', refNumber);
     navigate('/booking-details/' + id + '?' + params.toString());
   };
@@ -476,7 +523,7 @@ export default function PropertyDetailPage() {
               </h3>
               <div className="space-y-3">
                 {recommendedRooms.map((rt) => (
-                  <RecommendedRoom key={rt.id} room={rt} guestCount={guestCount} checkIn={checkIn} onReserve={handleSelectRoom} />
+                  <RecommendedRoom key={rt.id} room={rt} guestCount={guestCount} checkIn={checkIn} onReserve={handleSelectRoom} CUR={CUR} roomQuantities={roomQuantities} />
                 ))}
               </div>
             </div>
@@ -498,6 +545,9 @@ export default function PropertyDetailPage() {
             onQtyChange={handleQtyChange}
             onOpenDetail={handleOpenDetail}
             onReserve={handleReserve}
+            CUR={CUR}
+            capacityError={capacityError}
+            user={user}
           />
 
           <ReviewSection hotel={hotel} />

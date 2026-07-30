@@ -56,7 +56,8 @@ export default function Login() {
       })
       localStorage.setItem('token', res.data.access_token)
       await authLogin(res.data.access_token)
-      setTimeout(() => navigate('/'), 1500)
+      const redirectTo = searchParams.get('redirect')
+      setTimeout(() => navigate(redirectTo || '/'), 1500)
     } catch (err) {
       setError(extractError(err))
       setLoginClicked(false)

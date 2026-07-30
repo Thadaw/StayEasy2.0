@@ -30,6 +30,7 @@ export interface RoomType {
   bedComfortReviews?: number;
   room_type_id?: string;
   bed_type_id?: string;
+  roomTypeName?: string;
 }
 
 export interface Hotel {
