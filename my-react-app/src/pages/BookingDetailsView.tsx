@@ -7,7 +7,6 @@ import { ArrowLeft, HelpCircle, Bell, MapPin, Star, Phone, Mail,
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
 import { useBookings } from "../context/BookingContext"
-import { getCurrencySymbol } from "../data/worldCountries"
 import { useAuth } from "../context/AuthContext"
 import api from "../api"
 import toast from "react-hot-toast"
@@ -84,7 +83,7 @@ export default function BookingDetailsView() {
   const propertyCity = apiBooking?.property?.city || localBooking?.hotelCity || ""
   const propertyCountry = apiBooking?.property?.country || localBooking?.hotelCountry || ""
   const propertyId = apiBooking?.property?.id || localBooking?.hotelId || ""
-  const CUR = getCurrencySymbol(apiBooking?.property?.currency || "USD")
+  const CUR = apiBooking?.property?.currency || "USD"
   const nights = apiBooking?.nights || (localBooking ? Math.max(1, Math.round((new Date(localBooking.checkOut).getTime() - new Date(localBooking.checkIn).getTime()) / 86400000)) : 1)
   const checkIn = apiBooking?.check_in || localBooking?.checkIn || ""
   const checkOut = apiBooking?.check_out || localBooking?.checkOut || ""

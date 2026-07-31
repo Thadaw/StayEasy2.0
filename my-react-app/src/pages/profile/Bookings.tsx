@@ -20,6 +20,10 @@ interface ApiBookingItem {
   checkout_date: string
   total_amount: string
   created_at: string
+  currency?: string
+  property?: { id: string; name?: string; city?: string; country?: string; currency?: string }
+  property_name?: string
+  photos?: { cover?: string; gallery?: string[] }
 }
 
 interface NormalizedBooking {
@@ -30,6 +34,9 @@ interface NormalizedBooking {
   checkOut: string
   totalPrice: number
   createdAt: string
+  currency: string
+  propertyName: string
+  coverPhoto: string
 }
 
 interface CancelModal {
@@ -52,6 +59,7 @@ function normalizeStatus(status: string): Tab {
 }
 
 function normalizeBooking(item: ApiBookingItem): NormalizedBooking {
+  const currency = item.currency || item.property?.currency || ''
   return {
     id: item.id,
     refNumber: item.ref_number,
@@ -60,6 +68,9 @@ function normalizeBooking(item: ApiBookingItem): NormalizedBooking {
     checkOut: item.checkout_date,
     totalPrice: Number(item.total_amount) || 0,
     createdAt: item.created_at,
+    currency,
+    propertyName: item.property?.name || item.property_name || '',
+    coverPhoto: item.photos?.cover || '',
   }
 }
 
@@ -204,13 +215,17 @@ export default function Bookings() {
                   className="rounded-xl border border-brand-card-border overflow-hidden hover:shadow-card transition-shadow"
                 >
                   <div className="flex gap-4 p-4">
-                    <div className="w-24 h-24 rounded-lg bg-brand-secondary-surface flex items-center justify-center shrink-0">
-                      <CalendarDays size={28} className="text-brand-placeholder" />
+                    <div className="w-24 h-24 rounded-lg bg-brand-secondary-surface overflow-hidden flex items-center justify-center shrink-0">
+                      {booking.coverPhoto ? (
+                        <img src={booking.coverPhoto} alt={booking.propertyName || 'Booking'} className="w-full h-full object-cover" />
+                      ) : (
+                        <CalendarDays size={28} className="text-brand-placeholder" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-1">
                         <h3 className="text-sm font-semibold text-brand-heading truncate">
-                          Booking {booking.refNumber}
+                          {booking.propertyName || `Booking ${booking.refNumber}`}
                         </h3>
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ml-2 ${statusColor(booking.status)}`}>
                           {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
@@ -222,7 +237,9 @@ export default function Bookings() {
                         {new Date(booking.checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
                       <div className="flex items-center justify-between mt-2">
-                        <span className="text-sm font-bold text-brand-heading">${booking.totalPrice.toFixed(2)}</span>
+                        <span className="text-sm font-bold text-brand-heading">
+                          {booking.currency ? `${booking.currency} ${booking.totalPrice.toFixed(2)}` : `$${booking.totalPrice.toFixed(2)}`}
+                        </span>
                         <div className="flex items-center gap-2">
                           {booking.status === 'upcoming' && (
                             <button

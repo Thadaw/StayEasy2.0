@@ -1,4 +1,3 @@
-export { hotels, reviewSamples } from "./hotels"
 export type { Hotel, RoomType } from "./hotels"
 export { heroHotels } from "./heroHotels"
 export type { HeroHotel } from "./heroHotels"

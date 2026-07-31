@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
 import { ChevronRight, Star, Wifi, Plane, UtensilsCrossed, BedDouble } from "lucide-react"
-import { hotels, Hotel, RoomType } from "../data/hotels"
-import { getCurrencySymbol } from "../data/worldCountries"
+import { Hotel, RoomType } from "../data/hotels"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
 import { useAuth } from "../context/AuthContext"
@@ -300,9 +299,9 @@ export default function BookingDetailsPage() {
     return mapApiPropertyToHotel(apiProperty, apiRooms)
   }, [apiProperty, apiRooms])
 
-  const hotel = apiHotel || hotels.find((h) => h.id === Number(id))
+  const hotel = apiHotel
 
-  const CUR = getCurrencySymbol(apiProperty?.currency || 'USD')
+  const CUR = apiProperty?.currency || 'USD'
 
   const selectedRoomTypes = useMemo(() => {
     if (!hotel) return []

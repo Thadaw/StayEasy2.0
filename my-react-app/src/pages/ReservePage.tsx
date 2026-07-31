@@ -1,16 +1,15 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
 import { Star, X, Loader2, CreditCard, ShieldCheck, Wifi, Plane, UtensilsCrossed, Smartphone, Building2, CheckCircle2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRazorpay } from "../hooks/useRazorpay"
 import type { RazorpayPaymentResponse } from "../types/razorpay"
 import StripeCardForm from "../components/StripeCardForm"
-import { hotels, Hotel, RoomType } from "../data/hotels"
+import { Hotel, RoomType } from "../data/hotels"
 import { useBookings } from "../context/BookingContext"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
 import { formatDate } from "../utils/format"
-import { getCurrencySymbol } from "../data/worldCountries"
 import api from "../api"
 
 type PaymentMethod = "stripe" | "razorpay"
@@ -127,8 +126,8 @@ export default function ReservePage() {
     return mapApiPropertyToHotel(apiProperty, apiRooms)
   }, [apiProperty, apiRooms])
 
-  const hotel = apiHotel || hotels.find((h) => h.id === Number(id))
-  const CUR = getCurrencySymbol(apiProperty?.currency || bookingData?.property?.currency || 'USD')
+  const hotel = apiHotel
+  const CUR = apiProperty?.currency || bookingData?.property?.currency || 'USD'
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null)
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [promoInput, setPromoInput] = useState('')
@@ -147,6 +146,10 @@ const [razorpayOrderLoading, setRazorpayOrderLoading] = useState(false)
 const [razorpayOrderError, setRazorpayOrderError] = useState<string | null>(null)
 const [stripePaymentIntentId, setStripePaymentIntentId] = useState<string | null>(null)
 const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null)
+const [stripeIntentLoading, setStripeIntentLoading] = useState(false)
+const [stripeIntentError, setStripeIntentError] = useState<string | null>(null)
+const [stripeIntentRetry, setStripeIntentRetry] = useState(0)
+const stripeIntentFiredRef = useRef<number | null>(null)
 const [upiId, setUpiId] = useState('')
   const [selectedBank, setSelectedBank] = useState('')
   const [paySubMethod, setPaySubMethod] = useState<'upi' | 'card' | 'netbanking' | null>(null)
@@ -231,6 +234,36 @@ const [upiId, setUpiId] = useState('')
     createOrder()
     return () => { cancelled = true }
   }, [selectedPayment, refNumber])
+
+  useEffect(() => {
+    if (selectedPayment !== "stripe" || !refNumber) return
+    if (stripePaymentIntentId) return
+    if (stripeIntentFiredRef.current === stripeIntentRetry) return
+    stripeIntentFiredRef.current = stripeIntentRetry
+    let cancelled = false
+    const createStripeIntent = async () => {
+      setStripeIntentLoading(true)
+      setStripeIntentError(null)
+      try {
+        const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "stripe" })
+        if (cancelled) return
+        const secret = data?.client_secret || data?.data?.client_secret
+        if (!secret) {
+          setStripeIntentError("Failed to initialize payment")
+          return
+        }
+        setStripeClientSecret(secret)
+      } catch (err: unknown) {
+        if (cancelled) return
+        const msg = err instanceof Error ? err.message : "Failed to initialize payment"
+        setStripeIntentError(msg)
+      } finally {
+        if (!cancelled) setStripeIntentLoading(false)
+      }
+    }
+    createStripeIntent()
+    return () => { cancelled = true }
+  }, [selectedPayment, refNumber, stripePaymentIntentId, stripeIntentRetry])
 
   const handleApplyPromo = async () => {
     const code = promoInput.trim().toUpperCase()
@@ -592,9 +625,14 @@ const [upiId, setUpiId] = useState('')
                 refNumber={refNumber}
                 amount={total}
                 hotelName={hotelName}
+                currency={apiProperty?.currency || bookingData?.property?.currency || "USD"}
                 guestName={guestName}
                 guestEmail={guestEmail}
                 guestPhone={guestPhone}
+                clientSecret={stripeClientSecret}
+                intentLoading={stripeIntentLoading}
+                intentError={stripeIntentError}
+                onRetry={() => { setStripeClientSecret(null); setStripeIntentRetry(n => n + 1) }}
                 onSuccess={(id, secret) => { setStripePaymentIntentId(id); setStripeClientSecret(secret) }}
               />
             )}
@@ -1178,9 +1216,14 @@ const [upiId, setUpiId] = useState('')
                   refNumber={refNumber}
                   amount={total}
                   hotelName={hotelName}
+                  currency={apiProperty?.currency || bookingData?.property?.currency || "USD"}
                   guestName={guestName}
                   guestEmail={guestEmail}
                   guestPhone={guestPhone}
+                  clientSecret={stripeClientSecret}
+                  intentLoading={stripeIntentLoading}
+                  intentError={stripeIntentError}
+                  onRetry={() => { setStripeClientSecret(null); setStripeIntentRetry(n => n + 1) }}
                   onSuccess={(id, secret) => { setStripePaymentIntentId(id); setStripeClientSecret(secret) }}
                 />
               </div>

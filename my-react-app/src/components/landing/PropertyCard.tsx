@@ -2,7 +2,6 @@ import { useNavigate } from "react-router-dom";
 import { Heart, MapPin, Building2 } from "lucide-react";
 import { useFavorites } from "../../context/FavoritesContext";
 import { Property } from "../../hooks/useSearchProperties";
-import { getCurrencySymbol } from "../../data/worldCountries";
 
 interface PropertyCardProps {
   property: Property;
@@ -47,11 +46,11 @@ export function PropertyCard({ property, showDistance }: PropertyCardProps) {
           <div className="flex items-end justify-between">
             <span className="text-[9px]" style={{ color: "var(--brand-text-secondary)" }}>{property.distance_km} km</span>
             <div>
-              <p className="text-xs md:text-sm font-bold leading-tight" style={{ color: "var(--brand-heading)" }}><span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from</span> {getCurrencySymbol(property.currency)}{property.lowest_rate ?? property.total_price} <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}>/ night</span></p>
+              <p className="text-xs md:text-sm font-bold leading-tight" style={{ color: "var(--brand-heading)" }}><span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from</span> {property.currency} {property.lowest_rate ?? property.total_price} <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}>/ night</span></p>
             </div>
           </div>
         ) : (
-          <p className="text-xs md:text-sm font-bold leading-tight" style={{ color: "var(--brand-heading)" }}><span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from</span> {getCurrencySymbol(property.currency)}{property.lowest_rate ?? property.total_price} <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}>/ night</span></p>
+          <p className="text-xs md:text-sm font-bold leading-tight" style={{ color: "var(--brand-heading)" }}><span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from</span> {property.currency} {property.lowest_rate ?? property.total_price} <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}>/ night</span></p>
         )}
       </div>
     </div>

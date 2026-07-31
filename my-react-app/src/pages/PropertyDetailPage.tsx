@@ -2,15 +2,13 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, BedDouble, Bath, Users } from "lucide-react";
 import toast from "react-hot-toast";
-import { hotels, Hotel, RoomType } from "../data/hotels";
-import { getCurrencySymbol } from "../data/worldCountries";
+import { Hotel, RoomType } from "../data/hotels";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { SearchBar } from "../components/SearchBar";
 import { StickySearchHeader } from "../components/StickySearchHeader";
 import { useAuth } from "../context/AuthContext";
 import { useFavorites } from "../context/FavoritesContext";
-import { haversineDistance } from "../utils/geo";
 import { HotelHeader } from "../components/property/HotelHeader";
 import { ImageGallery } from "../components/property/ImageGallery";
 import { HostInfo } from "../components/property/HostInfo";
@@ -19,7 +17,6 @@ import { RoomSelectionPanel } from "../components/property/RoomSelectionPanel";
 import { ReviewSection } from "../components/property/ReviewSection";
 import { ThingsToKnow } from "../components/property/ThingsToKnow";
 import { RoomDetailModal } from "../components/property/RoomDetailModal";
-import { NearbyStays } from "../components/property/NearbyStays";
 import { RecommendedRoom } from "../components/property/RecommendedRoom";
 import api from "../api";
 
@@ -216,9 +213,9 @@ export default function PropertyDetailPage() {
     return mapApiPropertyToHotel(apiProperty, apiRooms);
   }, [apiProperty, apiRooms]);
 
-  const hotel = apiHotel || hotels.find((h) => h.id === Number(id));
+  const hotel = apiHotel;
 
-  const CUR = getCurrencySymbol(apiProperty?.currency || 'USD')
+  const CUR = apiProperty?.currency || 'USD'
 
   const liked = isFavorite(Number(id));
   const [checkIn, setCheckIn] = useState(checkinParam || "");
@@ -351,16 +348,6 @@ export default function PropertyDetailPage() {
     }
     return true;
   }, [hotel, filterGuestRating, filterPropertyTypes, hasSearchParams]);
-
-  const nearbyHotels = useMemo(() => {
-    if (!hotel) return [];
-    return hotels
-      .filter((h) => h.id !== hotel.id)
-      .map((h) => ({ hotel: h, dist: haversineDistance(hotel.lat, hotel.lng, h.lat, h.lng) }))
-      .sort((a, b) => a.dist - b.dist)
-      .slice(0, 4)
-      .map((e) => e.hotel);
-  }, [hotel]);
 
   if (apiLoading) {
     return (
@@ -565,8 +552,6 @@ export default function PropertyDetailPage() {
           onReserve={handleReserveFromModal}
         />
       )}
-
-      <NearbyStays hotels={nearbyHotels} />
 
       <Footer />
     </div>

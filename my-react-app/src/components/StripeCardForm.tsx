@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { Loader2, ShieldCheck } from "lucide-react"
@@ -8,15 +8,7 @@ import type { StripeCardFormProps } from "../types/stripe"
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "")
 
-function getCurrencySymbol(currencyCode: string): string {
-  const symbols: Record<string, string> = {
-    USD: "$", EUR: "€", GBP: "£", INR: "₹", JPY: "¥",
-    AUD: "A$", CAD: "C$", CHF: "CHF", CNY: "¥", KRW: "₩",
-  }
-  return symbols[currencyCode?.toUpperCase()] || "$"
-}
-
-function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, guestName, guestEmail, guestPhone, onSuccess }: StripeCardFormProps) {
+function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, currency, guestName, guestEmail, guestPhone, clientSecret: externalSecret, intentLoading, intentError, onRetry, onSuccess }: StripeCardFormProps) {
   const stripe = useStripe()
   const elements = useElements()
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -24,40 +16,45 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, guestNa
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const CUR = getCurrencySymbol("USD")
+  const CUR = currency || "USD"
 
-  useEffect(() => {
-    if (!refNumber) return
-    let cancelled = false
-    const createIntent = async () => {
-      setLoadingIntent(true)
-      setError(null)
-      try {
-        const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "stripe" })
-        if (cancelled) return
-        const secret = data?.client_secret || data?.data?.client_secret
-        if (!secret) {
-          setError("Failed to initialize payment")
-          return
-        }
-        setClientSecret(secret)
-      } catch (err: unknown) {
-        if (cancelled) return
-        const msg = err instanceof Error ? err.message : "Failed to initialize payment"
-        setError(msg)
-      } finally {
-        if (!cancelled) setLoadingIntent(false)
+  const cancelledRef = useRef(false)
+
+  useEffect(() => () => { cancelledRef.current = true }, [])
+
+  const createIntent = useCallback(async () => {
+    if (!refNumber) { setLoadingIntent(false); return }
+    setLoadingIntent(true)
+    setError(null)
+    setClientSecret(null)
+    try {
+      const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "stripe" })
+      if (cancelledRef.current) return
+      const secret = data?.client_secret || data?.data?.client_secret
+      if (!secret) {
+        setError("Failed to initialize payment")
+        return
       }
+      setClientSecret(secret)
+    } catch (err: unknown) {
+      if (cancelledRef.current) return
+      const msg = err instanceof Error ? err.message : "Failed to initialize payment"
+      setError(msg)
+    } finally {
+      if (!cancelledRef.current) setLoadingIntent(false)
     }
-    createIntent()
-    return () => { cancelled = true }
   }, [refNumber])
 
+  useEffect(() => {
+    if (externalSecret !== undefined) return
+    createIntent()
+  }, [createIntent, externalSecret])
+
   const handleConfirmPayment = async () => {
-    if (!stripe || !elements || !clientSecret) return
+    if (!stripe || !elements || !resolvedSecret) return
     setLoading(true)
     try {
-      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(resolvedSecret, {
         payment_method: {
           card: elements.getElement(CardElement)!,
           billing_details: {
@@ -71,7 +68,7 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, guestNa
         toast.error(stripeError.message || "Payment failed")
       } else if (paymentIntent?.status === "succeeded") {
         toast.success("Payment successful!")
-        onSuccess(paymentIntent.id, clientSecret)
+        onSuccess(paymentIntent.id, resolvedSecret)
       } else {
         toast.error("Payment was not completed")
       }
@@ -83,7 +80,11 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, guestNa
     }
   }
 
-  if (loadingIntent) {
+  const resolvedLoading = externalSecret !== undefined ? (intentLoading ?? false) : loadingIntent
+  const resolvedError = externalSecret !== undefined ? intentError : error
+  const resolvedSecret = externalSecret !== undefined ? externalSecret : clientSecret
+
+  if (resolvedLoading) {
     return (
       <div className="flex items-center justify-center gap-2 py-6">
         <Loader2 size={16} className="animate-spin text-[#0071c2]" />
@@ -92,12 +93,12 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, guestNa
     )
   }
 
-  if (error) {
+  if (resolvedError) {
     return (
       <div className="text-center py-4">
-        <p className="text-sm text-red-500 mb-2">{error}</p>
+        <p className="text-sm text-red-500 mb-2">{resolvedError}</p>
         <button
-          onClick={() => { setError(null); setLoadingIntent(true); /* retry by remounting */ }}
+          onClick={() => { if (externalSecret !== undefined) onRetry?.(); else createIntent() }}
           className="text-sm text-[#0071c2] font-semibold hover:underline cursor-pointer"
         >
           Retry
@@ -106,7 +107,7 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, guestNa
     )
   }
 
-  if (!clientSecret) return null
+  if (!resolvedSecret) return null
 
   return (
     <div className="space-y-3">

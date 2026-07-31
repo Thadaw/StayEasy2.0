@@ -6,15 +6,7 @@ import { StickySearchHeader } from "../components/StickySearchHeader";
 import { Footer } from "../components/Footer";
 import { MapPin, Heart, SlidersHorizontal, X, Utensils, Home, Building2, Waves, Wifi, Castle, TreePine, Bed, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { useFavorites } from "../context/FavoritesContext";
-import { worldCountries } from "../data/worldCountries";
 import api from "../api";
-
-function getCurrencySymbol(code: string): string {
-  for (const c of worldCountries) {
-    if (c.currency === code) return c.symbol || code;
-  }
-  return code || "$";
-}
 
 interface ApiProperty {
   property_id: string;
@@ -473,7 +465,7 @@ export default function SearchResultsPage() {
                     <div className="text-right flex flex-col justify-between">
                       <div className="mt-4">
                         <p className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>{hotel.nights} night{hotel.nights > 1 ? "s" : ""}, {guests} guests</p>
-                        <p className="text-lg font-bold mt-0.5" style={{ color: "var(--brand-heading)" }}>{getCurrencySymbol(hotel.currency)}{hotel.total_price}</p>
+                        <p className="text-lg font-bold mt-0.5" style={{ color: "var(--brand-heading)" }}>{hotel.currency} {hotel.total_price}</p>
                         <p className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>Includes taxes and charges</p>
                       </div>
                       <button

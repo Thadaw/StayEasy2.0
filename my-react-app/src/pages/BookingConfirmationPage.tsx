@@ -3,7 +3,6 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { CheckCircle2, Copy, Download, Share2, QrCode, MapPin, ShieldCheck, CircleAlert, ArrowRight, Wifi, Plane, UtensilsCrossed, Star } from 'lucide-react'
 import { Navbar } from '../components/Navbar'
 import { Footer } from '../components/Footer'
-import { getCurrencySymbol } from '../data/worldCountries'
 import api from '../api'
 import toast from 'react-hot-toast'
 
@@ -76,7 +75,7 @@ export default function BookingConfirmationPage() {
   const propertyCity = booking?.property?.city || ''
   const propertyCountry = booking?.property?.country || ''
   const roomNames = booking?.rooms?.map(r => r.room_name).join(', ') || ''
-  const CUR = getCurrencySymbol(booking?.property?.currency || 'USD')
+  const CUR = booking?.property?.currency || 'USD'
   const totalGuests = stateData?.totalGuests || (booking?.adults || 0) + (booking?.children || 0) || booking?.total_guests || booking?.rooms?.reduce((s, r) => s + r.max_adults + r.max_children, 0) || 0
 
   const shareText = propertyName

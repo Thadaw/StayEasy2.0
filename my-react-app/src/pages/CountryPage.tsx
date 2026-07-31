@@ -112,7 +112,7 @@ export default function CountryPage() {
                 <Clock size={12} /> Best time: {country.bestTime}
               </span>
               <span className="bg-white/20 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1">
-                {country.currency} · {country.symbol}
+                {country.currency}
               </span>
             </div>
           </div>
@@ -297,7 +297,7 @@ export default function CountryPage() {
                       <MapPin size={9} /> {property.city}, {property.state}
                     </p>
                     <p className="text-sm font-bold text-gray-900 mt-1">
-                      Starting from {property.lowest_rate ?? property.total_price ?? 0} <span className="text-[10px] font-normal text-gray-500">/ night</span>
+                      Starting from {property.currency} {property.lowest_rate ?? property.total_price ?? 0} <span className="text-[10px] font-normal text-gray-500">/ night</span>
                     </p>
                   </div>
                 </div>
