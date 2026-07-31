@@ -1,12 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, MapPin, Calendar, Utensils, Clock, ChevronRight, Star } from "lucide-react";
 import { getCountry } from "../data/worldCountries";
-import { hotels } from "../data/hotels";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { HotelCard } from "../components/HotelCard";
 import { useFavorites } from "../context/FavoritesContext";
+import api from "../api";
+
+interface ApiProperty {
+  property_id: string;
+  name: string;
+  type: string;
+  country: string;
+  state: string;
+  city: string;
+  address: string;
+  currency: string;
+  cover_photo: string;
+  lowest_rate?: number;
+  total_price?: number;
+  nights?: number;
+}
 
 export default function CountryPage() {
   const { code } = useParams<{ code: string }>();
@@ -14,12 +29,37 @@ export default function CountryPage() {
   const country = getCountry(code?.toUpperCase() || "");
   const [activeCity, setActiveCity] = useState<string | null>(null);
   const { isFavorite, toggleFavorite } = useFavorites();
+  const [apiProperties, setApiProperties] = useState<ApiProperty[]>([]);
+  const [apiLoading, setApiLoading] = useState(true);
 
-  const countryHotels = hotels.filter((h) =>
-    h.country?.toLowerCase() === country?.name.toLowerCase() ||
-    h.location?.toLowerCase().includes(country?.name.toLowerCase() || "")
-  );
-  const displayHotels = countryHotels.length > 0 ? countryHotels : hotels.slice(0, 4);
+  useEffect(() => {
+    if (!country) return;
+    const fetchProperties = async () => {
+      setApiLoading(true);
+      try {
+        const today = new Date().toISOString().split("T")[0];
+        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+        const { data } = await api.get("/search", {
+          params: {
+            destination: country.name,
+            check_in: today,
+            check_out: tomorrow,
+            adults: 2,
+            children: 0,
+            rooms: 1,
+          },
+        });
+        const results: ApiProperty[] = data?.data?.results
+          || (Array.isArray(data?.data) ? data.data : data?.results || []);
+        setApiProperties(results);
+      } catch {
+        setApiProperties([]);
+      } finally {
+        setApiLoading(false);
+      }
+    };
+    fetchProperties();
+  }, [country]);
 
   const selectedCity = activeCity
     ? country?.cities.find((c) => c.name === activeCity)
@@ -209,9 +249,60 @@ export default function CountryPage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {displayHotels.map((h) => (
-              <HotelCard key={h.id} hotel={h} href={`/hotel/${h.id}`} showFavourite isFavourite={isFavorite(h.id)} onToggleFavourite={() => toggleFavorite(h.id)} className="!rounded-xl" />
-            ))}
+            {apiLoading ? (
+              [1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse">
+                  <div className="h-[180px] bg-gray-200" />
+                  <div className="px-4 py-3 space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-3/4" />
+                    <div className="h-2 bg-gray-200 rounded w-1/2" />
+                    <div className="h-3 bg-gray-200 rounded w-1/3" />
+                  </div>
+                </div>
+              ))
+            ) : apiProperties.length === 0 ? (
+              <div className="col-span-full text-center py-16 bg-gray-50 rounded-2xl">
+                <p className="text-sm text-gray-500">No properties found in {country.name}.</p>
+              </div>
+            ) : (
+              apiProperties.map((property) => (
+                <div
+                  key={property.property_id}
+                  onClick={() => navigate(`/hotel/${property.property_id}`)}
+                  className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
+                >
+                  <div className="relative h-[180px] overflow-hidden">
+                    {property.cover_photo ? (
+                      <img
+                        src={property.cover_photo}
+                        alt={property.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                        <MapPin size={40} className="text-gray-300" />
+                      </div>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleFavorite(property.property_id); }}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+                    >
+                      <Star size={14} className={isFavorite(property.property_id) ? "text-yellow-500 fill-yellow-500" : "text-gray-600 hover:text-yellow-500 transition-colors"} />
+                    </button>
+                    <span className="absolute top-2 left-2 px-2 py-0.5 bg-white/90 backdrop-blur-sm rounded-full text-[9px] font-semibold text-gray-800">{property.type}</span>
+                  </div>
+                  <div className="px-4 py-3">
+                    <h3 className="text-sm font-bold leading-tight line-clamp-1 text-gray-900">{property.name}</h3>
+                    <p className="text-[10px] flex items-center gap-0.5 text-gray-500 mt-0.5">
+                      <MapPin size={9} /> {property.city}, {property.state}
+                    </p>
+                    <p className="text-sm font-bold text-gray-900 mt-1">
+                      Starting from {property.lowest_rate ?? property.total_price ?? 0} <span className="text-[10px] font-normal text-gray-500">/ night</span>
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

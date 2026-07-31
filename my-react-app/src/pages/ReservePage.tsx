@@ -874,6 +874,7 @@ const [upiId, setUpiId] = useState('')
                     roomTypeName,
                     guests: totalGuests,
                     totalPrice: Math.max(0, total),
+                    refNumber: refNumber || undefined,
                     discountApplied: appliedDiscount ? {
                       code: appliedDiscount.code,
                       type: appliedDiscount.type,
@@ -1548,6 +1549,7 @@ const [upiId, setUpiId] = useState('')
                       roomTypeName,
                       guests: totalGuests,
                       totalPrice: Math.max(0, total),
+                      refNumber: refNumber || undefined,
                       discountApplied: appliedDiscount ? {
                         code: appliedDiscount.code,
                         type: appliedDiscount.type,

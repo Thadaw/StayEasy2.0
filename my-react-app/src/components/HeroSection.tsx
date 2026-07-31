@@ -110,7 +110,9 @@ export function HeroSection() {
           </p>
 
           {/* Search bar */}
-          <SearchBar />
+          <div className="mr-0 lg:mr-[-57px]">
+            <SearchBar />
+          </div>
 
           {/* Explore by vibe - horizontally scrollable on mobile */}
           <div className="mb-4">

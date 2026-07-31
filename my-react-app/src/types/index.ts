@@ -76,6 +76,7 @@ export interface Tenant {
 
 export interface Booking {
   id: string
+  refNumber?: string
   hotelId: number
   hotelName: string
   hotelCity: string

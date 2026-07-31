@@ -52,7 +52,7 @@ export function Navbar({ compact }: { compact?: boolean }) {
             style={{
               fontFamily: "'Sora', 'Inter', sans-serif",
               fontWeight: 800,
-              fontSize: "clamp(15px, 2.5vw, 20px)",
+              fontSize: "clamp(18px, 3vw, 26px)",
               letterSpacing: "-0.5px",
               lineHeight: 1,
               color: "var(--brand-primary)",

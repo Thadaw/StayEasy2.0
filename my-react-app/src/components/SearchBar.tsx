@@ -103,18 +103,18 @@ export function SearchBar() {
   const dateDisplay = formatDateRange(checkIn, checkOut);
 
   return (
-    <div className="bg-white rounded-2xl shadow-card border border-brand-primary-extra-light p-2 md:p-1.5 mb-3 md:mb-4 w-full">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-0 md:items-center">
+    <div className="bg-white rounded-2xl shadow-card border border-brand-primary-extra-light mb-3 md:mb-4 w-full">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 md:gap-0 md:items-center">
         {/* Where */}
         <div ref={whereRef} className="relative min-w-0 md:flex-1">
           <button
             onClick={() => { setShowWhere((v) => !v); setShowDates(false); setShowGuests(false); }}
-            className="w-full px-4 sm:px-5 py-3.5 md:py-3 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-l-2xl md:rounded-tr-none"
+            className="w-full px-3 sm:px-4 py-2.5 md:py-2.5 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-l-2xl md:rounded-tr-none"
           >
             <MapPin size={13} className="text-brand-accent shrink-0" />
             <div className="min-w-0">
-              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("whereTo")}</div>
-              <div className={`text-[11px] md:text-xs font-medium truncate ${where || localStorage.getItem("nearbyLocation") ? "text-gray-800" : "text-gray-400"}`}>{(where || localStorage.getItem("nearbyLocation") || "").replace(/\s*\([\d.]+,\s*[\d.]+\)/, "").trim() || t("searchPlaceholder")}</div>
+              <div className={`text-xs md:text-sm font-medium truncate ${where || localStorage.getItem("nearbyLocation") ? "text-gray-800" : "text-gray-400"}`}>{(where || localStorage.getItem("nearbyLocation") || "").replace(/\s*\([\d.]+,\s*[\d.]+\)/, "").trim() || t("searchPlaceholder")}</div>
+              <div className="text-[7px] md:text-[8px] font-semibold text-gray-400 uppercase tracking-wide">{t("whereTo")}</div>
             </div>
             <ChevronDown size={13} className={`ml-auto shrink-0 text-gray-400 transition-transform hidden sm:block ${showWhere ? "rotate-180" : ""}`} />
           </button>
@@ -128,18 +128,12 @@ export function SearchBar() {
                   placeholder={t("searchPlaceholder")}
                   value={where}
                   onChange={(e) => setWhere(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") setShowWhere(false); }}
                   className="w-full text-sm bg-transparent border-none outline-none placeholder:text-gray-400"
                   autoFocus
                 />
               </div>
               <div className="max-h-48 overflow-y-auto">
-                <button
-                  onClick={() => { setWhere(t("nearby")); setShowWhere(false); }}
-                  className="w-full flex items-center gap-2.5 px-2 py-2 text-sm text-gray-700 hover:bg-brand-primary-extra-light rounded-lg transition-colors text-left"
-                >
-                  <MapPin size={13} className="text-brand-accent shrink-0" />
-                  {t("nearby")}
-                </button>
                 {recentSearches.length > 0 && (
                   <>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1 px-1 mt-2">Recent searches</p>
@@ -184,20 +178,20 @@ export function SearchBar() {
         <div ref={datesRef} className="relative min-w-0 md:flex-1">
           <button
             onClick={() => { setShowDates((v) => !v); setShowWhere(false); setShowGuests(false); }}
-            className="w-full px-4 sm:px-5 py-3.5 md:py-3 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
+            className="w-full px-3 sm:px-4 py-2.5 md:py-2.5 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
           >
             <Calendar size={13} className="text-brand-accent shrink-0" />
             <div className="min-w-0">
-              <div className={`text-[11px] md:text-xs font-medium truncate ${checkIn ? "text-gray-800" : "text-gray-400"}`}>{checkIn && checkOut ? `${formatDateShort(checkIn)} – ${formatDateShort(checkOut)}` : dateDisplay}</div>
-              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("checkIn")} – {t("checkOut")}</div>
+              <div className={`text-xs md:text-sm font-medium truncate ${checkIn ? "text-gray-800" : "text-gray-400"}`}>{checkIn && checkOut ? `${formatDateShort(checkIn)} – ${formatDateShort(checkOut)}` : dateDisplay}</div>
+              <div className="text-[7px] md:text-[8px] font-semibold text-gray-400 uppercase tracking-wide">{t("checkIn")} – {t("checkOut")}</div>
             </div>
             <ChevronDown size={13} className={`ml-auto shrink-0 text-gray-400 transition-transform hidden sm:block ${showDates ? "rotate-180" : ""}`} />
           </button>
           {showDates && (
-            <div className="absolute top-full left-0 mt-2 w-[calc(100vw-2rem)] sm:w-72 max-w-[320px] bg-white rounded-xl shadow-modal border border-brand-primary-extra-light z-50 p-4 animate-in">
+            <div className="absolute top-full left-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-[420px] bg-white rounded-xl shadow-modal border border-brand-primary-extra-light z-50 p-4 animate-in">
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">{t("selectDates")}</p>
-              <div className="flex flex-col gap-3">
-                <div>
+              <div className="flex flex-row gap-3">
+                <div className="flex-1">
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">{t("checkIn")}</label>
                   <input
                     type="date"
@@ -207,7 +201,7 @@ export function SearchBar() {
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent transition-colors"
                   />
                 </div>
-                <div>
+                <div className="flex-1">
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">{t("checkOut")}</label>
                   <input
                     type="date"
@@ -216,17 +210,17 @@ export function SearchBar() {
                     onChange={(e) => setCheckOut(e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent transition-colors"
                   />
-                  {checkIn && checkOut && checkIn >= checkOut && (
-                    <p className="text-[10px] text-red-500 mt-1">Check-out must be after check-in</p>
-                  )}
                 </div>
-                <button
-                  onClick={() => setShowDates(false)}
-                  className="w-full py-2 rounded-lg text-sm font-semibold text-white bg-brand-accent hover:bg-brand-accent-hover transition-colors"
-                >
-                {t("done")}
-                </button>
               </div>
+              {checkIn && checkOut && checkIn >= checkOut && (
+                <p className="text-[10px] text-red-500 mt-1">Check-out must be after check-in</p>
+              )}
+              <button
+                onClick={() => setShowDates(false)}
+                className="w-full py-2 rounded-lg text-sm font-semibold text-white bg-brand-accent hover:bg-brand-accent-hover transition-colors mt-3"
+              >
+                {t("done")}
+              </button>
             </div>
           )}
         </div>
@@ -235,12 +229,12 @@ export function SearchBar() {
         <div ref={guestsRef} className="relative min-w-0 md:flex-1">
           <button
             onClick={() => { setShowGuests((v) => !v); setShowWhere(false); setShowDates(false); }}
-            className="w-full px-4 sm:px-5 py-3.5 md:py-3 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
+            className="w-full px-3 sm:px-4 py-2.5 md:py-2.5 flex items-center gap-2 md:gap-1.5 border border-brand-primary-extra-light md:border-r md:border-brand-primary-extra-light text-left transition-colors hover:bg-brand-primary-extra-light rounded-xl md:rounded-none"
           >
             <Users size={13} className="text-brand-accent shrink-0" />
             <div className="min-w-0">
-              <div className="text-[8px] md:text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{t("guests")}</div>
-              <div className={`text-[11px] md:text-xs font-medium truncate ${totalGuests > 0 ? "text-gray-800" : "text-gray-400"}`}>{guestLabel}</div>
+              <div className="text-[7px] md:text-[8px] font-semibold text-gray-400 uppercase tracking-wide">{t("guests")}</div>
+              <div className={`text-xs md:text-sm font-medium truncate ${totalGuests > 0 ? "text-gray-800" : "text-gray-400"}`}>{guestLabel}</div>
             </div>
             <ChevronDown size={13} className={`ml-auto shrink-0 text-gray-400 transition-transform hidden sm:block ${showGuests ? "rotate-180" : ""}`} />
           </button>
@@ -279,7 +273,7 @@ export function SearchBar() {
                 onClick={() => setShowGuests(false)}
                 className="mt-3 w-full py-2 rounded-lg text-sm font-semibold text-white bg-brand-accent hover:bg-brand-accent-hover transition-colors"
               >
-                {t("apply")}
+                {t("done")}
               </button>
             </div>
           )}
@@ -288,7 +282,7 @@ export function SearchBar() {
         {/* Search button */}
         <button
           onClick={handleSearch}
-          className="col-span-2 md:col-span-1 w-full h-11 rounded-xl bg-brand-accent flex items-center justify-center gap-2 text-white hover:bg-brand-accent-hover transition-all duration-200 hover:shadow-lg hover:shadow-brand-accent/30 active:scale-95 mt-2 md:mt-0 md:shrink-0"
+          className="col-span-2 md:col-span-1 row-span-2 w-full h-full min-h-[42px] md:min-h-[48px] rounded-xl bg-brand-accent flex items-center justify-center gap-2 text-white hover:bg-brand-accent-hover transition-all duration-200 hover:shadow-lg hover:shadow-brand-accent/30 active:scale-95 mt-2 md:mt-0 md:shrink-0"
         >
           <Search size={15} />
           <span className="hidden md:inline text-sm font-semibold">Search</span>

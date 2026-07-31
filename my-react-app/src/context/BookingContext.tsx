@@ -58,7 +58,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     (data: Omit<Booking, 'id' | 'status' | 'createdAt'>) => {
       const newBooking: Booking = {
         ...data,
-        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        id: data.refNumber || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         status: 'upcoming',
         createdAt: new Date().toISOString(),
       }

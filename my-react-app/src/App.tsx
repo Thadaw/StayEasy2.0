@@ -13,6 +13,7 @@ const PropertyDetailPage = lazy(() => import('./pages/PropertyDetailPage'))
 const SearchResultsPage = lazy(() => import('./pages/SearchResultsPage'))
 const ComingSoon = lazy(() => import('./pages/ComingSoon'))
 const BookingDetailsPage = lazy(() => import('./pages/BookingDetailsPage'))
+const BookingDetailsView = lazy(() => import('./pages/BookingDetailsView'))
 const ReservePage = lazy(() => import('./pages/ReservePage'))
 const BookingConfirmationPage = lazy(() => import('./pages/BookingConfirmationPage'))
 const ProfileLayout = lazy(() => import('./pages/profile/ProfileLayout'))
@@ -51,6 +52,7 @@ function App() {
           <Route path="/account-settings" element={<ComingSoon />} />
           <Route path="/language-currency" element={<ComingSoon />} />
           <Route path="/booking-details/:id" element={<ProtectedRoute><BookingDetailsPage /></ProtectedRoute>} />
+          <Route path="/booking-view/:id" element={<ProtectedRoute><BookingDetailsView /></ProtectedRoute>} />
           <Route path="/reserve/:id" element={<ProtectedRoute><ReservePage /></ProtectedRoute>} />
           <Route path="/booking-confirmation/:refNumber?" element={<ProtectedRoute><BookingConfirmationPage /></ProtectedRoute>} />
           <Route path="*" element={<NotFoundPage />} />
