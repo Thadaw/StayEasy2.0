@@ -126,6 +126,16 @@ export default function AboutMe() {
                 </span>
               </div>
 
+              {(guestProfile?.nationality || user?.country) && (
+                <div className="flex items-center gap-1.5 mb-4 text-sm text-brand-text-secondary">
+                  {user?.countryFlag && <span>{user.countryFlag}</span>}
+                  <span>{guestProfile?.nationality || user?.country}</span>
+                  {(guestProfile?.created_at || user?.joinedDate) && (
+                    <span>· Member since {new Date(guestProfile?.created_at || user?.joinedDate || '').toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</span>
+                  )}
+                </div>
+              )}
+
               {/* Stats */}
               <div className="flex items-center gap-6 py-3 px-5 rounded-lg bg-brand-background border border-brand-card-border mb-5">
                 <div className="flex items-center gap-2 text-sm text-brand-text-secondary">
@@ -184,20 +194,10 @@ export default function AboutMe() {
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <MapPin size={15} className="text-brand-text-secondary shrink-0" />
-                  <span className="w-16 text-brand-text-secondary">Location</span>
+                  <span className="w-16 text-brand-text-secondary">Nationality</span>
                   <span className="text-brand-heading">{guestProfile?.nationality || <span className="text-brand-placeholder italic">Not provided</span>}</span>
                 </div>
               </div>
-
-              {(guestProfile?.nationality || user?.country) && (
-                <div className="flex items-center gap-1.5 mt-4 text-sm text-brand-text-secondary">
-                  {user?.countryFlag && <span>{user.countryFlag}</span>}
-                  <span>{guestProfile?.nationality || user?.country}</span>
-                  {(guestProfile?.created_at || user?.joinedDate) && (
-                    <span>· Member since {new Date(guestProfile?.created_at || user?.joinedDate || '').toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</span>
-                  )}
-                </div>
-              )}
 
               {/* Edit / Save Profile */}
               <div className="mt-6">

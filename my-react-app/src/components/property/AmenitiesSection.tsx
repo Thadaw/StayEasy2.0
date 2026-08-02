@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Wifi, Car, Utensils, Waves, Mountain, Dumbbell } from "lucide-react";
 import { Hotel } from "../../data/hotels";
+import { buildMapEmbedUrl } from "../../utils/map";
 
 const amenityIcons: Record<string, typeof Wifi> = {
   "Free WiFi": Wifi,
@@ -18,6 +19,11 @@ interface AmenitiesSectionProps {
 export function AmenitiesSection({ hotel }: AmenitiesSectionProps) {
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const visibleAmenities = showAllAmenities ? hotel.amenities : hotel.amenities.slice(0, 8);
+  const mapUrl = buildMapEmbedUrl({
+    lat: hotel.lat,
+    lng: hotel.lng,
+    address: `${hotel.location}, ${hotel.city}, ${hotel.country}`,
+  });
 
   return (
     <div className="md:grid md:grid-cols-2 md:gap-8 pb-6 border-b border-border mb-6">
@@ -47,14 +53,20 @@ export function AmenitiesSection({ hotel }: AmenitiesSectionProps) {
         <h2 className="font-semibold text-foreground mb-4" style={{ fontSize: "1.125rem" }}>Location</h2>
         <p className="text-sm text-muted-foreground mb-3">{hotel.location}, {hotel.city}, {hotel.country}</p>
         <div className="rounded-xl overflow-hidden border border-border h-[200px]">
-          <iframe
-            title="Property location"
-            src={`https://maps.google.com/maps?q=${hotel.lat},${hotel.lng}&z=14&output=embed`}
-            className="w-full h-full"
-            style={{ border: 0 }}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
+          {mapUrl ? (
+            <iframe
+              title="Property location"
+              src={mapUrl}
+              className="w-full h-full"
+              style={{ border: 0 }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          ) : (
+            <div className="w-full h-full bg-muted flex items-center justify-center">
+              <p className="text-sm text-muted-foreground">Map unavailable for this property</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

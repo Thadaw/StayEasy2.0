@@ -56,12 +56,14 @@ export function RecommendedRoom({ room, guestCount, checkIn, onReserve, CUR = '$
           <button
             onClick={() => onReserve(room.id)}
             disabled={room.availableRooms <= 0}
-            className={`px-5 py-2.5 text-xs font-semibold rounded-lg transition-colors ${selected ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-brand-accent text-white hover:bg-brand-accent-hover'} disabled:opacity-40 disabled:cursor-not-allowed`}
+            className={`px-5 py-2.5 text-xs font-semibold rounded-lg transition-colors min-w-[96px] ${selected ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-brand-accent text-white hover:bg-brand-accent-hover'} disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             {room.availableRooms > 0 ? (selected ? 'Selected' : 'Select') : 'Sold out'}
           </button>
-          {room.availableRooms > 0 && !selected && (
-            <p className="text-[10px] text-muted-foreground text-center md:text-right">Click to view in room list</p>
+          {room.availableRooms > 0 && (
+            <p className="text-[10px] text-muted-foreground text-center md:text-right">
+              {selected ? "You are in room list section" : "Click to view in room list"}
+            </p>
           )}
         </div>
       </div>

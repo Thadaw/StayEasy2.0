@@ -2,11 +2,17 @@ import { useState, useEffect } from "react";
 import api from "../api";
 import { Property } from "./useSearchProperties";
 
+function hasPermissionApi(): boolean {
+  return typeof navigator !== "undefined" && "permissions" in navigator;
+}
+
 export function useNearbyProperties(limit = 6) {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchNearby = async () => {
       setLoading(true);
       try {
@@ -50,14 +56,36 @@ export function useNearbyProperties(limit = 6) {
             }
           })
         );
-        setProperties(withDetails);
+        if (!cancelled) setProperties(withDetails);
       } catch {
-        setProperties([]);
+        if (!cancelled) setProperties([]);
       } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    const maybeFetchNearby = async () => {
+      if (!hasPermissionApi()) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const status = await navigator.permissions.query({ name: "geolocation" });
+        if (status.state === "granted") {
+          await fetchNearby();
+        } else {
+          setLoading(false);
+        }
+      } catch {
         setLoading(false);
       }
     };
-    fetchNearby();
+
+    maybeFetchNearby();
+
+    return () => {
+      cancelled = true;
+    };
   }, [limit]);
 
   return { properties, loading };

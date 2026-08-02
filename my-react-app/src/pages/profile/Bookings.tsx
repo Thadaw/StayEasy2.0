@@ -23,6 +23,7 @@ interface ApiBookingItem {
   currency?: string
   property?: { id: string; name?: string; city?: string; country?: string; currency?: string }
   property_name?: string
+  property_photo?: string
   photos?: { cover?: string; gallery?: string[] }
 }
 
@@ -70,7 +71,7 @@ function normalizeBooking(item: ApiBookingItem): NormalizedBooking {
     createdAt: item.created_at,
     currency,
     propertyName: item.property?.name || item.property_name || '',
-    coverPhoto: item.photos?.cover || '',
+    coverPhoto: item.photos?.cover || item.property_photo || '',
   }
 }
 
@@ -236,6 +237,11 @@ export default function Bookings() {
                         {' – '}
                         {new Date(booking.checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
+                      {booking.createdAt && (
+                        <p className="text-[10px] text-brand-text-secondary mb-1">
+                          Booked on {new Date(booking.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}, {new Date(booking.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                        </p>
+                      )}
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-sm font-bold text-brand-heading">
                           {booking.currency ? `${booking.currency} ${booking.totalPrice.toFixed(2)}` : `$${booking.totalPrice.toFixed(2)}`}

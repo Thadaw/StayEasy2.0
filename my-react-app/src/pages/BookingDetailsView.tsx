@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { ArrowLeft, HelpCircle, Bell, MapPin, Star, Phone, Mail,
+import { ArrowLeft, MapPin, Phone, Mail,
   Download, FileText, CalendarDays,
-  Users, Copy, AlertTriangle, ChevronRight, Share2, QrCode, ArrowRight,
+  Users, Copy, AlertTriangle, ChevronRight, Share2, QrCode, ArrowRight, BedDouble,
 } from "lucide-react"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
@@ -14,6 +14,8 @@ import toast from "react-hot-toast"
 interface ApiBookingRoom {
   room_id: string; room_name: string; room_type: string; bed_type: string;
   max_adults: number; max_children: number; base_rate: number; nights: number; subtotal: number;
+  photo?: string; photos?: { cover?: string };
+  cancellation_title?: string; cancellation_description?: string;
 }
 
 interface ApiBooking {
@@ -28,6 +30,7 @@ interface ApiBooking {
   soft_lock_expires_at?: string;
   created_at?: string;
   guest_name?: string; guest_email?: string; guest_phone?: string;
+  number_of_adults?: number; number_of_children?: number;
   photos?: { cover: string; gallery: string[] };
 }
 
@@ -47,6 +50,13 @@ export default function BookingDetailsView() {
   const [apiBooking, setApiBooking] = useState<ApiBooking | null>(null)
   const [loading, setLoading] = useState(true)
   const [coverPhoto, setCoverPhoto] = useState("")
+  const [propertyAddress, setPropertyAddress] = useState("")
+  const [propertyState, setPropertyState] = useState("")
+  const [propertyPhone, setPropertyPhone] = useState("")
+  const [propertyEmail, setPropertyEmail] = useState("")
+  const [propertyLat, setPropertyLat] = useState<string | number | null>(null)
+  const [propertyLng, setPropertyLng] = useState<string | number | null>(null)
+  const [meGuest, setMeGuest] = useState<{ name?: string; email?: string; phone?: string; nationality?: string } | null>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -64,17 +74,56 @@ export default function BookingDetailsView() {
         if (bookingData?.property?.id) {
           try {
             const { data: propRes } = await api.get(`/properties/${bookingData.property.id}/public`)
-            const photos = propRes?.data?.photos
+            const prop = propRes?.data
+            const photos = prop?.photos
             if (photos?.cover) setCoverPhoto(photos.cover)
+            if (prop?.address) setPropertyAddress(prop.address)
+            if (prop?.state) setPropertyState(prop.state)
+            if (prop?.phone_number) setPropertyPhone(prop.phone_number)
+            if (prop?.email) setPropertyEmail(prop.email)
+            if (prop?.latitude) setPropertyLat(prop.latitude)
+            if (prop?.longitude) setPropertyLng(prop.longitude)
           } catch {}
         }
       } catch {
         // API booking not found — will fall back to local BookingContext data
-      } finally {
-        setLoading(false)
       }
     }
-    fetchBooking()
+    const fetchMeBookings = async () => {
+      try {
+        const { data } = await api.get("/bookings/me")
+        const items = data?.data?.items ?? data?.data ?? data?.items ?? []
+        if (Array.isArray(items)) {
+          const targetRef = localMatch?.refNumber || id
+          const match = items.find(
+            (it: { ref_number?: string; id?: string }) => it.ref_number === targetRef || it.id === targetRef
+          )
+          if (match) {
+            const guest = match.guest || match.guest_details || {}
+            setMeGuest(prev => ({
+              name: prev?.name || match.full_name || match.guest_name || guest.full_name || "",
+              email: prev?.email || match.email || match.guest_email || guest.email || "",
+              phone: prev?.phone || match.phone || match.guest_phone || guest.phone || "",
+              nationality: prev?.nationality || match.nationality || guest.nationality || "",
+            }))
+          }
+        }
+      } catch {}
+    }
+    const fetchGuestProfile = async () => {
+      try {
+        const { data } = await api.get("/auth/guests/me")
+        if (data) {
+          setMeGuest(prev => ({
+            name: prev?.name || data.full_name || "",
+            email: prev?.email || data.email || "",
+            phone: prev?.phone || data.phone || "",
+            nationality: prev?.nationality || data.nationality || "",
+          }))
+        }
+      } catch {}
+    }
+    Promise.allSettled([fetchBooking(), fetchMeBookings(), fetchGuestProfile()]).finally(() => setLoading(false))
   }, [id, bookings])
 
   const localBooking = bookings.find((b) => b.refNumber === id || b.id === id)
@@ -83,12 +132,20 @@ export default function BookingDetailsView() {
   const propertyCity = apiBooking?.property?.city || localBooking?.hotelCity || ""
   const propertyCountry = apiBooking?.property?.country || localBooking?.hotelCountry || ""
   const propertyId = apiBooking?.property?.id || localBooking?.hotelId || ""
+  const propertyLocation = [propertyAddress, propertyCity, propertyState, propertyCountry]
+    .filter(Boolean)
+    .reduce<string[]>((parts, part) => {
+      const prev = parts[parts.length - 1] || ""
+      if (prev.toLowerCase().includes(part.toLowerCase())) return parts
+      return [...parts, part]
+    }, [])
+    .join(", ")
   const CUR = apiBooking?.property?.currency || "USD"
   const nights = apiBooking?.nights || (localBooking ? Math.max(1, Math.round((new Date(localBooking.checkOut).getTime() - new Date(localBooking.checkIn).getTime()) / 86400000)) : 1)
   const checkIn = apiBooking?.check_in || localBooking?.checkIn || ""
   const checkOut = apiBooking?.check_out || localBooking?.checkOut || ""
-  const adults = localBooking?.guests || 0
-  const children = 0
+  const adults = apiBooking?.number_of_adults ?? localBooking?.guests ?? 0
+  const children = apiBooking?.number_of_children ?? 0
   const totalGuests = adults + children
   const rooms = apiBooking?.rooms || []
   const roomNames = rooms.length > 0 ? rooms.map((r) => r.room_name).join(", ") : localBooking?.roomTypeName || ""
@@ -103,9 +160,10 @@ export default function BookingDetailsView() {
   const bookingStatus = apiBooking?.status || localBooking?.status || "upcoming"
   const statusLabel = bookingStatus.charAt(0).toUpperCase() + bookingStatus.slice(1)
 
-  const guestName = apiBooking?.guest_name || user?.full_name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Guest"
-  const guestEmail = apiBooking?.guest_email || user?.email || ""
-  const guestPhone = apiBooking?.guest_phone || ""
+  const guestName = meGuest?.name || apiBooking?.guest_name || user?.full_name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Guest"
+  const guestEmail = meGuest?.email || apiBooking?.guest_email || user?.email || ""
+  const guestPhone = meGuest?.phone || apiBooking?.guest_phone || ""
+  const guestNationality = meGuest?.nationality || ""
 
   const coverImage = coverPhoto || localBooking?.hotelImage || ""
 
@@ -136,6 +194,14 @@ export default function BookingDetailsView() {
     } catch {
       // user cancelled
     }
+  }
+
+  const handleViewOnMap = () => {
+    const hasCoords = propertyLat !== null && propertyLat !== "" && propertyLng !== null && propertyLng !== ""
+    const query = hasCoords
+      ? `${propertyLat},${propertyLng}`
+      : [propertyName, propertyAddress, propertyCity, propertyState, propertyCountry].filter(Boolean).join(", ")
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, "_blank", "noopener,noreferrer")
   }
 
   const handleDownloadReceipt = () => {
@@ -194,7 +260,7 @@ export default function BookingDetailsView() {
           <div class="row">
             <span class="label">Booking Date</span>
             <span class="colon">:</span>
-            <span class="value">${receiptDate}  ${receiptTime}</span>
+            <span class="value">${createdAt ? `${fmtShortDate(createdAt)}, ${new Date(createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : `${receiptDate}  ${receiptTime}`}</span>
           </div>
           <div class="row">
             <span class="label">Receipt No.</span>
@@ -212,7 +278,17 @@ export default function BookingDetailsView() {
           <div class="row">
             <span class="label">Location</span>
             <span class="colon">:</span>
-            <span class="value">${propertyCity}, ${propertyCountry}</span>
+            <span class="value">${propertyLocation || `${propertyCity}, ${propertyCountry}`}</span>
+          </div>
+          <div class="row">
+            <span class="label">Phone</span>
+            <span class="colon">:</span>
+            <span class="value">${propertyPhone || 'N/A'}</span>
+          </div>
+          <div class="row">
+            <span class="label">Email</span>
+            <span class="colon">:</span>
+            <span class="value">${propertyEmail || 'N/A'}</span>
           </div>
           <div class="row">
             <span class="label">Check-in</span>
@@ -233,6 +309,26 @@ export default function BookingDetailsView() {
             <span class="label">Guests</span>
             <span class="colon">:</span>
             <span class="value">${totalGuests}</span>
+          </div>
+          <div class="row">
+            <span class="label">Guest Name</span>
+            <span class="colon">:</span>
+            <span class="value">${guestName}</span>
+          </div>
+          <div class="row">
+            <span class="label">Guest Email</span>
+            <span class="colon">:</span>
+            <span class="value">${guestEmail || 'N/A'}</span>
+          </div>
+          <div class="row">
+            <span class="label">Guest Phone</span>
+            <span class="colon">:</span>
+            <span class="value">${guestPhone || 'N/A'}</span>
+          </div>
+          <div class="row">
+            <span class="label">Nationality</span>
+            <span class="colon">:</span>
+            <span class="value">${guestNationality || 'N/A'}</span>
           </div>
           
           <hr class="divider">
@@ -388,24 +484,16 @@ export default function BookingDetailsView() {
 
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
-        <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-4 grid grid-cols-3 items-center">
           <button
             onClick={() => navigate("/profile/bookings")}
-            className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer"
+            className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer justify-self-start"
           >
             <ArrowLeft size={18} />
             Back
           </button>
-          <h1 className="text-base font-semibold text-gray-900">Booking Details</h1>
-          <div className="flex items-center gap-3">
-            <button className="p-2 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer">
-              <HelpCircle size={20} />
-            </button>
-            <button className="p-2 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer relative">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-brand-accent rounded-full" />
-            </button>
-          </div>
+          <h1 className="text-base font-semibold text-gray-900 text-center">Booking Details</h1>
+          <span />
         </div>
       </div>
 
@@ -424,22 +512,28 @@ export default function BookingDetailsView() {
                   className="w-full sm:w-40 h-32 rounded-xl object-cover shrink-0"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1">
                     <h2 className="text-lg font-bold text-gray-900">{propertyName}</h2>
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${statusColor()}`}>
                       {statusLabel}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 flex items-center gap-1 mb-1">
-                    <MapPin size={13} /> {propertyCity}, {propertyCountry}
+                    <MapPin size={13} /> {propertyLocation}
                   </p>
-                  <div className="flex items-center gap-1">
-                    <Star size={13} className="fill-yellow-400 stroke-yellow-400" />
-                    <span className="text-sm font-semibold text-gray-900">4.8</span>
-                    <span className="text-xs text-gray-500">(312 Reviews)</span>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                    <a href={`tel:${propertyPhone}`} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-accent transition-colors">
+                      <Phone size={12} /> {propertyPhone || "N/A"}
+                    </a>
+                    <a href={`mailto:${propertyEmail}`} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-accent transition-colors">
+                      <Mail size={12} /> {propertyEmail || "N/A"}
+                    </a>
+                    <button onClick={handleViewOnMap} className="inline-flex items-center gap-1 text-xs font-semibold text-brand-accent hover:underline cursor-pointer">
+                      <MapPin size={12} /> View on Map
+                    </button>
                   </div>
                 </div>
-                <div className="sm:text-right shrink-0 space-y-1">
+                <div className="sm:border-l sm:border-gray-200 sm:pl-4 sm:text-right shrink-0 space-y-1">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Booking ID</p>
                   <p className="text-sm font-bold text-gray-900 flex items-center gap-1 sm:justify-end">
                     BK-{refNumber.slice(0, 8).toUpperCase()}
@@ -450,7 +544,7 @@ export default function BookingDetailsView() {
                     />
                   </p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-2">Booked On</p>
-                  <p className="text-sm font-semibold text-gray-900">{fmtShortDate(createdAt)}</p>
+                  <p className="text-sm font-semibold text-gray-900">{fmtShortDate(createdAt)}, {new Date(createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-2">Payment Status</p>
                   <p className="text-sm font-semibold text-emerald-600 flex items-center gap-1 sm:justify-end">
                     {paymentStatus === "paid" ? "Paid" : paymentStatus || "Pending"}{" "}
@@ -460,7 +554,6 @@ export default function BookingDetailsView() {
                   <p className="text-lg font-bold text-gray-900">{CUR} {totalAmount.toLocaleString()}</p>
                 </div>
               </div>
-
 
             </div>
 
@@ -487,7 +580,7 @@ export default function BookingDetailsView() {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Guests</p>
-                  <p className="text-sm font-bold text-gray-900">{adults} Adults{children > 0 ? `, ${children} Children` : ""}</p>
+                  <p className="text-sm font-bold text-gray-900">{adults} adult{adults !== 1 ? "s" : ""} + {children} child{children === 1 ? "" : "ren"}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Room</p>
@@ -500,13 +593,67 @@ export default function BookingDetailsView() {
               </div>
             </div>
 
+            {/* Room Details */}
+            {rooms.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <BedDouble size={16} className="text-brand-accent" />
+                  <h3 className="text-sm font-bold text-gray-900">Room Details</h3>
+                </div>
+                <div className="space-y-4">
+                  {rooms.map((room, idx) => {
+                    const roomPhoto = room.photo || room.photos?.cover || ""
+                    return (
+                      <div key={room.room_id || idx} className="border border-gray-100 rounded-xl overflow-hidden">
+                        <div className="flex flex-col sm:flex-row gap-4 p-4">
+                          <div className="w-full sm:w-32 h-28 sm:h-24 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center shrink-0">
+                            {roomPhoto ? (
+                              <img src={roomPhoto} alt={room.room_name} className="w-full h-full object-cover" />
+                            ) : (
+                              <BedDouble size={28} className="text-gray-300" />
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 flex-1 min-w-0">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Room Name</p>
+                              <p className="text-sm font-bold text-gray-900">{room.room_name}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Room Type</p>
+                              <p className="text-sm font-semibold text-gray-900">{room.room_type}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Bed Type</p>
+                              <p className="text-sm font-semibold text-gray-900">{room.bed_type}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Max Adults</p>
+                              <p className="text-sm font-semibold text-gray-900">{room.max_adults}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Max Children</p>
+                              <p className="text-sm font-semibold text-gray-900">{room.max_children}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Base Rate</p>
+                              <p className="text-sm font-semibold text-gray-900">{CUR} {room.base_rate.toFixed(2)} / night</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Guest Details */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Users size={16} className="text-brand-accent" />
                 <h3 className="text-sm font-bold text-gray-900">Guest Details</h3>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Name</p>
                   <p className="text-sm font-semibold text-gray-900">{guestName}</p>
@@ -519,8 +666,58 @@ export default function BookingDetailsView() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Phone</p>
                   <p className="text-sm font-semibold text-gray-900">{guestPhone || "N/A"}</p>
                 </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Nationality</p>
+                  <p className="text-sm font-semibold text-gray-900">{guestNationality || "N/A"}</p>
+                </div>
               </div>
             </div>
+
+            {/* Cancellation Policy */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-900 mb-3">Cancellation Policy</h3>
+              {rooms.some((r) => r.cancellation_title || r.cancellation_description) ? (
+                <div className="space-y-4">
+                  {rooms.map((room, idx) => (
+                    room.cancellation_title || room.cancellation_description ? (
+                      <div key={room.room_id || idx}>
+                        {room.cancellation_title && (
+                          <p className="text-sm font-bold text-gray-900 mb-1">{room.cancellation_title}</p>
+                        )}
+                        {room.cancellation_description && (
+                          <p className="text-sm text-gray-600 leading-relaxed">{room.cancellation_description}</p>
+                        )}
+                      </div>
+                    ) : null
+                  ))}
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                    <span className="text-sm text-gray-600">
+                      Free cancellation before {checkIn ? fmtShortDate(checkIn) : "N/A"} (2:00 PM).
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                    <span className="text-sm text-gray-600">After that, cancellation charges may apply.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                    <span className="text-sm text-gray-600">No-shows are non-refundable.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                    <span className="text-sm text-gray-600">For more details, contact property.</span>
+                  </li>
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
 
             {/* Payment Summary */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -564,58 +761,6 @@ export default function BookingDetailsView() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Cancellation Policy */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-900 mb-3">Cancellation Policy</h3>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <span className="text-sm text-gray-600">
-                    Free cancellation before {checkIn ? fmtShortDate(checkIn) : "N/A"} (2:00 PM).
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <span className="text-sm text-gray-600">After that, cancellation charges may apply.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <span className="text-sm text-gray-600">No-shows are non-refundable.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <span className="text-sm text-gray-600">For more details, contact property.</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-
-            {/* Property Contact */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-900 mb-4">Property Contact</h3>
-              <div className="space-y-3">
-                <a href="tel:+97761000000" className="flex items-center gap-3 text-sm text-gray-700 hover:text-brand-accent transition-colors">
-                  <Phone size={14} className="text-gray-400 shrink-0" />
-                  +977-61-000000
-                </a>
-                <a href="mailto:info@mountainview.com" className="flex items-center gap-3 text-sm text-gray-700 hover:text-brand-accent transition-colors">
-                  <Mail size={14} className="text-gray-400 shrink-0" />
-                  info@mountainview.com
-                </a>
-                <p className="flex items-center gap-3 text-sm text-gray-700">
-                  <MapPin size={14} className="text-gray-400 shrink-0" />
-                  {propertyCity}, {propertyCountry}
-                </p>
-              </div>
-              <button className="w-full mt-4 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 cursor-pointer">
-                <MapPin size={14} />
-                View on Map
-              </button>
             </div>
 
             {/* Actions toolbar */}

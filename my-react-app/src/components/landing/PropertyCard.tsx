@@ -12,6 +12,15 @@ export function PropertyCard({ property, showDistance }: PropertyCardProps) {
   const navigate = useNavigate();
   const { isFavorite, toggleFavorite } = useFavorites();
 
+  const location = [property.address, property.city, property.state, property.country]
+    .filter(Boolean)
+    .reduce<string[]>((parts, part) => {
+      const prev = parts[parts.length - 1] || "";
+      if (prev.toLowerCase().includes(part.toLowerCase())) return parts;
+      return [...parts, part];
+    }, [])
+    .join(", ");
+
   return (
     <div
       onClick={() => navigate(`/hotel/${property.property_id}`)}
@@ -40,7 +49,7 @@ export function PropertyCard({ property, showDistance }: PropertyCardProps) {
       <div className="px-3 py-2 relative">
         <h3 className="text-xs md:text-sm font-bold leading-tight line-clamp-1" style={{ color: "var(--brand-heading)" }}>{property.name}</h3>
         <p className="text-[9px] md:text-[10px] flex items-center gap-0.5 mb-1" style={{ color: "var(--brand-text-secondary)" }}>
-          <MapPin size={9} /> {property.city}, {property.state}
+          <MapPin size={9} /> {location}
         </p>
         {showDistance && property.distance_km != null ? (
           <div className="flex items-end justify-between">
@@ -50,7 +59,7 @@ export function PropertyCard({ property, showDistance }: PropertyCardProps) {
             </div>
           </div>
         ) : (
-          <p className="text-xs md:text-sm font-bold leading-tight" style={{ color: "var(--brand-heading)" }}><span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from</span> {property.currency} {property.lowest_rate ?? property.total_price} <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}>/ night</span></p>
+          <p className="text-xs md:text-sm font-bold leading-tight text-right" style={{ color: "var(--brand-heading)" }}><span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from</span> {property.currency} {property.lowest_rate ?? property.total_price} <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}>/ night</span></p>
         )}
       </div>
     </div>

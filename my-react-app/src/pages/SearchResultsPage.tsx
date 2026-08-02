@@ -16,6 +16,7 @@ interface ApiProperty {
   city: string;
   address: string;
   amenities: string[];
+  description: string;
   total_price: number;
   nights: number;
   cover_photo: string;
@@ -236,7 +237,7 @@ export default function SearchResultsPage() {
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex gap-6">
           {/* Sidebar Filters */}
-          <aside className="w-[260px] shrink-0">
+          <aside className="w-[260px] shrink-0 border-r border-gray-200 pr-6">
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold flex items-center gap-2" style={{ color: "var(--brand-heading)" }}>
@@ -290,7 +291,6 @@ export default function SearchResultsPage() {
                         />
                         <Icon size={14} className="text-gray-500" />
                         <span className="text-xs flex-1" style={{ color: "var(--brand-heading)" }}>{type.label}</span>
-                        <span className="text-xs" style={{ color: "var(--brand-text-secondary)" }}>{type.count}</span>
                       </label>
                     );
                   })}
@@ -313,7 +313,6 @@ export default function SearchResultsPage() {
                         />
                         <Icon size={14} className="text-gray-500" />
                         <span className="text-xs flex-1" style={{ color: "var(--brand-heading)" }}>{amenity.label}</span>
-                        <span className="text-xs" style={{ color: "var(--brand-text-secondary)" }}>{amenity.count}</span>
                       </label>
                     );
                   })}
@@ -335,7 +334,6 @@ export default function SearchResultsPage() {
                       />
                       <Bed size={14} className="text-gray-500" />
                       <span className="text-xs flex-1" style={{ color: "var(--brand-heading)" }}>{bed.label}</span>
-                      <span className="text-xs" style={{ color: "var(--brand-text-secondary)" }}>{bed.count}</span>
                     </label>
                   ))}
                 </div>
@@ -375,7 +373,6 @@ export default function SearchResultsPage() {
                         className="w-4 h-4 rounded border-gray-300 accent-brand-primary"
                       />
                       <span className="text-xs flex-1" style={{ color: "var(--brand-heading)" }}>{rule.label}</span>
-                      <span className="text-xs" style={{ color: "var(--brand-text-secondary)" }}>{rule.count}</span>
                     </label>
                   ))}
                 </div>
@@ -419,8 +416,7 @@ export default function SearchResultsPage() {
               filteredHotels.map((hotel) => (
                 <div
                   key={hotel.property_id}
-                  onClick={() => navigate(`/hotel/${hotel.property_id}?${buildFilterParams()}`)}
-                  className="flex bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100 h-[200px]"
+                  className="flex bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-gray-100 h-[200px]"
                 >
                   {/* Image */}
                   <div className="relative w-[280px] h-[200px] shrink-0 overflow-hidden">
@@ -446,15 +442,20 @@ export default function SearchResultsPage() {
                       <p className="text-xs flex items-center gap-1 mb-2" style={{ color: "var(--brand-text-secondary)" }}>
                         <MapPin size={12} /> {hotel.address}, {hotel.city}, {hotel.state}
                       </p>
+                      {hotel.description && (
+                        <p className="text-xs leading-relaxed line-clamp-2 mb-2" style={{ color: "var(--brand-text-secondary)" }}>
+                          {(() => {
+                            const words = hotel.description.trim().split(/\s+/);
+                            return words.slice(0, 12).join(" ") + (words.length > 12 ? "..." : "");
+                          })()}
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 flex-wrap mb-3">
                         {(hotel.amenities || []).slice(0, 5).map((amenity, i) => (
                           <span key={i} className="text-[10px] px-2 py-0.5 bg-gray-100 rounded-full" style={{ color: "var(--brand-text-secondary)" }}>
                             {amenity}
                           </span>
                         ))}
-                        {(hotel.amenities || []).length > 5 && (
-                          <span className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>+{hotel.amenities.length - 5} more</span>
-                        )}
                       </div>
                       <p className="text-[11px] font-semibold text-green-600">
                         Available
@@ -464,8 +465,8 @@ export default function SearchResultsPage() {
                     {/* Price */}
                     <div className="text-right flex flex-col justify-between">
                       <div className="mt-4">
-                        <p className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>{hotel.nights} night{hotel.nights > 1 ? "s" : ""}, {guests} guests</p>
-                        <p className="text-lg font-bold mt-0.5" style={{ color: "var(--brand-heading)" }}>{hotel.currency} {hotel.total_price}</p>
+                        <p className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>{hotel.nights} night{hotel.nights > 1 ? "s" : ""}, {guests}</p>
+                        <p className="text-lg font-bold mt-0.5" style={{ color: "var(--brand-heading)" }}><span className="font-normal" style={{ fontSize: "12px" }}>Starting from</span> {hotel.currency} {hotel.total_price}</p>
                         <p className="text-[10px]" style={{ color: "var(--brand-text-secondary)" }}>Includes taxes and charges</p>
                       </div>
                       <button

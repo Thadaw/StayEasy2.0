@@ -29,8 +29,21 @@ export function HeroSection() {
     }
   }, []);
 
-  const handleAllowLocation = () => {
+  const handleAllowLocation = async () => {
     if (navigator.geolocation) {
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          const status = await navigator.permissions.query({ name: "geolocation" });
+          if (status.state === "granted") {
+            localStorage.setItem("locationPopupSeen", "true");
+            setShowLocationPopup(false);
+            window.location.reload();
+            return;
+          }
+        } catch {
+          // fall through to getCurrentPosition
+        }
+      }
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
@@ -44,7 +57,7 @@ export function HeroSection() {
           localStorage.setItem("locationPopupSeen", "true");
           setShowLocationPopup(false);
         },
-        { timeout: 10000 }
+        { timeout: 15000 }
       );
     } else {
       localStorage.setItem("nearbyLocation", "Nearby");
@@ -110,7 +123,7 @@ export function HeroSection() {
           </p>
 
           {/* Search bar */}
-          <div className="mr-0 lg:mr-[-57px]">
+          <div className="relative z-30 mr-0 lg:mr-[-150px] xl:mr-[-57px]">
             <SearchBar />
           </div>
 
