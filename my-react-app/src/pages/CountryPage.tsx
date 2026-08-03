@@ -6,22 +6,10 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { HotelCard } from "../components/HotelCard";
 import { useFavorites } from "../context/FavoritesContext";
+import { getDefaultDates } from "../utils/date";
+import { parseSearchResponse } from "../utils/helpers";
+import type { SearchProperty } from "../types/api";
 import api from "../api";
-
-interface ApiProperty {
-  property_id: string;
-  name: string;
-  type: string;
-  country: string;
-  state: string;
-  city: string;
-  address: string;
-  currency: string;
-  cover_photo: string;
-  lowest_rate?: number;
-  total_price?: number;
-  nights?: number;
-}
 
 export default function CountryPage() {
   const { code } = useParams<{ code: string }>();
@@ -29,16 +17,15 @@ export default function CountryPage() {
   const country = getCountry(code?.toUpperCase() || "");
   const [activeCity, setActiveCity] = useState<string | null>(null);
   const { isFavorite, toggleFavorite } = useFavorites();
-  const [apiProperties, setApiProperties] = useState<ApiProperty[]>([]);
-  const [apiLoading, setApiLoading] = useState(true);
+  const [searchResults, setSearchResults] = useState<SearchProperty[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!country) return;
-    const fetchProperties = async () => {
-      setApiLoading(true);
+    const loadProperties = async () => {
+      setLoading(true);
       try {
-        const today = new Date().toISOString().split("T")[0];
-        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+        const { today, tomorrow } = getDefaultDates();
         const { data } = await api.get("/search", {
           params: {
             destination: country.name,
@@ -49,16 +36,15 @@ export default function CountryPage() {
             rooms: 1,
           },
         });
-        const results: ApiProperty[] = data?.data?.results
-          || (Array.isArray(data?.data) ? data.data : data?.results || []);
-        setApiProperties(results);
+        const results = parseSearchResponse<SearchProperty>(data);
+        setSearchResults(results);
       } catch {
-        setApiProperties([]);
+        setSearchResults([]);
       } finally {
-        setApiLoading(false);
+        setLoading(false);
       }
     };
-    fetchProperties();
+    loadProperties();
   }, [country]);
 
   const selectedCity = activeCity
@@ -249,7 +235,7 @@ export default function CountryPage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {apiLoading ? (
+            {loading ? (
               [1, 2, 3, 4].map((i) => (
                 <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse">
                   <div className="h-[180px] bg-gray-200" />
@@ -260,12 +246,12 @@ export default function CountryPage() {
                   </div>
                 </div>
               ))
-            ) : apiProperties.length === 0 ? (
+            ) : searchResults.length === 0 ? (
               <div className="col-span-full text-center py-16 bg-gray-50 rounded-2xl">
                 <p className="text-sm text-gray-500">No properties found in {country.name}.</p>
               </div>
             ) : (
-              apiProperties.map((property) => (
+              searchResults.map((property) => (
                 <div
                   key={property.property_id}
                   onClick={() => navigate(`/hotel/${property.property_id}`)}

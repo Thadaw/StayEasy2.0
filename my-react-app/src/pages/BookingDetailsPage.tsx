@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
-import { ChevronRight, Star, Wifi, Plane, UtensilsCrossed, BedDouble } from "lucide-react"
-import { Hotel, RoomType } from "../data/hotels"
+import { ChevronRight, Star, BedDouble } from "lucide-react"
+import { RoomType } from "../data/hotels"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
 import { useGuestProfile } from "../hooks/useGuestProfile"
@@ -9,7 +9,11 @@ import { formatDate } from "../utils/format"
 import { phoneCodes } from "../data/phoneCodes"
 import { allCountries } from "../data/countries"
 import { ApiProperty, ApiRoom } from "../types/api"
-import { mapApiPropertyToHotel } from "../utils/propertyMapper"
+import { mapPropertyToHotel } from "../utils/propertyMapper"
+import { useBookingCreation } from "../hooks/useBookingCreation"
+import { parseJSON } from "../utils/helpers"
+import { getDefaultDates } from "../utils/date"
+import { calculateNights } from "../utils/time"
 import api from "../api"
 
 export default function BookingDetailsPage() {
@@ -27,85 +31,86 @@ export default function BookingDetailsPage() {
   const adultsParam = searchParams.get("adults")
   const childrenParam = searchParams.get("children")
   const [refNumber, setRefNumber] = useState(refParam)
-  const parsedRooms: Record<string, number> = roomsParam ? JSON.parse(roomsParam) : {}
-  const parsedGuestCounts: Record<string, number> = guestCountsParam ? JSON.parse(guestCountsParam) : {}
+  const selectedRooms: Record<string, number> = parseJSON(roomsParam, {})
+  const guestAllocation: Record<string, number> = parseJSON(guestCountsParam, {})
 
-  const [apiProperty, setApiProperty] = useState<ApiProperty | null>(null)
-  const [apiRooms, setApiRooms] = useState<ApiRoom[]>([])
+  const [property, setProperty] = useState<ApiProperty | null>(null)
+  const [availableRooms, setAvailableRooms] = useState<ApiRoom[]>([])
   const [loading, setLoading] = useState(true)
-  const [bookingRooms, setBookingRooms] = useState<{ room_id: string; room_name: string; room_type: string; bed_type: string; max_adults: number; max_children: number; base_rate: number; nights: number; subtotal: number }[]>([])
+  const [reservedRooms, setReservedRooms] = useState<{ room_id: string; room_name: string; room_type: string; bed_type: string; max_adults: number; max_children: number; base_rate: number; nights: number; subtotal: number }[]>([])
   const [bookingGuests, setBookingGuests] = useState<{ adults: number; children: number } | null>(null)
 
   const totalGuests = (bookingGuests ? bookingGuests.adults + bookingGuests.children : null)
-    || Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0)
+    || Object.values(guestAllocation).reduce((s, c) => s + c, 0)
     || (adultsParam ? Number(adultsParam) : 0) + (childrenParam ? Number(childrenParam) : 0)
 
-  const [fullName, setFullName] = useState("")
-  const [email, setEmail] = useState("")
-  const [phoneCode, setPhoneCode] = useState("+977")
-  const [phoneNumber, setPhoneNumber] = useState("")
-  const [country, setCountry] = useState("")
+  const [guest, setGuest] = useState({
+    name: "",
+    email: "",
+    phoneCode: "+977",
+    phone: "",
+    country: "",
+  })
 
   useEffect(() => {
     if (!guestProfile) return
-    if (guestProfile.full_name) setFullName(guestProfile.full_name)
-    if (guestProfile.email) setEmail(guestProfile.email)
-    if (guestProfile.phone) {
-      const match = guestProfile.phone.match(/^(\+\d+)(.*)$/)
-      if (match) {
-        setPhoneCode(match[1])
-        setPhoneNumber(match[2].replace(/\D/g, ''))
-      } else {
-        setPhoneNumber(guestProfile.phone.replace(/\D/g, ''))
+    setGuest(prev => {
+      const next = { ...prev }
+      if (guestProfile.full_name) next.name = guestProfile.full_name
+      if (guestProfile.email) next.email = guestProfile.email
+      if (guestProfile.phone) {
+        const match = guestProfile.phone.match(/^(\+\d+)(.*)$/)
+        if (match) {
+          next.phoneCode = match[1]
+          next.phone = match[2].replace(/\D/g, '')
+        } else {
+          next.phone = guestProfile.phone.replace(/\D/g, '')
+        }
       }
-    }
-    if (guestProfile.nationality) {
-      const nat = guestProfile.nationality.trim().toLowerCase()
-      const found = allCountries.find(c =>
-        c.name.toLowerCase() === nat ||
-        c.code.toLowerCase() === nat ||
-        c.name.toLowerCase().includes(nat) ||
-        nat.includes(c.name.toLowerCase())
-      )
-      if (found) setCountry(found.code)
-    }
+      if (guestProfile.nationality) {
+        const nat = guestProfile.nationality.trim().toLowerCase()
+        const found = allCountries.find(c =>
+          c.name.toLowerCase() === nat ||
+          c.code.toLowerCase() === nat ||
+          c.name.toLowerCase().includes(nat) ||
+          nat.includes(c.name.toLowerCase())
+        )
+        if (found) next.country = found.code
+      }
+      return next
+    })
   }, [guestProfile])
 
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [])
 
+  const { createBooking } = useBookingCreation()
+
   useEffect(() => {
     if (!id || refNumber) return
-    const createBooking = async () => {
-      try {
-        const today = new Date().toISOString().split("T")[0]
-        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0]
-        const rooms: Record<string, number> = roomsParam ? JSON.parse(roomsParam) : {}
-        const roomIds = Object.entries(rooms)
-          .filter(([, qty]) => qty > 0)
-          .flatMap(([roomId, qty]) => Array(qty).fill(roomId))
-        const guestsParam = searchParams.get("guests")
-        const adultsParam = searchParams.get("adults")
-        const childrenParam = searchParams.get("children")
-        const adults = adultsParam ? Number(adultsParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[0] || "2") : 2)
-        const children = childrenParam ? Number(childrenParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[1] || "0") : 0)
-        const { data } = await api.post('/bookings/', {
-          idempotency_key: crypto.randomUUID(),
-          property_id: id,
-          room_ids: roomIds,
-          check_in: checkIn || today,
-          check_out: checkOut || tomorrow,
-          adults,
-          children,
-        })
-        const ref = data?.data?.ref_number || data?.ref_number || ''
-        if (ref) setRefNumber(ref)
-      } catch (err) {
-        console.error('Failed to create booking:', err)
-      }
-    }
-    createBooking()
+    const { today, tomorrow } = getDefaultDates()
+    const rooms: Record<string, number> = parseJSON(roomsParam, {})
+    const roomIds = Object.entries(rooms)
+      .filter(([, qty]) => qty > 0)
+      .flatMap(([roomId, qty]) => Array(qty).fill(roomId))
+    const guestsParam = searchParams.get("guests")
+    const adultsParam = searchParams.get("adults")
+    const childrenParam = searchParams.get("children")
+    const adults = adultsParam ? Number(adultsParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[0] || "2") : 2)
+    const children = childrenParam ? Number(childrenParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[1] || "0") : 0)
+    createBooking({
+      property_id: id,
+      room_ids: roomIds,
+      check_in: checkIn || today,
+      check_out: checkOut || tomorrow,
+      adults,
+      children,
+    }).then(ref => {
+      if (ref) setRefNumber(ref)
+    }).catch(() => {
+      // error handled by hook
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, refNumber, roomsParam, checkIn, checkOut])
 
@@ -115,7 +120,7 @@ export default function BookingDetailsPage() {
       try {
         const { data } = await api.get(`/bookings/${refNumber}`)
         const booking = data?.data || data
-        if (booking?.rooms) setBookingRooms(booking.rooms)
+        if (booking?.rooms) setReservedRooms(booking.rooms)
         if (booking?.number_of_adults != null || booking?.number_of_children != null) {
           setBookingGuests({
             adults: booking.number_of_adults || 0,
@@ -131,11 +136,10 @@ export default function BookingDetailsPage() {
 
   useEffect(() => {
     if (!id) return
-    const fetchData = async () => {
+    const fetchProperty = async () => {
       setLoading(true)
       try {
-        const today = new Date().toISOString().split("T")[0]
-        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0]
+        const { today, tomorrow } = getDefaultDates()
         const checkInDate = checkIn || today
         const checkOutDate = checkOut || tomorrow
         const guestsParam = searchParams.get("guests")
@@ -146,45 +150,43 @@ export default function BookingDetailsPage() {
         const children = childrenParam ? Number(childrenParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[1] || "0") : 0)
         const rooms = roomsParamQ ? Number(roomsParamQ) : 1
         const propRes = await api.get(`/properties/${id}/public`)
-        setApiProperty(propRes.data?.data || null)
+        setProperty(propRes.data?.data || null)
         try {
           const roomsRes = await api.get(`/properties/${id}/rooms/available-rooms`, {
             params: { checkin_date: checkInDate, checkout_date: checkOutDate, adults, children, rooms },
           })
-          setApiRooms(roomsRes.data?.data || [])
+          setAvailableRooms(roomsRes.data?.data || [])
         } catch {
-          setApiRooms([])
+          setAvailableRooms([])
         }
       } catch {
-        setApiProperty(null)
-        setApiRooms([])
+        setProperty(null)
+        setAvailableRooms([])
       } finally {
         setLoading(false)
       }
     }
-    fetchData()
+    fetchProperty()
   }, [id, searchParams])
 
-  const apiHotel = useMemo(() => {
-    if (!apiProperty) return null
-    return mapApiPropertyToHotel(apiProperty, apiRooms)
-  }, [apiProperty, apiRooms])
+  const hotel = useMemo(() => {
+    if (!property) return null
+    return mapPropertyToHotel(property, availableRooms)
+  }, [property, availableRooms])
 
-  const hotel = apiHotel
-
-  const CUR = apiProperty?.currency || 'USD'
+  const currency = property?.currency || 'USD'
 
   const selectedRoomTypes = useMemo(() => {
     if (!hotel) return []
-    if (bookingRooms.length > 0) {
-      return hotel.roomTypes.filter(rt => bookingRooms.some(br => br.room_id === rt.id))
+    if (reservedRooms.length > 0) {
+      return hotel.roomTypes.filter(rt => reservedRooms.some(br => br.room_id === rt.id))
     }
-    return hotel.roomTypes.filter(rt => parsedRooms[rt.id] && parsedRooms[rt.id] > 0)
-  }, [hotel, bookingRooms, parsedRooms])
+    return hotel.roomTypes.filter(rt => selectedRooms[rt.id] && selectedRooms[rt.id] > 0)
+  }, [hotel, reservedRooms, selectedRooms])
 
   const roomLines = useMemo(() => {
-    if (bookingRooms.length > 0) {
-      return bookingRooms.map(br => {
+    if (reservedRooms.length > 0) {
+      return reservedRooms.map(br => {
         const rt = hotel?.roomTypes.find(r => r.id === br.room_id)
         const qty = 1
         const gc = br.max_adults + br.max_children
@@ -193,17 +195,15 @@ export default function BookingDetailsPage() {
       })
     }
     return selectedRoomTypes.map(rt => {
-      const qty = parsedRooms[rt.id] || 0
-      const gc = parsedGuestCounts[rt.id] || 1
+      const qty = selectedRooms[rt.id] || 0
+      const gc = guestAllocation[rt.id] || 1
       const ep = rt.price
       const lineTotal = qty * ep
       return { room: rt, qty, gc, ep, lineTotal }
     })
-  }, [bookingRooms, selectedRoomTypes, hotel, parsedRooms, parsedGuestCounts])
+  }, [reservedRooms, selectedRoomTypes, hotel, selectedRooms, guestAllocation])
 
-  const nights = checkIn && checkOut
-    ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
-    : 1
+  const nights = calculateNights(checkIn, checkOut)
   const subtotal = roomLines.reduce((s, l) => s + l.lineTotal * nights, 0)
   const total = subtotal
 
@@ -215,10 +215,10 @@ export default function BookingDetailsPage() {
     if (guestCountsParam) params.set("guestCounts", guestCountsParam)
     if (adultsParam) params.set("adults", adultsParam)
     if (childrenParam) params.set("children", childrenParam)
-    params.set("guestName", fullName)
-    params.set("guestEmail", email)
-    params.set("guestPhone", `${phoneCode}${phoneNumber}`)
-    if (country) params.set("guestCountry", country)
+    params.set("guestName", guest.name)
+    params.set("guestEmail", guest.email)
+    params.set("guestPhone", `${guest.phoneCode}${guest.phone}`)
+    if (guest.country) params.set("guestCountry", guest.country)
     if (refNumber) params.set("ref", refNumber)
     navigate(`/reserve/${id}?${params.toString()}`)
   }
@@ -252,25 +252,20 @@ export default function BookingDetailsPage() {
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-5">
           <div className="flex items-center justify-center">
-            {/* Step 1 */}
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-full bg-[#1A3C5E] text-white flex items-center justify-center text-sm font-bold">1</span>
               <span className="text-sm font-semibold text-[#1A3C5E]">Your selection</span>
             </div>
 
-            {/* Line 1 */}
             <div className="flex-1 h-[2px] bg-[#1A3C5E] mx-4 min-w-[60px] max-w-[120px]" />
 
-            {/* Step 2 */}
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-full bg-[#1A3C5E] text-white flex items-center justify-center text-sm font-bold">2</span>
               <span className="text-sm font-semibold text-[#1A3C5E]">Enter your details</span>
             </div>
 
-            {/* Line 2 */}
             <div className="flex-1 h-[2px] bg-gray-200 mx-4 min-w-[60px] max-w-[120px]" />
 
-            {/* Step 3 */}
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-sm font-bold">3</span>
               <span className="text-sm text-gray-500">Confirm your reservation</span>
@@ -281,13 +276,11 @@ export default function BookingDetailsPage() {
 
       <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-6">
 
-        {/* Green banner */}
         <div className="bg-[#e8f5e9] border border-[#c8e6c9] rounded-lg px-5 py-3 mb-6 text-center">
           <p className="text-sm font-medium text-[#2e7d32]">Great choice! You're almost done.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8 items-start">
-          {/* Left — Property Summary */}
           <div className="order-1 lg:order-1">
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <img
@@ -315,15 +308,11 @@ export default function BookingDetailsPage() {
                   <span className="text-sm text-gray-500">· {hotel.reviews} reviews</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1 text-xs text-gray-600">
-                    <Wifi size={12} /> Free WiFi
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs text-gray-600">
-                    <Plane size={12} /> Airport shuttle
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs text-gray-600">
-                    <UtensilsCrossed size={12} /> Restaurant
-                  </span>
+                  {hotel.amenities.slice(0, 5).map((amenity) => (
+                    <span key={amenity} className="inline-flex items-center gap-1 text-xs text-gray-600">
+                      {amenity}
+                    </span>
+                  ))}
                 </div>
               </div>
 
@@ -364,19 +353,18 @@ export default function BookingDetailsPage() {
                 </div>
               </div>
 
-              {/* Your price summary */}
               <div className="border-t border-gray-200 p-5">
                 <h3 className="text-sm font-bold text-gray-900 mb-3">Your price summary</h3>
                 {roomLines.map(l => (
                   <div key={l.room.id} className="flex justify-between items-center mb-1">
                     <span className="text-xs text-gray-600">{l.room.name}</span>
-                    <span className="text-xs text-gray-900">{CUR}{(l.lineTotal * nights).toFixed(2)}</span>
+                    <span className="text-xs text-gray-900">{currency}{(l.lineTotal * nights).toFixed(2)}</span>
                   </div>
                 ))}
                 <div className="border-t border-gray-200 mt-3 pt-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-bold text-gray-900">Total</span>
-                    <span className="text-sm font-bold text-gray-900">{CUR}{Math.max(0, total).toFixed(2)}</span>
+                    <span className="text-sm font-bold text-gray-900">{currency}{Math.max(0, total).toFixed(2)}</span>
                   </div>
                   <p className="text-[10px] text-gray-400 mt-0.5">Taxes & fees included</p>
                 </div>
@@ -384,41 +372,37 @@ export default function BookingDetailsPage() {
             </div>
           </div>
 
-          {/* Right — Guest Form */}
           <div className="order-2 lg:order-2">
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <p className="text-sm text-gray-500 mb-5">Almost done! Just fill in the <span className="text-red-500">*</span> required info</p>
 
-              {/* Name */}
               <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Full name *</label>
                 <input
                   type="text"
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
+                  value={guest.name}
+                  onChange={e => setGuest(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2E86AB] transition-colors text-gray-900"
                 />
               </div>
 
-              {/* Email */}
               <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Email address *</label>
                 <input
                   type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  value={guest.email}
+                  onChange={e => setGuest(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="Watch out for typos..."
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2E86AB] transition-colors text-gray-900 placeholder:text-gray-400"
                 />
               </div>
 
-              {/* Phone */}
               <div className="mb-5">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Telephone (mobile number preferred) *</label>
                 <div className="flex gap-2">
                   <select
-                    value={phoneCode}
-                    onChange={e => setPhoneCode(e.target.value)}
+                    value={guest.phoneCode}
+                    onChange={e => setGuest(prev => ({ ...prev, phoneCode: e.target.value }))}
                     className="w-[120px] border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2E86AB] transition-colors text-gray-900 bg-white shrink-0"
                   >
                     {Object.entries(phoneCodes).map(([code, dial]) => (
@@ -427,8 +411,8 @@ export default function BookingDetailsPage() {
                   </select>
                   <input
                     type="tel"
-                    value={phoneNumber}
-                    onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                    value={guest.phone}
+                    onChange={e => setGuest(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, "") }))}
                     placeholder="+977"
                     className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2E86AB] transition-colors text-gray-900"
                   />
@@ -439,8 +423,8 @@ export default function BookingDetailsPage() {
               <div className="mb-5">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Country / Region *</label>
                 <select
-                  value={country}
-                  onChange={e => setCountry(e.target.value)}
+                  value={guest.country}
+                  onChange={e => setGuest(prev => ({ ...prev, country: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2E86AB] transition-colors text-gray-900 bg-white"
                 >
                   <option value="">Select a country</option>
@@ -450,7 +434,6 @@ export default function BookingDetailsPage() {
                 </select>
               </div>
 
-              {/* Selected room info */}
               <div className="border-t border-gray-200 pt-5 mb-5">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
@@ -474,7 +457,6 @@ export default function BookingDetailsPage() {
 
             </div>
 
-            {/* Next button */}
             <button
               onClick={handleNext}
               className="w-full mt-5 py-3.5 rounded-xl bg-[#0071c2] text-white font-semibold text-sm hover:bg-[#005fa3] transition-all flex items-center justify-center gap-2"

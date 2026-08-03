@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { Heart, MapPin, Building2 } from "lucide-react";
+import { MapPin, Building2 } from "lucide-react";
 import { useFavorites } from "../../context/FavoritesContext";
 import { Property } from "../../hooks/useSearchProperties";
+import { FavouriteButton } from "../common/FavouriteButton";
 
 interface PropertyCardProps {
   property: Property;
@@ -38,12 +39,7 @@ export function PropertyCard({ property, showDistance }: PropertyCardProps) {
             <Building2 size={40} className="text-gray-300" />
           </div>
         )}
-        <button
-          onClick={(e) => { e.stopPropagation(); toggleFavorite(property.property_id); }}
-          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
-        >
-          <Heart size={14} className={isFavorite(property.property_id) ? "text-red-500 fill-red-500" : "text-gray-600 hover:text-red-500 transition-colors"} />
-        </button>
+        <FavouriteButton isFavourite={isFavorite(property.property_id)} onToggle={() => toggleFavorite(property.property_id)} />
         <span className="absolute top-2 left-2 px-2 py-0.5 bg-white/90 backdrop-blur-sm rounded-full text-[9px] font-semibold" style={{ color: "var(--brand-heading)" }}>{property.type}</span>
       </div>
       <div className="px-3 py-2 relative">

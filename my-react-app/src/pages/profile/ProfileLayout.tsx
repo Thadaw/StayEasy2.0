@@ -28,7 +28,6 @@ export default function ProfileLayout() {
 
       <div className="max-w-screen-2xl mx-auto px-6">
         <div className="flex min-h-[calc(100vh-68px)]">
-          {/* Sidebar - sticky */}
           <aside
             className="w-[300px] shrink-0 sticky top-[68px] self-start bg-white border-r border-brand-card-border flex flex-col"
             style={{ minHeight: 'calc(100vh - 68px)' }}
@@ -100,7 +99,6 @@ export default function ProfileLayout() {
               </div>
             </nav>
 
-            {/* Logout */}
             <div className="px-3 pb-4 border-t border-brand-card-border pt-3">
               <button
                 onClick={handleLogout}
@@ -113,7 +111,6 @@ export default function ProfileLayout() {
             </div>
           </aside>
 
-          {/* Main Content */}
           <main className="flex-1 p-8">
             <motion.div
               initial={{ opacity: 0, y: 8 }}

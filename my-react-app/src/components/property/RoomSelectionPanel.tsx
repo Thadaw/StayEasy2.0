@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { Minus, Plus, Calendar, Users, Search, ChevronDown } from "lucide-react";
 import { Hotel } from "../../data/hotels";
 import { formatDateShort } from "../../utils/format";
+import { getDefaultDates } from "../../utils/date";
+import { CounterControl } from "../common/CounterControl";
 
 interface GuestCount {
   adults: number;
@@ -25,7 +27,7 @@ interface RoomSelectionPanelProps {
   onQtyChange: (roomId: string, delta: number) => void;
   onOpenDetail: (roomId: string) => void;
   onReserve: () => void;
-  CUR?: string;
+  currency?: string;
   capacityError?: string;
   user?: { fullName?: string } | null;
 }
@@ -46,10 +48,11 @@ export function RoomSelectionPanel({
   onQtyChange,
   onOpenDetail,
   onReserve,
-  CUR = '$',
+  currency = '$',
   capacityError = '',
   user = null,
 }: RoomSelectionPanelProps) {
+  const { today } = getDefaultDates();
   const hasSelection = Object.values(roomQuantities).some(q => q > 0);
 
   const [showDates, setShowDates] = useState(false);
@@ -82,10 +85,8 @@ export function RoomSelectionPanel({
     <div id="room-selection" className="p-6 bg-white mb-10">
       <h2 className="font-semibold text-foreground mb-6" style={{ fontSize: "1.125rem" }}>Choose your room</h2>
 
-      {/* Search bar header */}
       <div className="bg-white rounded-2xl shadow-card border border-brand-primary-extra-light p-1.5 md:p-1 mb-8 w-full">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-0 md:items-center">
-          {/* Dates */}
           <div ref={datesRef} className="relative min-w-0">
             <button
               onClick={() => { setShowDates(v => !v); setShowGuests(false); }}
@@ -109,7 +110,7 @@ export function RoomSelectionPanel({
                   <input
                     type="date"
                     value={checkIn}
-                    min={new Date().toISOString().split("T")[0]}
+                    min={today}
                     onChange={(e) => { onCheckInChange(e.target.value); if (checkOut && e.target.value > checkOut) onCheckOutChange(""); }}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent transition-colors"
                   />
@@ -119,7 +120,7 @@ export function RoomSelectionPanel({
                   <input
                     type="date"
                     value={checkOut}
-                    min={checkIn ? new Date(new Date(checkIn).getTime() + 86400000).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]}
+                    min={checkIn ? new Date(new Date(checkIn).getTime() + 86400000).toISOString().split("T")[0] : today}
                     onChange={(e) => onCheckOutChange(e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent transition-colors"
                   />
@@ -138,7 +139,6 @@ export function RoomSelectionPanel({
           )}
         </div>
 
-        {/* Guests */}
         <div ref={guestsRef} className="relative min-w-0">
           <button
             onClick={() => { setShowGuests(v => !v); setShowDates(false); }}
@@ -155,32 +155,19 @@ export function RoomSelectionPanel({
             <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-xl shadow-modal border border-brand-primary-extra-light z-50 p-4 animate-in">
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Guests & Rooms</p>
               {([
-                { key: "adults" as const, label: "Adults", sub: "Ages 13+" },
-                { key: "children" as const, label: "Children", sub: "Ages 2–12" },
-                { key: "rooms" as const, label: "Rooms", sub: "Number of rooms" },
-              ]).map(({ key, label, sub }) => (
-                <div key={key} className="flex items-center justify-between py-3 border-b border-brand-primary-extra-light last:border-0">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">{label}</p>
-                    <p className="text-xs text-gray-400">{sub}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => adjustGuest(key, -1)}
-                      disabled={guests[key] <= (key === "adults" ? 1 : key === "rooms" ? 1 : 0)}
-                      className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-brand-accent hover:bg-brand-accent-light disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Minus size={12} />
-                    </button>
-                    <span className="w-5 text-center text-sm font-bold tabular-nums">{guests[key]}</span>
-                    <button
-                      onClick={() => adjustGuest(key, 1)}
-                      className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-brand-accent hover:bg-brand-accent-light transition-colors"
-                    >
-                      <Plus size={12} />
-                    </button>
-                  </div>
-                </div>
+                { key: "adults" as const, label: "Adults", sub: "Ages 13+", min: 1 },
+                { key: "children" as const, label: "Children", sub: "Ages 2–12", min: 0 },
+                { key: "rooms" as const, label: "Rooms", sub: "Number of rooms", min: 1 },
+              ]).map(({ key, label, sub, min }) => (
+                <CounterControl
+                  key={key}
+                  label={label}
+                  sublabel={sub}
+                  value={guests[key]}
+                  min={min}
+                  onDecrease={() => adjustGuest(key, -1)}
+                  onIncrease={() => adjustGuest(key, 1)}
+                />
               ))}
               <button
                 onClick={() => setShowGuests(false)}
@@ -192,7 +179,6 @@ export function RoomSelectionPanel({
           )}
         </div>
 
-        {/* Search button */}
         <button
           onClick={onSearch}
           className="w-full h-9 rounded-xl bg-brand-accent flex items-center justify-center gap-2 text-white hover:bg-brand-accent-hover transition-all duration-200 hover:shadow-lg hover:shadow-brand-accent/30 active:scale-95 mt-2 md:mt-0 md:shrink-0"
@@ -249,12 +235,12 @@ export function RoomSelectionPanel({
                   </div>
                   <div className="shrink-0 flex flex-row md:flex-col items-center md:items-end justify-between gap-3 md:gap-4">
                     <div className="text-right">
-                      <p className="text-sm font-bold text-foreground">{CUR}{rt.price}<span className="text-[10px] font-normal text-muted-foreground">/night</span></p>
+                      <p className="text-sm font-bold text-foreground">{currency}{rt.price}<span className="text-[10px] font-normal text-muted-foreground">/night</span></p>
                     </div>
                     {rt.availableRooms > 0 ? (
                       <div className="flex items-center gap-3">
                         <div className="text-right min-w-[70px]">
-                          <p className="text-sm font-bold text-foreground">{CUR}{lineTotal.toLocaleString()}</p>
+                          <p className="text-sm font-bold text-foreground">{currency}{lineTotal.toLocaleString()}</p>
                           <p className="text-[10px] text-muted-foreground">{nights} night{nights > 1 ? 's' : ''}</p>
                         </div>
                         <div className="flex flex-col items-center gap-1">
@@ -313,14 +299,14 @@ export function RoomSelectionPanel({
                     return (
                       <div key={roomId} className="flex justify-between text-sm">
                         <span className="text-muted-foreground">{room.name} × {qty} ({totalGuests} guest{totalGuests > 1 ? 's' : ''})</span>
-                        <span className="text-foreground">{CUR}{roomTotal.toLocaleString()}</span>
+                        <span className="text-foreground">{currency}{roomTotal.toLocaleString()}</span>
                       </div>
                     );
                   })}
                 </div>
                 <div className="flex justify-between text-lg font-bold text-foreground mt-4 pt-4 border-t border-border">
                   <span>Total</span>
-                  <span>{CUR}{Object.entries(roomQuantities)
+                  <span>{currency}{Object.entries(roomQuantities)
                     .filter(([, q]) => q > 0)
                     .reduce((sum, [roomId, qty]) => {
                       const room = hotel.roomTypes.find(r => r.id === roomId);
@@ -342,10 +328,7 @@ export function RoomSelectionPanel({
                 <button
                   onClick={onReserve}
                   disabled={!hasSelection || !!capacityError || (user && (!checkIn || !checkOut))}
-                  className="w-full mt-4 py-3.5 rounded-xl text-white font-semibold text-sm transition-all hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: "#1A3C5E" }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#163552"}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#1A3C5E"}
+                  className="w-full mt-4 py-3.5 rounded-xl text-white font-semibold text-sm transition-all hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed bg-[#1A3C5E] hover:bg-[#163552] disabled:hover:bg-[#1A3C5E]"
                 >
                   Reserve
                 </button>

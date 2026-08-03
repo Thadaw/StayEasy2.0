@@ -50,7 +50,7 @@ interface PropertySummaryCardProps {
   guestEmail?: string
   guestPhone?: string
   roomLines: RoomLine[]
-  apiRooms: ApiRoom[]
+  availableRooms: ApiRoom[]
   cancellationTitle?: string
   cancellationDescription?: string
   currency: string
@@ -88,7 +88,7 @@ export function PropertySummaryCard({
   guestEmail,
   guestPhone,
   roomLines,
-  apiRooms,
+  availableRooms,
   cancellationTitle,
   cancellationDescription,
   currency,
@@ -133,15 +133,23 @@ export function PropertySummaryCard({
           <span className="text-sm text-gray-500">· {reviews} reviews</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1 text-xs text-gray-600">
-            <Wifi size={12} /> Free WiFi
-          </span>
-          <span className="inline-flex items-center gap-1 text-xs text-gray-600">
-            <Plane size={12} /> Airport shuttle
-          </span>
-          <span className="inline-flex items-center gap-1 text-xs text-gray-600">
-            <UtensilsCrossed size={12} /> Restaurant
-          </span>
+          {amenities.length > 0 ? amenities.map((amenity) => (
+            <span key={amenity} className="inline-flex items-center gap-1 text-xs text-gray-600">
+              {amenity}
+            </span>
+          )) : (
+            <>
+              <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                <Wifi size={12} /> Free WiFi
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                <Plane size={12} /> Airport shuttle
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                <UtensilsCrossed size={12} /> Restaurant
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -182,8 +190,8 @@ export function PropertySummaryCard({
           <h3 className="text-sm font-bold text-gray-900 mb-3">Room details</h3>
           <div className="space-y-3">
             {roomLines.map((rl, i) => {
-              const apiRoom = apiRooms.find(r => r.id === rl.room.id || r.room_name === rl.room.name)
-              const cover = apiRoom?.photos?.cover || ''
+              const matchedRoom = availableRooms.find(r => r.id === rl.room.id || r.room_name === rl.room.name)
+              const cover = matchedRoom?.photos?.cover || ''
               return (
                 <div key={i} className="flex items-start gap-3">
                   {cover ? (

@@ -9,34 +9,21 @@ import { useBookings } from "../context/BookingContext"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
 import { BookingLayout } from "../components/booking/BookingLayout"
+import { BookingStepper } from "../components/booking/BookingStepper"
 import { PropertySummaryCard } from "../components/booking/PropertySummaryCard"
 import { PriceSummaryCard } from "../components/booking/PriceSummaryCard"
 import { PaymentMethodTabs } from "../components/booking/PaymentMethodTabs"
 import { PaymentForms } from "../components/booking/PaymentForms"
 import { ConfirmButton } from "../components/booking/ConfirmButton"
 import { ApiProperty, ApiRoom } from "../types/api"
-import { mapApiPropertyToHotel } from "../utils/propertyMapper"
+import { mapPropertyToHotel } from "../utils/propertyMapper"
 import { formatDate } from "../utils/format"
+import { parseJSON } from "../utils/helpers"
+import { calculateNights } from "../utils/time"
 import api from "../api"
+import type { PaymentMethod, Booking } from "../types/booking"
 
-type PaymentMethod = "stripe" | "razorpay" | "khalti"
-
-interface BookingRoom {
-  room_id: string; room_name: string; room_type: string; bed_type: string;
-  max_adults: number; max_children: number; base_rate: number; nights: number; subtotal: number;
-  photos?: { cover: string; gallery: string[] };
-}
-
-interface BookingData {
-  booking_id: string; ref_number: string; status: string;
-  check_in: string; check_out: string; nights: number; payment_gateway: string | null;
-  property: { id: string; name: string; type: string; city: string; country: string; currency: string };
-  rooms: BookingRoom[];
-  total_amount: number; subtotal: number; special_offer_discount: number;
-  coupon_code: string | null; coupon_discount: number;
-  guest_name?: string; guest_email?: string; guest_phone?: string;
-  number_of_adults?: number; number_of_children?: number;
-}
+type BookingData = Booking
 
 const paymentOptions: { key: PaymentMethod; label: string; sub: string; logo: JSX.Element }[] = [
   {
@@ -94,18 +81,17 @@ export default function ReservePage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const [apiProperty, setApiProperty] = useState<ApiProperty | null>(null)
-  const [apiRooms, setApiRooms] = useState<ApiRoom[]>([])
-  const [apiLoading, setApiLoading] = useState(true)
-  const [bookingData, setBookingData] = useState<BookingData | null>(null)
+  const [property, setProperty] = useState<ApiProperty | null>(null)
+  const [availableRooms, setAvailableRooms] = useState<ApiRoom[]>([])
+  const [loading, setLoading] = useState(true)
+  const [booking, setBookingData] = useState<BookingData | null>(null)
 
-  const apiHotel = useMemo(() => {
-    if (!apiProperty) return null
-    return mapApiPropertyToHotel(apiProperty, apiRooms)
-  }, [apiProperty, apiRooms])
+  const hotel = useMemo(() => {
+    if (!property) return null
+    return mapPropertyToHotel(property, availableRooms)
+  }, [property, availableRooms])
 
-  const hotel = apiHotel
-  const CUR = apiProperty?.currency || bookingData?.property?.currency || 'USD'
+  const currency = property?.currency || booking?.property?.currency || 'USD'
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null)
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [promoInput, setPromoInput] = useState('')
@@ -118,20 +104,26 @@ export default function ReservePage() {
   })
   const [promoError, setPromoError] = useState('')
   const [marketingOptIn, setMarketingOptIn] = useState(false)
-const [razorpayResponse, setRazorpayResponse] = useState<RazorpayPaymentResponse | null>(null)
-const [razorpayOrderId, setRazorpayOrderId] = useState<string | null>(null)
-const [razorpayOrderLoading, setRazorpayOrderLoading] = useState(false)
-const [razorpayOrderError, setRazorpayOrderError] = useState<string | null>(null)
-const [stripePaymentIntentId, setStripePaymentIntentId] = useState<string | null>(null)
-const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null)
-const [stripeIntentLoading, setStripeIntentLoading] = useState(false)
-const [stripeIntentError, setStripeIntentError] = useState<string | null>(null)
-const [stripeIntentRetry, setStripeIntentRetry] = useState(0)
-const stripeIntentFiredRef = useRef<number | null>(null)
-const [stripeTransactionTime, setStripeTransactionTime] = useState<number | null>(null)
-const [khaltiPaymentIntentId, setKhaltiPaymentIntentId] = useState<string | null>(null)
-const [khaltiLoading, setKhaltiLoading] = useState(false)
-const [khaltiError, setKhaltiError] = useState<string | null>(null)
+  const [razorpayState, setRazorpayState] = useState({
+    response: null as RazorpayPaymentResponse | null,
+    orderId: null as string | null,
+    loading: false,
+    error: null as string | null,
+  })
+  const [stripeState, setStripeState] = useState({
+    paymentIntentId: null as string | null,
+    clientSecret: null as string | null,
+    loading: false,
+    error: null as string | null,
+    retry: 0,
+    transactionTime: null as number | null,
+  })
+  const stripeIntentFiredRef = useRef<number | null>(null)
+  const [khaltiState, setKhaltiState] = useState({
+    paymentIntentId: null as string | null,
+    loading: false,
+    error: null as string | null,
+  })
 const [upiId, setUpiId] = useState('')
   const [selectedBank, setSelectedBank] = useState('')
   const [paySubMethod, setPaySubMethod] = useState<'upi' | 'card' | 'netbanking' | null>(null)
@@ -142,7 +134,7 @@ const [upiId, setUpiId] = useState('')
   useEffect(() => {
     if (!refNumber) return
     const fetchBooking = async () => {
-      setApiLoading(true)
+      setLoading(true)
       try {
         const { data } = await api.get(`/bookings/${refNumber}`)
         const booking = data?.data || data
@@ -159,36 +151,36 @@ const [upiId, setUpiId] = useState('')
         const propertyId = booking?.property?.id || id
         try {
           const propRes = await api.get(`/properties/${propertyId}/public`)
-          setApiProperty(propRes.data?.data || null)
-        } catch { setApiProperty(null) }
+          setProperty(propRes.data?.data || null)
+        } catch { setProperty(null) }
         try {
           const roomsRes = await api.get(`/properties/${propertyId}/rooms/available-rooms`, {
             params: { checkin_date: booking?.check_in, checkout_date: booking?.check_out, adults: 2, children: 0, rooms: 1 },
           })
-          setApiRooms(roomsRes.data?.data || [])
+          setAvailableRooms(roomsRes.data?.data || [])
         } catch {
           try {
             const allRoomsRes = await api.get(`/properties/${propertyId}/rooms`)
-            setApiRooms(allRoomsRes.data?.data || [])
-          } catch { setApiRooms([]) }
+            setAvailableRooms(allRoomsRes.data?.data || [])
+          } catch { setAvailableRooms([]) }
         }
       } catch {
         setBookingData(null)
         if (id) {
           try {
             const propRes = await api.get(`/properties/${id}/public`)
-            setApiProperty(propRes.data?.data || null)
+            setProperty(propRes.data?.data || null)
             const roomsRes = await api.get(`/properties/${id}/rooms/available-rooms`, {
               params: { checkin_date: searchParams.get('checkIn'), checkout_date: searchParams.get('checkOut'), adults: 2, children: 0, rooms: 1 },
             })
-            setApiRooms(roomsRes.data?.data || [])
+            setAvailableRooms(roomsRes.data?.data || [])
           } catch {
-            setApiProperty(null)
-            setApiRooms([])
+            setProperty(null)
+            setAvailableRooms([])
           }
         }
       } finally {
-        setApiLoading(false)
+        setLoading(false)
       }
     }
     fetchBooking()
@@ -198,24 +190,22 @@ const [upiId, setUpiId] = useState('')
     if (selectedPayment !== "razorpay" || !refNumber) return
     let cancelled = false
     const createOrder = async () => {
-      setRazorpayOrderLoading(true)
-      setRazorpayOrderError(null)
-      setRazorpayOrderId(null)
+      setRazorpayState(prev => ({ ...prev, loading: true, error: null, orderId: null }))
       try {
         const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "razorpay" })
         if (cancelled) return
         const orderId = data?.razorpay_order_id || data?.data?.razorpay_order_id || data?.order_id || data?.data?.order_id
         if (!orderId) {
-          setRazorpayOrderError("Failed to initialize Razorpay")
+          setRazorpayState(prev => ({ ...prev, error: "Failed to initialize Razorpay" }))
           return
         }
-        setRazorpayOrderId(orderId)
+        setRazorpayState(prev => ({ ...prev, orderId }))
       } catch (err: unknown) {
         if (cancelled) return
         const msg = err instanceof Error ? err.message : "Failed to initialize Razorpay"
-        setRazorpayOrderError(msg)
+        setRazorpayState(prev => ({ ...prev, error: msg }))
       } finally {
-        if (!cancelled) setRazorpayOrderLoading(false)
+        if (!cancelled) setRazorpayState(prev => ({ ...prev, loading: false }))
       }
     }
     createOrder()
@@ -224,33 +214,32 @@ const [upiId, setUpiId] = useState('')
 
   useEffect(() => {
     if (selectedPayment !== "stripe" || !refNumber) return
-    if (stripePaymentIntentId) return
-    if (stripeIntentFiredRef.current === stripeIntentRetry) return
-    stripeIntentFiredRef.current = stripeIntentRetry
+    if (stripeState.paymentIntentId) return
+    if (stripeIntentFiredRef.current === stripeState.retry) return
+    stripeIntentFiredRef.current = stripeState.retry
     let cancelled = false
     const createStripeIntent = async () => {
-      setStripeIntentLoading(true)
-      setStripeIntentError(null)
+      setStripeState(prev => ({ ...prev, loading: true, error: null }))
       try {
         const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "stripe" })
         if (cancelled) return
         const secret = data?.client_secret || data?.data?.client_secret
         if (!secret) {
-          setStripeIntentError("Failed to initialize payment")
+          setStripeState(prev => ({ ...prev, error: "Failed to initialize payment" }))
           return
         }
-        setStripeClientSecret(secret)
+        setStripeState(prev => ({ ...prev, clientSecret: secret }))
       } catch (err: unknown) {
         if (cancelled) return
         const msg = err instanceof Error ? err.message : "Failed to initialize payment"
-        setStripeIntentError(msg)
+        setStripeState(prev => ({ ...prev, error: msg }))
       } finally {
-        if (!cancelled) setStripeIntentLoading(false)
+        if (!cancelled) setStripeState(prev => ({ ...prev, loading: false }))
       }
     }
     createStripeIntent()
     return () => { cancelled = true }
-  }, [selectedPayment, refNumber, stripePaymentIntentId, stripeIntentRetry])
+  }, [selectedPayment, refNumber, stripeState.paymentIntentId, stripeState.retry])
 
   useEffect(() => {
     const khaltiStatus = searchParams.get('khalti_status')
@@ -259,7 +248,7 @@ const [upiId, setUpiId] = useState('')
       const returnTo = localStorage.getItem('khalti_return_to')
       localStorage.removeItem('khalti_return_to')
       if (storedIntentId) {
-        setKhaltiPaymentIntentId(storedIntentId)
+        setKhaltiState(prev => ({ ...prev, paymentIntentId: storedIntentId }))
         toast.success("Payment successful!")
       }
       if (returnTo && returnTo !== window.location.href) {
@@ -271,7 +260,7 @@ const [upiId, setUpiId] = useState('')
   useEffect(() => {
     const storedIntentId = localStorage.getItem('khalti_payment_intent_id')
     if (storedIntentId && !searchParams.get('khalti_status')) {
-      setKhaltiPaymentIntentId(storedIntentId)
+      setKhaltiState(prev => ({ ...prev, paymentIntentId: storedIntentId }))
       setSelectedPayment("khalti")
     }
   }, [])
@@ -311,34 +300,34 @@ const [upiId, setUpiId] = useState('')
   const guestCountsParam = searchParams.get('guestCounts');
   const adultsParam = searchParams.get('adults');
   const childrenParam = searchParams.get('children');
-  const parsedRooms: Record<string, number> = roomsParam ? JSON.parse(roomsParam) : {};
-  const parsedGuestCounts: Record<string, number> = guestCountsParam ? JSON.parse(guestCountsParam) : {};
+  const selectedRooms: Record<string, number> = parseJSON(roomsParam || '', {});
+  const guestAllocation: Record<string, number> = parseJSON(guestCountsParam || '', {});
 
   const { addBooking } = useBookings()
 
-  const checkIn = bookingData?.check_in || searchParams.get('checkIn') || ''
-  const checkOut = bookingData?.check_out || searchParams.get('checkOut') || ''
+  const checkIn = booking?.check_in || searchParams.get('checkIn') || ''
+  const checkOut = booking?.check_out || searchParams.get('checkOut') || ''
 
   const guestName = searchParams.get('guestName') || ''
   const guestEmail = searchParams.get('guestEmail') || ''
   const guestPhone = searchParams.get('guestPhone') || ''
   const specialRequests = searchParams.get('specialRequests') || ''
 
-  const hotelName = bookingData?.property?.name || hotel?.name || ''
-  const hotelCity = bookingData?.property?.city || hotel?.city || ''
-  const hotelCountry = bookingData?.property?.country || hotel?.country || ''
+  const hotelName = booking?.property?.name || hotel?.name || ''
+  const hotelCity = booking?.property?.city || hotel?.city || ''
+  const hotelCountry = booking?.property?.country || hotel?.country || ''
 
   const selectedRoomTypes = useMemo(() => {
     if (!hotel) return []
-    if (bookingData?.rooms?.length) {
-      return hotel.roomTypes.filter(rt => bookingData.rooms.some(br => br.room_id === rt.id))
+    if (booking?.rooms?.length) {
+      return hotel.roomTypes.filter(rt => booking.rooms.some(br => br.room_id === rt.id))
     }
-    return hotel.roomTypes.filter(rt => parsedRooms[rt.id] && parsedRooms[rt.id] > 0)
-  }, [hotel, bookingData, parsedRooms])
+    return hotel.roomTypes.filter(rt => selectedRooms[rt.id] && selectedRooms[rt.id] > 0)
+  }, [hotel, booking, selectedRooms])
 
   const roomLines = useMemo(() => {
-    if (bookingData?.rooms?.length) {
-      return bookingData.rooms.map(br => {
+    if (booking?.rooms?.length) {
+      return booking.rooms.map(br => {
         const rt = hotel?.roomTypes.find(r => r.id === br.room_id)
         return {
           room: rt || { id: br.room_id, name: br.room_name, price: br.base_rate, maxGuests: br.max_adults + br.max_children } as RoomType,
@@ -349,27 +338,25 @@ const [upiId, setUpiId] = useState('')
       })
     }
     return selectedRoomTypes.map(rt => {
-      const qty = parsedRooms[rt.id] || 0;
-      const gc = parsedGuestCounts[rt.id] || 1;
+      const qty = selectedRooms[rt.id] || 0;
+      const gc = guestAllocation[rt.id] || 1;
       const ep = rt.price;
       const lineTotal = qty * ep;
       return { room: rt, qty, gc, ep, lineTotal, cancellationTitle: rt.cancellationTitle || '', cancellationPolicy: rt.cancellationPolicy || '' };
     })
-  }, [bookingData, selectedRoomTypes, hotel, parsedRooms, parsedGuestCounts])
+  }, [booking, selectedRoomTypes, hotel, selectedRooms, guestAllocation])
 
-  const cancellationTitle = apiRooms[0]?.cancellation_title || ''
-  const cancellationDescription = apiRooms[0]?.cancellation_description || ''
+  const cancellationTitle = availableRooms[0]?.cancellation_title || ''
+  const cancellationDescription = availableRooms[0]?.cancellation_description || ''
 
-  const apiGuestCount = (bookingData?.number_of_adults || 0) + (bookingData?.number_of_children || 0)
-  const totalGuests = (apiGuestCount > 0 ? apiGuestCount : null)
-    || Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0)
+  const guestCount = (booking?.number_of_adults || 0) + (booking?.number_of_children || 0)
+  const totalGuests = (guestCount > 0 ? guestCount : null)
+    || Object.values(guestAllocation).reduce((s, c) => s + c, 0)
     || (adultsParam ? Number(adultsParam) : 0) + (childrenParam ? Number(childrenParam) : 0)
-    || bookingData?.rooms?.reduce((s, r) => s + r.max_adults + r.max_children, 0) || 0;
+    || booking?.rooms?.reduce((s, r) => s + r.max_adults + r.max_children, 0) || 0;
 
-  const nights = bookingData?.nights || (checkIn && checkOut
-    ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
-    : 1)
-  const subtotal = bookingData?.subtotal || roomLines.reduce((s, l) => s + l.lineTotal * nights, 0);
+  const nights = booking?.nights || calculateNights(checkIn, checkOut)
+  const subtotal = booking?.subtotal || roomLines.reduce((s, l) => s + l.lineTotal * nights, 0);
 
   let discountAmount = 0;
   if (appliedDiscount) {
@@ -378,12 +365,11 @@ const [upiId, setUpiId] = useState('')
       : appliedDiscount.amount;
   }
 
-  const total = bookingData?.total_amount || (subtotal - discountAmount);
+  const total = booking?.total_amount || (subtotal - discountAmount);
 
   const handleKhaltiPayment = async () => {
     if (!refNumber) return
-    setKhaltiLoading(true)
-    setKhaltiError(null)
+    setKhaltiState(prev => ({ ...prev, loading: true, error: null }))
     try {
       localStorage.setItem('khalti_return_to', window.location.href)
       const return_url = `${window.location.origin}/reserve/${id}?khalti_status=Completed`
@@ -395,7 +381,7 @@ const [upiId, setUpiId] = useState('')
       const intentId = result?.payment_intent_id
       const paymentUrl = result?.payment_url
       if (!paymentUrl || !intentId) {
-        setKhaltiError("Failed to initialize Khalti payment")
+        setKhaltiState(prev => ({ ...prev, error: "Failed to initialize Khalti payment" }))
         setSelectedPayment("khalti")
         return
       }
@@ -403,25 +389,25 @@ const [upiId, setUpiId] = useState('')
       window.location.href = paymentUrl
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to initialize Khalti"
-      setKhaltiError(msg)
+      setKhaltiState(prev => ({ ...prev, error: msg }))
       setSelectedPayment("khalti")
     } finally {
-      setKhaltiLoading(false)
+      setKhaltiState(prev => ({ ...prev, loading: false }))
     }
   }
 
   const handleRazorpayPayment = async (options: { type: 'upi' | 'card' | 'netbanking'; upiId?: string; bank?: string }) => {
-    if (!razorpayOrderId) { toast.error("Razorpay not ready"); return }
+    if (!razorpayState.orderId) { toast.error("Razorpay not ready"); return }
     setPaymentLoading(true)
     try {
       const razorpayOptions: any = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
         amount: Math.max(0, total) * 100,
         currency: "INR",
-        order_id: razorpayOrderId,
+        order_id: razorpayState.orderId,
         name: "StayEasy",
         description: `Booking at ${hotelName}`,
-        handler: (response: RazorpayPaymentResponse) => { setRazorpayResponse(response) },
+        handler: (response: RazorpayPaymentResponse) => { setRazorpayState(prev => ({ ...prev, response })) },
         prefill: {
           name: guestName,
           email: guestEmail,
@@ -480,58 +466,58 @@ const [upiId, setUpiId] = useState('')
   const handleConfirmBooking = async () => {
     if (!selectedPayment) return
 
-    if (selectedPayment === "stripe" && !stripePaymentIntentId) {
+    if (selectedPayment === "stripe" && !stripeState.paymentIntentId) {
       toast.error("Please complete payment first")
       return
     }
 
-    if (selectedPayment === "razorpay" && !razorpayResponse) {
+    if (selectedPayment === "razorpay" && !razorpayState.response) {
       toast.error("Please complete payment first by clicking the Razorpay tab")
       return
     }
 
-    if (selectedPayment === "khalti" && !khaltiPaymentIntentId) {
+    if (selectedPayment === "khalti" && !khaltiState.paymentIntentId) {
       toast.error("Please complete Khalti payment first")
       return
     }
 
     setPaymentLoading(true)
     try {
-      if (selectedPayment === "razorpay" && razorpayResponse && refNumber) {
+      if (selectedPayment === "razorpay" && razorpayState.response && refNumber) {
         await confirmBookingWithRetry(refNumber, {
           idempotency_key: crypto.randomUUID(),
           gateway_payload: {
-            razorpay_order_id: razorpayResponse.razorpay_order_id,
-            razorpay_payment_id: razorpayResponse.razorpay_payment_id,
-            razorpay_signature: razorpayResponse.razorpay_signature,
+            razorpay_order_id: razorpayState.response.razorpay_order_id,
+            razorpay_payment_id: razorpayState.response.razorpay_payment_id,
+            razorpay_signature: razorpayState.response.razorpay_signature,
           },
         })
       }
 
-      if (selectedPayment === "stripe" && stripePaymentIntentId && refNumber) {
+      if (selectedPayment === "stripe" && stripeState.paymentIntentId && refNumber) {
         await confirmBookingWithRetry(refNumber, {
           idempotency_key: crypto.randomUUID(),
           payment_gateway: "stripe",
           gateway_payload: {
-            payment_intent_id: stripePaymentIntentId,
-            stripe_payment_intent_id: stripePaymentIntentId,
-            client_secret: stripeClientSecret,
+            payment_intent_id: stripeState.paymentIntentId,
+            stripe_payment_intent_id: stripeState.paymentIntentId,
+            client_secret: stripeState.clientSecret,
           },
         })
       }
 
-      if (selectedPayment === "khalti" && khaltiPaymentIntentId && refNumber) {
+      if (selectedPayment === "khalti" && khaltiState.paymentIntentId && refNumber) {
         await confirmBookingWithRetry(refNumber, {
           idempotency_key: crypto.randomUUID(),
           gateway_payload: {
-            payment_intent_id: khaltiPaymentIntentId,
+            payment_intent_id: khaltiState.paymentIntentId,
           },
         })
       }
 
       const roomTypeName = roomLines.map(l => l.room.name).join(", ")
       const localBookingData = {
-        hotelId: bookingData?.property?.id || hotel?.id || id,
+        hotelId: booking?.property?.id || hotel?.id || id,
         hotelName: hotelName,
         hotelCity: hotelCity,
         hotelCountry: hotelCountry,
@@ -549,15 +535,15 @@ const [upiId, setUpiId] = useState('')
         } : undefined,
       }
 
-      const bookingTimestamp = selectedPayment === "stripe" && stripeTransactionTime
-        ? new Date(stripeTransactionTime * 1000).toISOString()
+      const bookingTimestamp = selectedPayment === "stripe" && stripeState.transactionTime
+        ? new Date(stripeState.transactionTime * 1000).toISOString()
         : new Date().toISOString()
 
       try {
         addBooking({ ...localBookingData, createdAt: bookingTimestamp })
       } catch {}
 
-      const booking = {
+      const newBooking = {
         id: refNumber || `${Date.now().toString(36)}`,
         ...localBookingData,
         status: "upcoming" as const,
@@ -565,7 +551,7 @@ const [upiId, setUpiId] = useState('')
       }
       toast.success("Booking confirmed!")
       localStorage.removeItem('khalti_payment_intent_id')
-      navigate(`/booking-confirmation/${refNumber || booking.id}`, {
+      navigate(`/booking-confirmation/${refNumber || newBooking.id}`, {
         state: {
           propertyImages: hotel?.images || [],
           amenities: hotel?.amenities || [],
@@ -585,7 +571,7 @@ const [upiId, setUpiId] = useState('')
     }
   }
 
-  if (apiLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
         <span className="w-8 h-8 border-3 border-gray-200 border-t-[#2E86AB] rounded-full animate-spin" />
@@ -594,7 +580,7 @@ const [upiId, setUpiId] = useState('')
     )
   }
 
-  if (!hotel && !bookingData) {
+  if (!hotel && !booking) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
         <p className="text-2xl">🏨</p>
@@ -618,21 +604,21 @@ const [upiId, setUpiId] = useState('')
     checkOut,
     totalGuests,
     nights,
-    bookingData,
+    booking,
     guestName,
     guestEmail,
     guestPhone,
     roomLines,
-    apiRooms,
+    availableRooms,
     cancellationTitle,
     cancellationDescription,
-    currency: CUR,
+    currency: currency,
   }
 
   const priceSummaryProps = {
     roomLines,
     nights,
-    currency: CUR,
+    currency: currency,
     subtotal,
     discountAmount,
     total,
@@ -649,27 +635,7 @@ const [upiId, setUpiId] = useState('')
     <div className="min-h-screen bg-[#f8f9fa]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       <Navbar />
 
-      {/* Stepper */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-5">
-          <div className="flex items-center justify-center">
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-full bg-[#1A3C5E] text-white flex items-center justify-center text-sm font-bold">1</span>
-              <span className="text-sm font-semibold text-[#1A3C5E]">Your Selection</span>
-            </div>
-            <div className="flex-1 h-[2px] bg-[#1A3C5E] mx-4 min-w-[60px] max-w-[120px]" />
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-full bg-[#1A3C5E] text-white flex items-center justify-center text-sm font-bold">2</span>
-              <span className="text-sm font-semibold text-[#1A3C5E]">Your Details</span>
-            </div>
-            <div className="flex-1 h-[2px] bg-gray-200 mx-4 min-w-[60px] max-w-[120px]" />
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-sm font-bold">3</span>
-              <span className="text-sm text-gray-500">Finish booking</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <BookingStepper currentStep={2} />
 
       <BookingLayout
         leftColumn={
@@ -691,48 +657,45 @@ const [upiId, setUpiId] = useState('')
             <PaymentForms
               selectedPayment={selectedPayment}
               total={total}
-              currency={CUR}
+              currency={currency}
               hotelName={hotelName}
               refNumber={refNumber}
               guestName={guestName}
               guestEmail={guestEmail}
               guestPhone={guestPhone}
-              id={id}
               paymentLoading={paymentLoading}
-              stripePaymentIntentId={stripePaymentIntentId}
-              stripeClientSecret={stripeClientSecret}
-              stripeIntentLoading={stripeIntentLoading}
-              stripeIntentError={stripeIntentError}
-              razorpayResponse={razorpayResponse}
-              razorpayOrderLoading={razorpayOrderLoading}
-              razorpayOrderError={razorpayOrderError}
-              razorpayOrderId={razorpayOrderId}
+              stripePaymentIntentId={stripeState.paymentIntentId}
+              stripeClientSecret={stripeState.clientSecret}
+              stripeIntentLoading={stripeState.loading}
+              stripeIntentError={stripeState.error}
+              razorpayResponse={razorpayState.response}
+              razorpayOrderLoading={razorpayState.loading}
+              razorpayOrderError={razorpayState.error}
+              razorpayOrderId={razorpayState.orderId}
               razorpayLoaded={razorpayLoaded}
-              khaltiPaymentIntentId={khaltiPaymentIntentId}
-              khaltiLoading={khaltiLoading}
-              khaltiError={khaltiError}
+              khaltiPaymentIntentId={khaltiState.paymentIntentId}
+              khaltiLoading={khaltiState.loading}
+              khaltiError={khaltiState.error}
               paySubMethod={paySubMethod}
               upiId={upiId}
               selectedBank={selectedBank}
               onSetPaySubMethod={setPaySubMethod}
               onSetUpiId={setUpiId}
               onSetSelectedBank={setSelectedBank}
-              onStripeSuccess={(id, secret, createdAt) => { setStripePaymentIntentId(id); setStripeClientSecret(secret); setStripeTransactionTime(createdAt) }}
-              onStripeRetry={() => { setStripeClientSecret(null); setStripeIntentRetry(n => n + 1) }}
+              onStripeSuccess={(id, secret, createdAt) => { setStripeState(prev => ({ ...prev, paymentIntentId: id, clientSecret: secret, transactionTime: createdAt })) }}
+              onStripeRetry={() => { setStripeState(prev => ({ ...prev, clientSecret: null, retry: prev.retry + 1 })) }}
               onRazorpayPay={handleRazorpayPayment}
-              onKhaltiPay={handleKhaltiPayment}
-              onSetPaymentLoading={setPaymentLoading}
-              onSetKhaltiError={setKhaltiError}
-              onSetKhaltiLoading={setKhaltiLoading}
+              onSetKhaltiError={(error) => setKhaltiState(prev => ({ ...prev, error }))}
+              onSetKhaltiLoading={(loading) => setKhaltiState(prev => ({ ...prev, loading }))}
             />
 
             <ConfirmButton
               selectedPayment={selectedPayment}
               paymentLoading={paymentLoading}
               marketingOptIn={marketingOptIn}
-              razorpayResponse={razorpayResponse}
-              stripePaymentIntentId={stripePaymentIntentId}
-              khaltiPaymentIntentId={khaltiPaymentIntentId}
+              razorpayResponse={razorpayState.response}
+              stripePaymentIntentId={stripeState.paymentIntentId}
+              khaltiPaymentIntentId={khaltiState.paymentIntentId}
               onSetMarketingOptIn={setMarketingOptIn}
               onConfirm={handleConfirmBooking}
             />

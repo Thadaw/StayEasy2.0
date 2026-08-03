@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Star, Heart, MapPin, X } from "lucide-react";
+import { MapPin, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SearchBar } from "./SearchBar";
 import { heroHotels } from "../data/heroHotels";
 import { vibes } from "../data/vibes";
-import { useFavorites } from "../context/FavoritesContext";
+import { getDefaultDates } from "../utils/date";
 import api from "../api";
+import { HeroCard } from "./common/HeroCard";
 
 interface NearbyProperty {
   property_id: string;
@@ -31,7 +32,6 @@ const vibeKeyMap: Record<string, string> = {
 export function HeroSection() {
   const { t } = useTranslation();
   const [activeVibe, setActiveVibe] = useState("All");
-  const { isFavorite, toggleFavorite } = useFavorites();
   const [showLocationPopup, setShowLocationPopup] = useState(false);
   const [nearbyProperties, setNearbyProperties] = useState<NearbyProperty[]>([]);
 
@@ -60,8 +60,7 @@ export function HeroSection() {
 
         if (lat == null || lon == null) return;
 
-        const today = new Date().toISOString().split("T")[0];
-        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+        const { today, tomorrow } = getDefaultDates();
         const { data } = await api.get("/search/nearby", {
           params: { lat, lon, limit: 10, check_in: today, check_out: tomorrow, adults: 2, children: 0, rooms: 1 },
         });
@@ -71,11 +70,10 @@ export function HeroSection() {
           .sort((a, b) => a.lowest_rate - b.lowest_rate)
           .slice(0, 3);
         if (sorted.length > 0) setNearbyProperties(sorted);
-      } catch {
-        // fallback to static data
-      }
-    };
-    fetchNearby();
+    } catch {
+    }
+  };
+  fetchNearby();
   }, []);
 
   useEffect(() => {
@@ -142,7 +140,6 @@ export function HeroSection() {
 
   return (
     <section className="relative w-full min-h-[240px] md:min-h-[280px] lg:min-h-[320px] overflow-visible bg-brand-background">
-      {/* Decorative wavy lines */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30" viewBox="0 0 1440 320" fill="none" preserveAspectRatio="xMidYMid slice">
         <path d="M-100 200 Q200 150 400 220 T800 180 T1200 240 T1600 200" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="6 4" fill="none" opacity="0.4" />
         <path d="M-50 280 Q250 230 500 300 T900 260 T1300 320 T1700 280" stroke="var(--brand-accent)" strokeWidth="1" strokeDasharray="4 6" fill="none" opacity="0.3" />
@@ -150,7 +147,6 @@ export function HeroSection() {
         <path d="M-30 440 Q270 390 520 460 T920 420 T1320 480 T1720 440" stroke="var(--brand-accent)" strokeWidth="1" strokeDasharray="4 6" fill="none" opacity="0.2" />
       </svg>
 
-      {/* Decorative teal dots - hidden on mobile */}
       <div className="hidden md:block absolute top-[18%] right-[32%] w-2.5 h-2.5 rounded-full bg-brand-accent opacity-60" />
       <div className="hidden md:block absolute top-[25%] right-[28%] w-2 h-2 rounded-full bg-brand-accent opacity-40" />
       <div className="hidden md:block absolute top-[15%] right-[38%] w-1.5 h-1.5 rounded-full bg-brand-accent opacity-50" />
@@ -169,9 +165,7 @@ export function HeroSection() {
       <div className="hidden md:block absolute bottom-[50%] left-[20%] w-1.5 h-1.5 rounded-full bg-brand-accent opacity-55" />
 
       <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 md:px-10 py-4 sm:py-5 md:py-6 flex flex-col lg:flex-row items-start lg:items-center gap-5 lg:gap-10 min-h-[240px] md:min-h-[280px] lg:min-h-[320px]">
-        {/* Left content */}
         <div className="flex-1 w-full max-w-2xl pt-2 md:pt-4 lg:pt-0">
-          {/* Heading */}
           <h1
             className="text-[2rem] sm:text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] leading-[1.05] tracking-tight mb-4 md:mb-5"
             style={{ fontFamily: "'Sora', 'Inter', sans-serif", fontWeight: 800, color: "var(--brand-heading)" }}
@@ -181,7 +175,6 @@ export function HeroSection() {
             {t("heroHeading2")}
           </h1>
 
-          {/* Subtext */}
           <p
             className="text-[0.875rem] md:text-[1.05rem] mb-6 md:mb-8 leading-relaxed"
             style={{ color: "var(--brand-text-secondary)", fontFamily: "'Inter', sans-serif", maxWidth: "400px" }}
@@ -191,12 +184,10 @@ export function HeroSection() {
             <span className="sm:hidden"> </span>{t("heroSubtext2")}
           </p>
 
-          {/* Search bar */}
           <div className="relative z-30 mr-0 lg:mr-[-150px] xl:mr-[-57px]">
             <SearchBar />
           </div>
 
-          {/* Explore by vibe - horizontally scrollable on mobile */}
           <div className="mb-4">
             <p className="text-sm font-semibold text-gray-600 mb-3">{t("exploreByVibe")}</p>
             <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 sm:mx-0 sm:px-0 sm:flex-wrap scrollbar-hide">
@@ -221,7 +212,6 @@ export function HeroSection() {
             </div>
           </div>
 
-          {/* Trust text */}
           <div className="flex items-center gap-2 mt-5 md:mt-6">
             <span className="text-brand-accent text-base md:text-lg">✦</span>
             <p className="text-xs sm:text-sm text-gray-500">
@@ -230,88 +220,46 @@ export function HeroSection() {
           </div>
         </div>
 
-        {/* Right side - Floating hotel cards in circular layout (hidden on mobile/tablet) */}
         <div className="hidden lg:flex relative w-[380px] h-[340px] xl:w-[480px] xl:h-[430px] shrink-0 items-center justify-center mx-auto">
-          {/* Decorative dashed circle behind cards */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 480 430" fill="none">
-            {/* Wavy dash from airplane to Card 1 */}
             <path d="M50 8 Q120 40 180 80 T260 120" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="8 6" fill="none" opacity="0.5" strokeLinecap="round" />
-            {/* Flight path connecting cards */}
             <path d="M260 120 C180 160 120 220 130 300" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="8 6" fill="none" opacity="0.45" strokeLinecap="round" />
             <path d="M130 300 C160 340 250 350 350 340" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="8 6" fill="none" opacity="0.45" strokeLinecap="round" />
             <path d="M350 340 C380 300 370 200 260 120" stroke="var(--brand-accent)" strokeWidth="1.5" strokeDasharray="8 6" fill="none" opacity="0.45" strokeLinecap="round" />
-            {/* Paper airplane icon - pointing left */}
             <g transform="translate(50, 20) rotate(180) scale(1.3)" opacity="0.8">
               <path d="M0 0 L20 8 L0 16 L3 8 Z" fill="var(--brand-accent)" />
             </g>
           </svg>
 
-          {/* Card 1 */}
-          <div className="absolute left-[200px] top-[100px] xl:left-[260px] xl:top-[120px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-20 rotate-[4deg] cursor-pointer" onClick={() => heroCardData && (window.location.href = `/hotel/${heroCardData[0].id}`)}>
-            <div className="relative h-[120px] xl:h-[150px] overflow-hidden">
-              <img src={heroCardData ? heroCardData[0].image : heroHotels[0].image} alt="" className="w-full h-full object-cover" />
-              <button onClick={(e) => { e.stopPropagation(); }} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors">
-                <Heart size={14} className="text-gray-600" />
-              </button>
-            </div>
-            <div className="px-3 py-2">
-              <h3 className="text-[11px] xl:text-[13px] font-bold leading-tight line-clamp-1" style={{ color: "var(--brand-heading)" }}>{heroCardData ? heroCardData[0].name : heroHotels[0].location}</h3>
-              <p className="text-[9px] xl:text-[10px] flex items-center gap-0.5 mb-1" style={{ color: "var(--brand-text-secondary)" }}>
-                <MapPin size={9} /> {heroCardData ? `${heroCardData[0].city}, ${heroCardData[0].country}` : heroHotels[0].location}
-              </p>
-              <p className="text-xs xl:text-[13px] font-bold leading-tight text-right" style={{ color: "var(--brand-heading)" }}>
-                <span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from </span>
-                {heroCardData ? `${heroCardData[0].currency} ${heroCardData[0].price}` : `$${heroHotels[0].price}`}
-                <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}> / night</span>
-              </p>
-            </div>
+          <div className="absolute left-[200px] top-[100px] xl:left-[260px] xl:top-[120px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] z-20 rotate-[4deg]">
+            <HeroCard
+              data={heroCardData ? heroCardData[0] : { id: heroHotels[0].id, name: heroHotels[0].location, city: "", country: "", price: heroHotels[0].price, currency: "$", image: heroHotels[0].image }}
+              fallbackName={heroHotels[0].location}
+              fallbackLocation={heroHotels[0].location}
+              fallbackPrice={heroHotels[0].price}
+            />
           </div>
 
-          {/* Card 2 */}
-          <div className="absolute left-[100px] top-[240px] xl:left-[130px] xl:top-[300px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-10 -rotate-[3deg] cursor-pointer" onClick={() => heroCardData && (window.location.href = `/hotel/${heroCardData[1].id}`)}>
-            <div className="relative h-[120px] xl:h-[150px] overflow-hidden">
-              <img src={heroCardData ? heroCardData[1].image : heroHotels[1].image} alt="" className="w-full h-full object-cover" />
-              <button onClick={(e) => { e.stopPropagation(); }} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors">
-                <Heart size={14} className="text-gray-600" />
-              </button>
-            </div>
-            <div className="px-3 py-2">
-              <h3 className="text-[11px] xl:text-[13px] font-bold leading-tight line-clamp-1" style={{ color: "var(--brand-heading)" }}>{heroCardData ? heroCardData[1].name : heroHotels[1].location}</h3>
-              <p className="text-[9px] xl:text-[10px] flex items-center gap-0.5 mb-1" style={{ color: "var(--brand-text-secondary)" }}>
-                <MapPin size={9} /> {heroCardData ? `${heroCardData[1].city}, ${heroCardData[1].country}` : heroHotels[1].location}
-              </p>
-              <p className="text-xs xl:text-[13px] font-bold leading-tight text-right" style={{ color: "var(--brand-heading)" }}>
-                <span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from </span>
-                {heroCardData ? `${heroCardData[1].currency} ${heroCardData[1].price}` : `$${heroHotels[1].price}`}
-                <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}> / night</span>
-              </p>
-            </div>
+          <div className="absolute left-[100px] top-[240px] xl:left-[130px] xl:top-[300px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] z-10 -rotate-[3deg]">
+            <HeroCard
+              data={heroCardData ? heroCardData[1] : { id: heroHotels[1].id, name: heroHotels[1].location, city: "", country: "", price: heroHotels[1].price, currency: "$", image: heroHotels[1].image }}
+              fallbackName={heroHotels[1].location}
+              fallbackLocation={heroHotels[1].location}
+              fallbackPrice={heroHotels[1].price}
+            />
           </div>
 
-          {/* Card 3 */}
-          <div className="absolute left-[280px] top-[270px] xl:left-[350px] xl:top-[340px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-15 rotate-[2deg] cursor-pointer" onClick={() => heroCardData && (window.location.href = `/hotel/${heroCardData[2].id}`)}>
-            <div className="relative h-[120px] xl:h-[150px] overflow-hidden">
-              <img src={heroCardData ? heroCardData[2].image : heroHotels[2].image} alt="" className="w-full h-full object-cover" />
-              <button onClick={(e) => { e.stopPropagation(); }} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors">
-                <Heart size={14} className="text-gray-600" />
-              </button>
-            </div>
-            <div className="px-3 py-2">
-              <h3 className="text-[11px] xl:text-[13px] font-bold leading-tight line-clamp-1" style={{ color: "var(--brand-heading)" }}>{heroCardData ? heroCardData[2].name : heroHotels[2].location}</h3>
-              <p className="text-[9px] xl:text-[10px] flex items-center gap-0.5 mb-1" style={{ color: "var(--brand-text-secondary)" }}>
-                <MapPin size={9} /> {heroCardData ? `${heroCardData[2].city}, ${heroCardData[2].country}` : heroHotels[2].location}
-              </p>
-              <p className="text-xs xl:text-[13px] font-bold leading-tight text-right" style={{ color: "var(--brand-heading)" }}>
-                <span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from </span>
-                {heroCardData ? `${heroCardData[2].currency} ${heroCardData[2].price}` : `$${heroHotels[2].price}`}
-                <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}> / night</span>
-              </p>
-            </div>
+          <div className="absolute left-[280px] top-[270px] xl:left-[350px] xl:top-[340px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] z-15 rotate-[2deg]">
+            <HeroCard
+              data={heroCardData ? heroCardData[2] : { id: heroHotels[2].id, name: heroHotels[2].location, city: "", country: "", price: heroHotels[2].price, currency: "$", image: heroHotels[2].image }}
+              fallbackName={heroHotels[2].location}
+              fallbackLocation={heroHotels[2].location}
+              fallbackPrice={heroHotels[2].price}
+            />
           </div>
         </div>
       </div>
 
-      {/* Location Permission Popup */}
       {showLocationPopup && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative animate-in">

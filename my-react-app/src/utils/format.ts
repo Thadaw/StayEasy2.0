@@ -18,11 +18,13 @@ export function formatDate(date: string): string {
   })
 }
 
-export function formatShortDate(date: string): string {
+export function formatDateFull(date: string): string {
   if (!date) return ''
   return parseBookingDate(date).toLocaleDateString(i18n.language, {
+    weekday: 'short',
     month: 'short',
     day: 'numeric',
+    year: 'numeric',
   })
 }
 
@@ -42,4 +44,12 @@ export function buildGuestLabel(
   let label = `${total} ${i18n.t("guest", { count: total })}`
   if (infants > 0) label += `, ${infants} ${i18n.t("room", { count: infants })}`
   return label
+}
+
+export function normalizeBookingStatus(status: string): 'upcoming' | 'completed' | 'cancelled' | 'unknown' {
+  const s = status.toLowerCase()
+  if (s === 'upcoming' || s === 'confirmed') return 'upcoming'
+  if (s === 'completed' || s === 'checked_out') return 'completed'
+  if (s === 'cancelled' || s === 'canceled') return 'cancelled'
+  return 'unknown'
 }

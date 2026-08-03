@@ -25,11 +25,13 @@ export default function Signup() {
   const [searchParams] = useSearchParams()
   const isHost = location.pathname.startsWith('/host') || searchParams.get('host') === 'true'
 
-  const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [nationality, setNationality] = useState('')
-  const [password, setPassword] = useState('')
+  const [form, setForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    nationality: '',
+    password: '',
+  })
   const [showPw, setShowPw] = useState(true)
   const [pwFocused, setPwFocused] = useState(false)
   const [error, setError] = useState('')
@@ -53,21 +55,21 @@ export default function Signup() {
   const handleSignup = async () => {
     setError('')
 
-    if (!fullName.trim()) { setError('Full name is required.'); return }
-    if (!phone.trim()) { setError('Phone number is required.'); return }
-    if (!EMAIL_RE.test(email)) { setError('Please enter a valid email address.'); return }
-    if (!isHost && !nationality.trim()) { setError('Nationality is required.'); return }
-    if (!PASSWORD_RE.test(password)) { setError('Password must be 8+ characters with a number and a special character.'); return }
+    if (!form.fullName.trim()) { setError('Full name is required.'); return }
+    if (!form.phone.trim()) { setError('Phone number is required.'); return }
+    if (!EMAIL_RE.test(form.email)) { setError('Please enter a valid email address.'); return }
+    if (!isHost && !form.nationality.trim()) { setError('Nationality is required.'); return }
+    if (!PASSWORD_RE.test(form.password)) { setError('Password must be 8+ characters with a number and a special character.'); return }
     setLoading(true)
     try {
       const basePath = isHost ? '/auth/users' : '/auth/guests'
       const payload: Record<string, string> = {
-        full_name: fullName,
-        email,
-        phone,
-        password,
+        full_name: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
       }
-      if (!isHost) payload.nationality = nationality
+      if (!isHost) payload.nationality = form.nationality
       await api.post(`${basePath}/register`, payload)
       toast.success('Verification code sent to your email')
       setShowOtpStep(true)
@@ -83,7 +85,7 @@ export default function Signup() {
     setOtpLoading(true)
     try {
       const basePath = isHost ? '/auth/users' : '/auth/guests'
-      await api.post(`${basePath}/verify-otp`, { email, otp })
+      await api.post(`${basePath}/verify-otp`, { email: form.email, otp })
       localStorage.setItem('authType', isHost ? 'host' : 'guest')
       setVerified(true)
       toast.success('Account verified successfully!')
@@ -99,7 +101,7 @@ export default function Signup() {
     setResendLoading(true)
     try {
       const basePath = isHost ? '/auth/users' : '/auth/guests'
-      await api.post(`${basePath}/resend-otp`, { email })
+      await api.post(`${basePath}/resend-otp`, { email: form.email })
       toast.success('Verification code resent to your email')
       setResendTimer(30)
     } catch {
@@ -132,7 +134,6 @@ export default function Signup() {
           boxShadow: '0 8px 40px rgba(0,0,0,0.13)',
         }}
       >
-        {/* Form panel — on the LEFT for sign up */}
         <div
           className="custom-scroll"
           style={{
@@ -147,7 +148,6 @@ export default function Signup() {
             overflowY: 'auto',
           }}
         >
-          {/* Tabs */}
           <div style={{ display: 'flex', marginBottom: 4 }}>
             <div
               onClick={() => navigate(isHost ? '/host/login' : '/login')}
@@ -189,7 +189,6 @@ export default function Signup() {
                 {isHost ? 'Start listing your property today' : 'Start finding your stay today'}
               </div>
 
-              {/* Full name */}
               <div style={{ marginBottom: 7 }}>
                 <label
                   style={{
@@ -201,8 +200,8 @@ export default function Signup() {
                 </label>
                 <input
                   type="text"
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
+                  value={form.fullName}
+                  onChange={e => setForm(prev => ({ ...prev, fullName: e.target.value }))}
                   onFocus={() => setPwFocused(false)}
                   placeholder="Enter your name"
                   autoComplete="off"
@@ -213,7 +212,6 @@ export default function Signup() {
                 />
               </div>
 
-              {/* Phone */}
               <div style={{ position: 'relative', marginBottom: 7 }}>
                 <label
                   style={{
@@ -225,8 +223,8 @@ export default function Signup() {
                 </label>
                 <input
                   type="tel"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
+                  value={form.phone}
+                  onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))}
                   onFocus={() => setPwFocused(false)}
                   placeholder="+977-98XXXXXXXX"
                   autoComplete="off"
@@ -237,7 +235,6 @@ export default function Signup() {
                 />
               </div>
 
-              {/* Nationality (guests only) */}
               {!isHost && (
                 <div style={{ position: 'relative', marginBottom: 7 }}>
                   <label
@@ -250,8 +247,8 @@ export default function Signup() {
                   </label>
                   <input
                     type="text"
-                    value={nationality}
-                    onChange={e => setNationality(e.target.value)}
+                    value={form.nationality}
+                    onChange={e => setForm(prev => ({ ...prev, nationality: e.target.value }))}
                     onFocus={() => setPwFocused(false)}
                     placeholder="e.g. Nepali"
                     autoComplete="off"
@@ -263,7 +260,6 @@ export default function Signup() {
                 </div>
               )}
 
-              {/* Email */}
               <div style={{ position: 'relative', marginBottom: 7 }}>
                 <label
                   style={{
@@ -275,8 +271,8 @@ export default function Signup() {
                 </label>
                 <input
                   type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  value={form.email}
+                  onChange={e => setForm(prev => ({ ...prev, email: e.target.value }))}
                   onFocus={() => setPwFocused(false)}
                   placeholder="Enter your email"
                   autoComplete="off"
@@ -287,7 +283,6 @@ export default function Signup() {
                 />
               </div>
 
-              {/* Password */}
               <div style={{ position: 'relative', marginBottom: 7 }}>
                 <label
                   style={{
@@ -299,8 +294,8 @@ export default function Signup() {
                 </label>
                 <input
                   type={showPw ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  value={form.password}
+                  onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))}
                   onFocus={() => setPwFocused(true)}
                   onBlur={() => setPwFocused(false)}
                   placeholder="••••••••"
@@ -358,12 +353,11 @@ export default function Signup() {
                 Verify your email
               </div>
               <div style={{ fontSize: 12, color: '#999', marginBottom: 20 }}>
-                A verification code was sent to <strong>{email}</strong>
+                A verification code was sent to <strong>{form.email}</strong>
               </div>
 
               {!verified ? (
                 <>
-                  {/* OTP input */}
                   <div style={{ position: 'relative', marginBottom: 20 }}>
                     <label
                       style={{
@@ -443,7 +437,6 @@ export default function Signup() {
           )}
         </div>
 
-        {/* Animated scene panel — on the RIGHT for sign up */}
         <div style={{ width: '50%', background: '#dde0ee', order: 2, flexShrink: 0 }}>
           <BuildingScene mode="signup" passwordFocused={pwFocused} passwordVisible={showPw} />
         </div>

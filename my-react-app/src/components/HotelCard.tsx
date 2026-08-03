@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { Star, MapPin, Heart } from "lucide-react";
+import { Star, MapPin } from "lucide-react";
 import { Hotel } from "../data/hotels";
+import { FavouriteButton } from "./common/FavouriteButton";
 
 interface HotelCardProps {
   hotel: Hotel;
@@ -36,12 +37,7 @@ export function HotelCard({
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         {showFavourite && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleFavourite?.(); }}
-            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors z-10"
-          >
-            <Heart size={14} className={isFavourite ? "text-red-500 fill-red-500" : "text-gray-600 hover:text-red-500 transition-colors"} />
-          </button>
+          <FavouriteButton isFavourite={isFavourite} onToggle={() => onToggleFavourite?.()} />
         )}
         {showTag && hotel.tag && (
           <span className="absolute top-2 left-2 px-2 py-0.5 bg-white/90 backdrop-blur-sm rounded-full text-[9px] font-semibold" style={{ color: "var(--brand-heading)" }}>{hotel.tag}</span>

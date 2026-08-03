@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, MapPin, Calendar, Users, ChevronDown, Plus, Minus, Check, Clock, X } from "lucide-react";
+import { Search, MapPin, Calendar, Users, ChevronDown, Clock, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { popularSearchDestinations } from "../data/searchDestinations";
 import { formatDateRange, formatDateShort, buildGuestLabel } from "../utils/format";
+import { getDefaultDates } from "../utils/date";
+import { CounterControl } from "./common/CounterControl";
 
 interface GuestCount {
   adults: number;
@@ -32,6 +34,7 @@ export function SearchBar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [urlParams] = useSearchParams();
+  const { today } = getDefaultDates();
 
   const propertyTypesParam = urlParams.get("propertyTypes");
   const [where, setWhere] = useState(() => {
@@ -105,7 +108,6 @@ export function SearchBar() {
   return (
     <div className="bg-white rounded-2xl shadow-card border border-brand-primary-extra-light mb-3 md:mb-4 w-full">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 md:gap-0 md:items-center">
-        {/* Where */}
         <div ref={whereRef} className="relative min-w-0 md:flex-1">
           <button
             onClick={() => { setShowWhere((v) => !v); setShowDates(false); setShowGuests(false); }}
@@ -174,7 +176,6 @@ export function SearchBar() {
           )}
         </div>
 
-        {/* Check in – Check out */}
         <div ref={datesRef} className="relative min-w-0 md:flex-1">
           <button
             onClick={() => { setShowDates((v) => !v); setShowWhere(false); setShowGuests(false); }}
@@ -196,7 +197,7 @@ export function SearchBar() {
                   <input
                     type="date"
                     value={checkIn}
-                    min={new Date().toISOString().split("T")[0]}
+                    min={today}
                     onChange={(e) => { setCheckIn(e.target.value); if (checkOut && e.target.value > checkOut) setCheckOut(""); }}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent transition-colors"
                   />
@@ -206,7 +207,7 @@ export function SearchBar() {
                   <input
                     type="date"
                     value={checkOut}
-                    min={checkIn ? new Date(new Date(checkIn).getTime() + 86400000).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]}
+                    min={checkIn ? new Date(new Date(checkIn).getTime() + 86400000).toISOString().split("T")[0] : today}
                     onChange={(e) => setCheckOut(e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-accent transition-colors"
                   />
@@ -225,7 +226,6 @@ export function SearchBar() {
           )}
         </div>
 
-        {/* Guests */}
         <div ref={guestsRef} className="relative min-w-0 md:flex-1">
           <button
             onClick={() => { setShowGuests((v) => !v); setShowWhere(false); setShowDates(false); }}
@@ -246,28 +246,15 @@ export function SearchBar() {
                 { key: "children" as keyof GuestCount, label: t("children"), sub: t("ages2to12") },
                 { key: "infants" as keyof GuestCount, label: t("room"), sub: t("numberOfRooms") },
               ]).map(({ key, label, sub }) => (
-                <div key={key} className="flex items-center justify-between py-3 border-b border-brand-primary-extra-light last:border-0">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">{label}</p>
-                    <p className="text-xs text-gray-400">{sub}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => adjustGuest(key, -1)}
-                      disabled={guests[key] <= (key === "adults" ? 1 : 0)}
-                      className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-brand-accent hover:bg-brand-accent-light disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Minus size={12} />
-                    </button>
-                    <span className="w-5 text-center text-sm font-bold tabular-nums">{guests[key]}</span>
-                    <button
-                      onClick={() => adjustGuest(key, 1)}
-                      className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-brand-accent hover:bg-brand-accent-light transition-colors"
-                    >
-                      <Plus size={12} />
-                    </button>
-                  </div>
-                </div>
+                <CounterControl
+                  key={key}
+                  label={label}
+                  sublabel={sub}
+                  value={guests[key]}
+                  min={key === "adults" ? 1 : 0}
+                  onDecrease={() => adjustGuest(key, -1)}
+                  onIncrease={() => adjustGuest(key, 1)}
+                />
               ))}
               <button
                 onClick={() => setShowGuests(false)}
@@ -279,7 +266,6 @@ export function SearchBar() {
           )}
         </div>
 
-        {/* Search button */}
         <button
           onClick={handleSearch}
           className="col-span-2 md:col-span-1 row-span-2 w-full h-full min-h-[42px] md:min-h-[48px] rounded-xl bg-brand-accent flex items-center justify-center gap-2 text-white hover:bg-brand-accent-hover transition-all duration-200 hover:shadow-lg hover:shadow-brand-accent/30 active:scale-95 mt-2 md:mt-0 md:shrink-0"

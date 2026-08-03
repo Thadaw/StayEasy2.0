@@ -1,6 +1,5 @@
 import { JSX } from 'react'
-
-type PaymentMethod = "stripe" | "razorpay" | "khalti"
+import type { PaymentMethod } from '../../types/booking'
 
 interface PaymentOption {
   key: PaymentMethod

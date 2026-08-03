@@ -18,132 +18,12 @@ import { ReviewSection } from "../components/property/ReviewSection";
 import { ThingsToKnow } from "../components/property/ThingsToKnow";
 import { RoomDetailModal } from "../components/property/RoomDetailModal";
 import { RecommendedRoom } from "../components/property/RecommendedRoom";
+import { ApiProperty, ApiRoom } from "../types/api";
+import { mapPropertyToHotel } from "../utils/propertyMapper";
+import { getDefaultDates } from "../utils/date";
+import { calculateNights } from "../utils/time";
+import { useBookingCreation } from "../hooks/useBookingCreation";
 import api from "../api";
-
-interface ApiProperty {
-  id: string;
-  tenant_id: string;
-  name: string;
-  type: string;
-  description: string;
-  country: string;
-  state: string;
-  city: string;
-  zip_code: string;
-  address: string;
-  latitude: string | null;
-  longitude: string | null;
-  check_in_time: string;
-  check_out_time: string;
-  check_in_grace_period: number;
-  check_out_grace_period: number;
-  always_allow_check_in_out: boolean;
-  number_of_floors: number;
-  total_rooms: number;
-  year_built: number;
-  phone_number: string;
-  email: string;
-  currency: string;
-  timezone: string;
-  language: string;
-  brand_logo_url: string;
-  brand_color: string;
-  is_active: boolean;
-  system_amenities: { id: string; name: string; icon: string }[];
-  custom_amenities: { icon: string | null; name: string }[];
-  photos: { cover: string; gallery: string[] };
-}
-
-interface ApiRoom {
-  id: string;
-  property_id: string;
-  floor_number: number;
-  room_name: string;
-  room_type_id: string;
-  bed_type_id: string;
-  room_type?: string;
-  bed_type?: string;
-  max_adults: number;
-  max_children: number;
-  base_rate: string;
-  status: string;
-  cancellation_policy: string;
-  cancellation_title: string;
-  cancellation_description: string;
-  photos: { cover: string; gallery: string[] };
-  system_amenity_ids: string[];
-  custom_amenities: { icon: string | null; name: string }[];
-}
-
-function mapApiPropertyToHotel(apiProp: ApiProperty, rooms: ApiRoom[]): Hotel {
-  const allAmenities = [
-    ...apiProp.system_amenities.map((a) => a.name),
-    ...apiProp.custom_amenities.map((a) => a.name),
-  ];
-  const totalAdults = rooms.reduce((sum, r) => sum + r.max_adults, 0);
-  const totalChildren = rooms.reduce((sum, r) => sum + r.max_children, 0);
-  const mappedRooms: RoomType[] = rooms.map((r) => ({
-    id: r.id,
-    name: r.room_name,
-    price: parseFloat(r.base_rate) || 0,
-    maxGuests: r.max_adults + r.max_children,
-    bedrooms: 1,
-    beds: 1,
-    bathrooms: 1,
-    description: r.cancellation_description || "",
-    totalRooms: 1,
-    availableRooms: r.status === "AVAILABLE" ? 1 : 0,
-    roomNumbers: [r.room_name],
-    bedType: r.bed_type || r.bed_type_id || "",
-    roomTypeName: r.room_type || r.room_name || "",
-    areaSqFt: 300,
-    floorNumber: r.floor_number,
-    maxAdults: r.max_adults,
-    maxChildren: r.max_children,
-    cancellationTitle: r.cancellation_title,
-    customAmenities: r.custom_amenities,
-    image: r.photos?.cover || "",
-    gallery: r.photos?.gallery || [],
-    bathroomAmenities: [],
-    roomFacilities: apiProp.system_amenities.map((a) => a.name),
-    smokingPolicy: "No smoking",
-    cancellationPolicy: r.cancellation_description || "",
-    breakfastIncluded: false,
-    room_type_id: r.room_type_id,
-    bed_type_id: r.bed_type_id,
-  }));
-  return {
-    id: 0,
-    name: apiProp.name,
-    location: `${apiProp.address}, ${apiProp.city}, ${apiProp.country}`,
-    city: apiProp.city,
-    country: apiProp.country,
-    lat: apiProp.latitude ? parseFloat(apiProp.latitude) : 0,
-    lng: apiProp.longitude ? parseFloat(apiProp.longitude) : 0,
-    rating: 4.8,
-    reviews: 0,
-    price: rooms.length > 0 ? parseFloat(rooms[0].base_rate) || 0 : 0,
-    imageUrl: apiProp.photos?.cover || "",
-    images: apiProp.photos?.gallery || [],
-    tag: apiProp.type,
-    isSuperhost: false,
-    category: apiProp.type.toLowerCase(),
-    description: apiProp.description || "",
-    amenities: allAmenities.length > 0 ? allAmenities : ["Free WiFi"],
-    hostName: apiProp.name,
-    hostAvatar: apiProp.brand_logo_url || "",
-    hostJoined: "",
-    hostReviews: 0,
-    hostBankDetails: { accountHolderName: "", accountNumber: "", ifscCode: "", bankName: "", upiId: "" },
-    bedrooms: 1,
-    beds: 1,
-    bathrooms: 1,
-    maxGuests: totalAdults + totalChildren,
-    maxAdults: totalAdults,
-    maxChildren: totalChildren,
-    roomTypes: mappedRooms,
-  };
-}
 
 export default function PropertyDetailPage() {
   const { id } = useParams();
@@ -166,17 +46,16 @@ export default function PropertyDetailPage() {
   const { user } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
 
-  const [apiProperty, setApiProperty] = useState<ApiProperty | null>(null);
-  const [apiRooms, setApiRooms] = useState<ApiRoom[]>([]);
-  const [apiLoading, setApiLoading] = useState(true);
+  const [property, setProperty] = useState<ApiProperty | null>(null);
+  const [availableRooms, setAvailableRooms] = useState<ApiRoom[]>([]);
+  const [loading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
-    const fetchPropertyData = async () => {
-      setApiLoading(true);
+    const fetchProperty = async () => {
+      setIsLoading(true);
       try {
-        const today = new Date().toISOString().split("T")[0];
-        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+        const { today, tomorrow } = getDefaultDates();
         const checkInDate = checkinParam || today;
         const checkOutDate = checkoutParam || tomorrow;
         const adultsParam = searchParams.get("adults");
@@ -186,36 +65,32 @@ export default function PropertyDetailPage() {
         const children = childrenParam ? Number(childrenParam) : (guestsParam ? Number(guestsParam.match(/\d+/g)?.[1] || "0") : 0);
         const rooms = roomsParam ? Number(roomsParam) : 1;
         const propRes = await api.get(`/properties/${id}/public`);
-        setApiProperty(propRes.data?.data || null);
+        setProperty(propRes.data?.data || null);
         try {
           const roomsRes = await api.get(`/properties/${id}/rooms/available-rooms`, {
             params: { checkin_date: checkInDate, checkout_date: checkOutDate, adults, children, rooms },
           });
-          const roomsData = roomsRes.data?.data || [];
-          console.log('Available rooms response:', roomsData);
-          if (roomsData.length > 0) console.log('First room fields:', Object.keys(roomsData[0]), 'room_type:', roomsData[0].room_type, 'bed_type:', roomsData[0].bed_type);
-          setApiRooms(roomsData);
+          const availableRooms = roomsRes.data?.data || [];
+          setAvailableRooms(availableRooms);
         } catch {
-          setApiRooms([]);
+          setAvailableRooms([]);
         }
       } catch {
-        setApiProperty(null);
-        setApiRooms([]);
+        setProperty(null);
+        setAvailableRooms([]);
       } finally {
-        setApiLoading(false);
+        setIsLoading(false);
       }
     };
-    fetchPropertyData();
+    fetchProperty();
   }, [id, searchParams]);
 
-  const apiHotel = useMemo(() => {
-    if (!apiProperty) return null;
-    return mapApiPropertyToHotel(apiProperty, apiRooms);
-  }, [apiProperty, apiRooms]);
+  const hotel = useMemo(() => {
+    if (!property) return null;
+    return mapPropertyToHotel(property, availableRooms);
+  }, [property, availableRooms]);
 
-  const hotel = apiHotel;
-
-  const CUR = apiProperty?.currency || 'USD'
+  const currency = property?.currency || 'USD'
 
   const liked = isFavorite(Number(id));
   const [checkIn, setCheckIn] = useState(checkinParam || "");
@@ -232,7 +107,7 @@ export default function PropertyDetailPage() {
   });
 
   useEffect(() => {
-    if (!id || apiLoading || !checkIn || !checkOut) return;
+    if (!id || loading || !checkIn || !checkOut) return;
     const fetchRooms = async () => {
       try {
         const roomsRes = await api.get(`/properties/${id}/rooms/available-rooms`, {
@@ -244,7 +119,7 @@ export default function PropertyDetailPage() {
             rooms: guests.rooms,
           },
         });
-        setApiRooms(roomsRes.data?.data || []);
+        setAvailableRooms(roomsRes.data?.data || []);
       } catch {
         // keep existing rooms on error
       }
@@ -292,12 +167,11 @@ export default function PropertyDetailPage() {
     });
   };
 
-  const guestCount = useMemo(() => {
+  const guestCount = (() => {
     if (!guestsParam) return 2;
     const matches = guestsParam.match(/\d+/g);
-    if (!matches) return 2;
-    return matches.reduce((sum, n) => sum + parseInt(n), 0);
-  }, [guestsParam]);
+    return matches ? matches.reduce((sum, n) => sum + parseInt(n), 0) : 2;
+  })();
 
   const capacityError = useMemo(() => {
     if (!hotel) return '';
@@ -366,7 +240,7 @@ export default function PropertyDetailPage() {
     return [scored[0].rt];
   }, [hotel, guestCount, filterBedTypes, filterAmenities, filterPriceMin, filterPriceMax]);
 
-  const hotelMatchesFilters = useMemo(() => {
+  const hotelMatchesFilters = (() => {
     if (!hotel) return false;
     if (!hasSearchParams) return false;
     if (filterGuestRating !== "Any" && hotel.rating < parseFloat(filterGuestRating)) return false;
@@ -384,9 +258,11 @@ export default function PropertyDetailPage() {
       if (!matches) return false;
     }
     return true;
-  }, [hotel, filterGuestRating, filterPropertyTypes, hasSearchParams]);
+  })();
 
-  if (apiLoading) {
+  const { createBooking } = useBookingCreation();
+
+  if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
         <span className="w-8 h-8 border-3 border-gray-200 border-t-brand-accent rounded-full animate-spin" />
@@ -407,9 +283,7 @@ export default function PropertyDetailPage() {
     );
   }
 
-  const nights = checkIn && checkOut
-    ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
-    : 1;
+  const nights = calculateNights(checkIn, checkOut);
 
   const handleSelectRoom = (roomId: string) => {
     const qty = roomQuantities[roomId] || 0;
@@ -460,21 +334,17 @@ export default function PropertyDetailPage() {
 
     let refNumber = '';
     try {
-      const idempotencyKey = crypto.randomUUID();
-      const { data } = await api.post('/bookings/', {
-        idempotency_key: idempotencyKey,
-        property_id: id,
+      refNumber = await createBooking({
+        property_id: id!,
         room_ids: roomIds,
         check_in: checkIn,
         check_out: checkOut,
         adults: guests.adults,
         children: guests.children,
       });
-      console.log('POST /bookings full response:', JSON.stringify(data, null, 2));
-      refNumber = data?.data?.ref_number || data?.ref_number || '';
-      console.log('Extracted ref_number:', refNumber);
-    } catch (err) {
-      console.error('Failed to create booking:', err);
+    } catch {
+      toast.error('Could not create booking. Please try again.');
+      return;
     }
 
     if (!refNumber) {
@@ -547,7 +417,7 @@ export default function PropertyDetailPage() {
               </h3>
               <div className="space-y-3">
                 {recommendedRooms.map((rt) => (
-                  <RecommendedRoom key={rt.id} room={rt} guestCount={guestCount} checkIn={checkIn} onReserve={handleSelectRoom} CUR={CUR} roomQuantities={roomQuantities} />
+                  <RecommendedRoom key={rt.id} room={rt} guestCount={guestCount} checkIn={checkIn} onReserve={handleSelectRoom} currency={currency} roomQuantities={roomQuantities} />
                 ))}
               </div>
             </div>
@@ -569,7 +439,7 @@ export default function PropertyDetailPage() {
             onQtyChange={handleQtyChange}
             onOpenDetail={handleOpenDetail}
             onReserve={handleReserve}
-            CUR={CUR}
+            currency={currency}
             capacityError={capacityError}
             user={user}
           />

@@ -39,9 +39,7 @@ export function Footer() {
               <ul className="flex flex-col gap-2.5">
                 {links.map(link => (
                   <li key={link}>
-                    <a href="#" className="text-sm transition-colors hover:underline" style={{ color: "var(--muted-foreground)" }}
-                      onMouseEnter={e => (e.currentTarget.style.color = "var(--primary)")}
-                      onMouseLeave={e => (e.currentTarget.style.color = "var(--muted-foreground)")}>
+                    <a href="#" className="text-sm transition-colors hover:underline hover:text-[var(--primary)]" style={{ color: "var(--muted-foreground)" }}>
                       {link}
                     </a>
                   </li>

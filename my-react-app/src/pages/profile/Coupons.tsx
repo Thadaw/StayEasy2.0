@@ -20,7 +20,6 @@ export default function Coupons() {
           <h2 className="text-base font-semibold text-brand-heading">My Coupons</h2>
         </div>
         <div className="p-6 space-y-8">
-          {/* Active Coupons */}
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-2 h-2 rounded-full bg-brand-success" />
@@ -47,7 +46,6 @@ export default function Coupons() {
             )}
           </div>
 
-          {/* Expired / Used Coupons */}
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-2 h-2 rounded-full bg-brand-placeholder" />

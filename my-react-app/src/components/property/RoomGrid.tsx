@@ -66,10 +66,7 @@ export function RoomGrid({ hotel, roomQuantities, onSelectRoom }: RoomGridProps)
                   <button
                     onClick={() => onSelectRoom(rt.id)}
                     disabled={rt.availableRooms <= 0}
-                    className={`text-[9px] md:text-[10px] font-semibold px-2.5 py-1 rounded-full transition-all text-white disabled:opacity-40 disabled:cursor-not-allowed`}
-                    style={{ backgroundColor: qty > 0 ? "#1A3C5E" : "#1A3C5E" }}
-                    onMouseEnter={(e) => { if (rt.availableRooms > 0) e.currentTarget.style.backgroundColor = "#163552"; }}
-                    onMouseLeave={(e) => { if (rt.availableRooms > 0) e.currentTarget.style.backgroundColor = "#1A3C5E"; }}
+                    className="text-[9px] md:text-[10px] font-semibold px-2.5 py-1 rounded-full transition-all text-white disabled:opacity-40 disabled:cursor-not-allowed bg-[#1A3C5E] hover:bg-[#163552] disabled:hover:bg-[#1A3C5E]"
                   >
                     {qty > 0 ? 'Selected' : 'Reserve'}
                   </button>

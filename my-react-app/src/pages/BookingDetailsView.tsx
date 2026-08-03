@@ -6,60 +6,36 @@ import { ArrowLeft, MapPin, Phone, Mail,
 } from "lucide-react"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
+import { DetailField } from "../components/common/DetailField"
 import { useBookings } from "../context/BookingContext"
 import { useAuth } from "../context/AuthContext"
-import { printReceipt } from "../components/booking/ReceiptGenerator"
+import { useBookingActions } from "../hooks/useBookingActions"
+import { formatDateFull, formatDateShort, normalizeBookingStatus } from "../utils/format"
+import { parseBookingDate, calculateNights } from "../utils/time"
 import api from "../api"
 import toast from "react-hot-toast"
-import { parseBookingDate } from "../utils/time"
+import type { Booking } from "../types/booking"
 
-interface ApiBookingRoom {
-  room_id: string; room_name: string; room_type: string; bed_type: string;
-  max_adults: number; max_children: number; base_rate: number; nights: number; subtotal: number;
-  photo?: string; photos?: { cover?: string };
-  cancellation_title?: string; cancellation_description?: string;
-}
-
-interface ApiBooking {
-  booking_id: string; ref_number: string; status: string;
-  check_in: string; check_out: string; nights: number;
-  payment_gateway: string | null; payment_status?: string | null;
-  property: { id: string; name: string; type: string; city: string; country: string; currency: string };
-  rooms: ApiBookingRoom[];
-  total_amount: number; subtotal: number; special_offer_discount: number;
-  special_offer_applied?: unknown[];
-  coupon_code: string | null; coupon_discount: number;
-  soft_lock_expires_at?: string;
-  created_at?: string;
-  guest_name?: string; guest_email?: string; guest_phone?: string;
-  number_of_adults?: number; number_of_children?: number;
-  photos?: { cover: string; gallery: string[] };
-}
-
-function fmtDate(d: string) {
-  return parseBookingDate(d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
-}
-
-function fmtShortDate(d: string) {
-  return parseBookingDate(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-}
+type ApiBooking = Booking
 
 export default function BookingDetailsView() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { bookings } = useBookings()
   const { user } = useAuth()
-  const [apiBooking, setApiBooking] = useState<ApiBooking | null>(null)
+  const { copied, handleCopyCode, handleShare, handleDownloadReceipt } = useBookingActions()
+  const [booking, setBooking] = useState<ApiBooking | null>(null)
   const [loading, setLoading] = useState(true)
   const [coverPhoto, setCoverPhoto] = useState("")
-  const [propertyAddress, setPropertyAddress] = useState("")
-  const [propertyState, setPropertyState] = useState("")
-  const [propertyPhone, setPropertyPhone] = useState("")
-  const [propertyEmail, setPropertyEmail] = useState("")
-  const [propertyLat, setPropertyLat] = useState<string | number | null>(null)
-  const [propertyLng, setPropertyLng] = useState<string | number | null>(null)
-  const [meGuest, setMeGuest] = useState<{ name?: string; email?: string; phone?: string; nationality?: string } | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [propertyDetails, setPropertyDetails] = useState({
+    address: "",
+    state: "",
+    phone: "",
+    email: "",
+    lat: null as string | number | null,
+    lng: null as string | number | null,
+  })
+  const [guestProfile, setGuestProfile] = useState<{ name?: string; email?: string; phone?: string; nationality?: string } | null>(null)
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -71,20 +47,24 @@ export default function BookingDetailsView() {
     const fetchBooking = async () => {
       try {
         const { data } = await api.get(`/bookings/${localMatch?.refNumber || id}`)
-        const bookingData = data?.data || data
-        setApiBooking(bookingData)
-        if (bookingData?.property?.id) {
+        const booking = data?.data || data
+        setBooking(booking)
+        if (booking?.property?.id) {
           try {
-            const { data: propRes } = await api.get(`/properties/${bookingData.property.id}/public`)
+            const { data: propRes } = await api.get(`/properties/${booking.property.id}/public`)
             const prop = propRes?.data
             const photos = prop?.photos
             if (photos?.cover) setCoverPhoto(photos.cover)
-            if (prop?.address) setPropertyAddress(prop.address)
-            if (prop?.state) setPropertyState(prop.state)
-            if (prop?.phone_number) setPropertyPhone(prop.phone_number)
-            if (prop?.email) setPropertyEmail(prop.email)
-            if (prop?.latitude) setPropertyLat(prop.latitude)
-            if (prop?.longitude) setPropertyLng(prop.longitude)
+            if (prop) {
+              setPropertyDetails({
+                address: prop.address || "",
+                state: prop.state || "",
+                phone: prop.phone_number || "",
+                email: prop.email || "",
+                lat: prop.latitude || null,
+                lng: prop.longitude || null,
+              })
+            }
           } catch {}
         }
       } catch {
@@ -102,7 +82,7 @@ export default function BookingDetailsView() {
           )
           if (match) {
             const guest = match.guest || match.guest_details || {}
-            setMeGuest(prev => ({
+            setGuestProfile(prev => ({
               name: prev?.name || match.full_name || match.guest_name || guest.full_name || "",
               email: prev?.email || match.email || match.guest_email || guest.email || "",
               phone: prev?.phone || match.phone || match.guest_phone || guest.phone || "",
@@ -116,7 +96,7 @@ export default function BookingDetailsView() {
       try {
         const { data } = await api.get("/auth/guests/me")
         if (data) {
-          setMeGuest(prev => ({
+          setGuestProfile(prev => ({
             name: prev?.name || data.full_name || "",
             email: prev?.email || data.email || "",
             phone: prev?.phone || data.phone || "",
@@ -130,11 +110,11 @@ export default function BookingDetailsView() {
 
   const localBooking = bookings.find((b) => b.refNumber === id || b.id === id)
 
-  const propertyName = apiBooking?.property?.name || localBooking?.hotelName || ""
-  const propertyCity = apiBooking?.property?.city || localBooking?.hotelCity || ""
-  const propertyCountry = apiBooking?.property?.country || localBooking?.hotelCountry || ""
-  const propertyId = apiBooking?.property?.id || localBooking?.hotelId || ""
-  const propertyLocation = [propertyAddress, propertyCity, propertyState, propertyCountry]
+  const propertyName = booking?.property?.name || localBooking?.hotelName || ""
+  const propertyCity = booking?.property?.city || localBooking?.hotelCity || ""
+  const propertyCountry = booking?.property?.country || localBooking?.hotelCountry || ""
+  const propertyId = booking?.property?.id || localBooking?.hotelId || ""
+  const propertyLocation = [propertyDetails.address, propertyCity, propertyDetails.state, propertyCountry]
     .filter(Boolean)
     .reduce<string[]>((parts, part) => {
       const prev = parts[parts.length - 1] || ""
@@ -142,78 +122,57 @@ export default function BookingDetailsView() {
       return [...parts, part]
     }, [])
     .join(", ")
-  const CUR = apiBooking?.property?.currency || "USD"
-  const nights = apiBooking?.nights || (localBooking ? Math.max(1, Math.round((parseBookingDate(localBooking.checkOut).getTime() - parseBookingDate(localBooking.checkIn).getTime()) / 86400000)) : 1)
-  const checkIn = apiBooking?.check_in || localBooking?.checkIn || ""
-  const checkOut = apiBooking?.check_out || localBooking?.checkOut || ""
-  const adults = apiBooking?.number_of_adults ?? localBooking?.guests ?? 0
-  const children = apiBooking?.number_of_children ?? 0
+  const currency = booking?.property?.currency || "USD"
+  const nights = booking?.nights || (localBooking ? calculateNights(localBooking.checkIn, localBooking.checkOut) : 1)
+  const checkIn = booking?.check_in || localBooking?.checkIn || ""
+  const checkOut = booking?.check_out || localBooking?.checkOut || ""
+  const adults = booking?.number_of_adults ?? localBooking?.guests ?? 0
+  const children = booking?.number_of_children ?? 0
   const totalGuests = adults + children
-  const rooms = apiBooking?.rooms || []
+  const rooms = booking?.rooms || []
   const roomNames = rooms.length > 0 ? rooms.map((r) => r.room_name).join(", ") : localBooking?.roomTypeName || ""
-  const totalAmount = apiBooking?.total_amount || localBooking?.totalPrice || 0
-  const subtotal = apiBooking?.subtotal || 0
-  const specialOfferDiscount = apiBooking?.special_offer_discount || 0
-  const couponDiscount = apiBooking?.coupon_discount || 0
-  const paymentStatus = apiBooking?.payment_status || (localBooking ? "paid" : null)
-  const paymentGateway = apiBooking?.payment_gateway || "Razorpay"
-  const refNumber = apiBooking?.ref_number || localBooking?.refNumber || localBooking?.id || id || ""
-  const createdAt = apiBooking?.created_at || localBooking?.createdAt || new Date().toISOString()
-  const bookingStatus = apiBooking?.status || localBooking?.status || "upcoming"
+  const totalAmount = booking?.total_amount || localBooking?.totalPrice || 0
+  const subtotal = booking?.subtotal || 0
+  const specialOfferDiscount = booking?.special_offer_discount || 0
+  const couponDiscount = booking?.coupon_discount || 0
+  const paymentStatus = booking?.payment_status || (localBooking ? "paid" : null)
+  const paymentGateway = booking?.payment_gateway || ''
+  const refNumber = booking?.ref_number || localBooking?.refNumber || localBooking?.id || id || ""
+  const createdAt = booking?.created_at || localBooking?.createdAt || new Date().toISOString()
+  const bookingStatus = booking?.status || localBooking?.status || "upcoming"
   const statusLabel = bookingStatus.charAt(0).toUpperCase() + bookingStatus.slice(1)
 
-  const guestName = meGuest?.name || apiBooking?.guest_name || user?.full_name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Guest"
-  const guestEmail = meGuest?.email || apiBooking?.guest_email || user?.email || ""
-  const guestPhone = meGuest?.phone || apiBooking?.guest_phone || ""
-  const guestNationality = meGuest?.nationality || ""
+  const guestName = guestProfile?.name || booking?.guest_name || user?.full_name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Guest"
+  const guestEmail = guestProfile?.email || booking?.guest_email || user?.email || ""
+  const guestPhone = guestProfile?.phone || booking?.guest_phone || ""
+  const guestNationality = guestProfile?.nationality || ""
 
   const coverImage = coverPhoto || localBooking?.hotelImage || ""
 
   const shareText = propertyName
-    ? `StayEasy booking confirmed for ${propertyName}. Confirmation code: ${refNumber}. Check-in ${checkIn ? fmtDate(checkIn) : ''}.`
+    ? `StayEasy booking confirmed for ${propertyName}. Confirmation code: ${refNumber}. Check-in ${checkIn ? formatDateFull(checkIn) : ''}.`
     : ''
 
-  const handleCopyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(refNumber)
-      setCopied(true)
-      toast.success('Confirmation code copied!')
-      setTimeout(() => setCopied(false), 1800)
-    } catch {
-      toast.error('Could not copy to clipboard')
-    }
-  }
+  const handleCopyCodeClick = () => handleCopyCode(refNumber)
 
-  const handleShare = async () => {
-    const shareData = { title: 'StayEasy booking details', text: shareText, url: window.location.href }
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData)
-      } else {
-        await navigator.clipboard.writeText(shareText)
-        toast.success('Booking details copied to clipboard')
-      }
-    } catch {
-      // user cancelled
-    }
-  }
+  const handleShareClick = () => handleShare(shareText)
 
   const handleViewOnMap = () => {
-    const hasCoords = propertyLat !== null && propertyLat !== "" && propertyLng !== null && propertyLng !== ""
+    const hasCoords = propertyDetails.lat !== null && propertyDetails.lat !== "" && propertyDetails.lng !== null && propertyDetails.lng !== ""
     const query = hasCoords
-      ? `${propertyLat},${propertyLng}`
-      : [propertyName, propertyAddress, propertyCity, propertyState, propertyCountry].filter(Boolean).join(", ")
+      ? `${propertyDetails.lat},${propertyDetails.lng}`
+      : [propertyName, propertyDetails.address, propertyCity, propertyDetails.state, propertyCountry].filter(Boolean).join(", ")
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, "_blank", "noopener,noreferrer")
   }
 
-  const handleDownloadReceipt = () => {
-    if (!apiBooking && !localBooking) return
-    printReceipt({
-      confirmationCode: refNumber,
+  const handleDownloadReceiptClick = () => {
+    if (!booking && !localBooking) return
+    handleDownloadReceipt({
+      refNumber,
       propertyName,
       propertyLocation: propertyLocation || `${propertyCity}, ${propertyCountry}`,
-      propertyPhone,
-      propertyEmail,
+      propertyPhone: propertyDetails.phone,
+      propertyEmail: propertyDetails.email,
       checkIn,
       checkOut,
       roomNames,
@@ -224,27 +183,21 @@ export default function BookingDetailsView() {
       guestNationality,
       rooms,
       specialOfferDiscount,
-      couponCode: apiBooking?.coupon_code,
+      couponCode: booking?.coupon_code,
       couponDiscount,
       totalAmount,
-      currency: CUR,
+      currency: currency,
       createdAt,
     })
   }
 
   const statusColor = () => {
-    switch (bookingStatus) {
+    switch (normalizeBookingStatus(bookingStatus)) {
       case "upcoming":
-      case "CONFIRMED":
-      case "confirmed":
         return "bg-emerald-50 text-emerald-700 border border-emerald-200"
       case "completed":
-      case "COMPLETED":
-      case "CHECKED_OUT":
         return "bg-blue-50 text-blue-700 border border-blue-200"
       case "cancelled":
-      case "CANCELLED":
-      case "CANCELED":
         return "bg-red-50 text-red-700 border border-red-200"
       default: return "bg-gray-50 text-gray-700 border border-gray-200"
     }
@@ -270,7 +223,7 @@ export default function BookingDetailsView() {
     )
   }
 
-  if (!apiBooking && !localBooking) {
+  if (!booking && !localBooking) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
         <p className="text-2xl">📋</p>
@@ -289,7 +242,6 @@ export default function BookingDetailsView() {
     <div className="min-h-screen bg-[#f8f9fa]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       <Navbar />
 
-      {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-4 grid grid-cols-3 items-center">
           <button
@@ -307,10 +259,8 @@ export default function BookingDetailsView() {
       <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
 
-          {/* Left Column */}
           <div className="space-y-6">
 
-            {/* Property Header Card */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="flex flex-col sm:flex-row gap-4 p-5">
                 <img
@@ -329,11 +279,11 @@ export default function BookingDetailsView() {
                     <MapPin size={13} /> {propertyLocation}
                   </p>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                    <a href={`tel:${propertyPhone}`} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-accent transition-colors">
-                      <Phone size={12} /> {propertyPhone || "N/A"}
+                    <a href={`tel:${propertyDetails.phone}`} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-accent transition-colors">
+                      <Phone size={12} /> {propertyDetails.phone || "N/A"}
                     </a>
-                    <a href={`mailto:${propertyEmail}`} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-accent transition-colors">
-                      <Mail size={12} /> {propertyEmail || "N/A"}
+                    <a href={`mailto:${propertyDetails.email}`} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-accent transition-colors">
+                      <Mail size={12} /> {propertyDetails.email || "N/A"}
                     </a>
                     <button onClick={handleViewOnMap} className="inline-flex items-center gap-1 text-xs font-semibold text-brand-accent hover:underline cursor-pointer">
                       <MapPin size={12} /> View on Map
@@ -351,20 +301,19 @@ export default function BookingDetailsView() {
                     />
                   </p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-2">Booked On</p>
-                  <p className="text-sm font-semibold text-gray-900">{fmtShortDate(createdAt)}, {new Date(createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>
+                  <p className="text-sm font-semibold text-gray-900">{formatDateShort(createdAt)}, {new Date(createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-2">Payment Status</p>
                   <p className="text-sm font-semibold text-emerald-600 flex items-center gap-1 sm:justify-end">
                     {paymentStatus === "paid" ? "Paid" : paymentStatus || "Pending"}{" "}
                     <span className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center text-[10px]">✓</span>
                   </p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-2">Total Paid</p>
-                  <p className="text-lg font-bold text-gray-900">{CUR} {totalAmount.toLocaleString()}</p>
+                  <p className="text-lg font-bold text-gray-900">{currency} {totalAmount.toLocaleString()}</p>
                 </div>
               </div>
 
             </div>
 
-            {/* Stay Information */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <div className="flex items-center gap-2 mb-4">
                 <CalendarDays size={16} className="text-brand-accent" />
@@ -372,35 +321,20 @@ export default function BookingDetailsView() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Check-in</p>
-                  <p className="text-sm font-bold text-gray-900">{checkIn ? fmtDate(checkIn) : "N/A"}</p>
+                  <DetailField label="Check-in" value={checkIn ? formatDateFull(checkIn) : "N/A"} />
                   <p className="text-xs text-gray-400">2:00 PM</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Check-out</p>
-                  <p className="text-sm font-bold text-gray-900">{checkOut ? fmtDate(checkOut) : "N/A"}</p>
+                  <DetailField label="Check-out" value={checkOut ? formatDateFull(checkOut) : "N/A"} />
                   <p className="text-xs text-gray-400">12:00 PM</p>
                 </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Duration</p>
-                  <p className="text-sm font-bold text-gray-900">{nights} Night{nights > 1 ? "s" : ""}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Guests</p>
-                  <p className="text-sm font-bold text-gray-900">{adults} adult{adults !== 1 ? "s" : ""} + {children} child{children === 1 ? "" : "ren"}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Room</p>
-                  <p className="text-sm font-bold text-gray-900">{roomNames}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Meals</p>
-                  <p className="text-sm font-bold text-gray-900">Breakfast Included</p>
-                </div>
+                <DetailField label="Duration" value={`${nights} Night${nights > 1 ? "s" : ""}`} />
+                <DetailField label="Guests" value={`${adults} adult${adults !== 1 ? "s" : ""} + ${children} child${children === 1 ? "" : "ren"}`} />
+                <DetailField label="Room" value={roomNames} />
+                <DetailField label="Meals" value="Breakfast Included" />
               </div>
             </div>
 
-            {/* Room Details */}
             {rooms.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-4">
@@ -421,30 +355,12 @@ export default function BookingDetailsView() {
                             )}
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 flex-1 min-w-0">
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Room Name</p>
-                              <p className="text-sm font-bold text-gray-900">{room.room_name}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Room Type</p>
-                              <p className="text-sm font-semibold text-gray-900">{room.room_type}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Bed Type</p>
-                              <p className="text-sm font-semibold text-gray-900">{room.bed_type}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Max Adults</p>
-                              <p className="text-sm font-semibold text-gray-900">{room.max_adults}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Max Children</p>
-                              <p className="text-sm font-semibold text-gray-900">{room.max_children}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Base Rate</p>
-                              <p className="text-sm font-semibold text-gray-900">{CUR} {room.base_rate.toFixed(2)} / night</p>
-                            </div>
+                            <DetailField label="Room Name" value={room.room_name} />
+                            <DetailField label="Room Type" value={room.room_type} />
+                            <DetailField label="Bed Type" value={room.bed_type} />
+                            <DetailField label="Max Adults" value={room.max_adults} />
+                            <DetailField label="Max Children" value={room.max_children} />
+                            <DetailField label="Base Rate" value={`${currency} ${room.base_rate.toFixed(2)} / night`} />
                           </div>
                         </div>
                       </div>
@@ -454,33 +370,19 @@ export default function BookingDetailsView() {
               </div>
             )}
 
-            {/* Guest Details */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Users size={16} className="text-brand-accent" />
                 <h3 className="text-sm font-bold text-gray-900">Guest Details</h3>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Name</p>
-                  <p className="text-sm font-semibold text-gray-900">{guestName}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Email</p>
-                  <p className="text-sm font-semibold text-gray-900">{guestEmail || "N/A"}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Phone</p>
-                  <p className="text-sm font-semibold text-gray-900">{guestPhone || "N/A"}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Nationality</p>
-                  <p className="text-sm font-semibold text-gray-900">{guestNationality || "N/A"}</p>
-                </div>
+                <DetailField label="Name" value={guestName} />
+                <DetailField label="Email" value={guestEmail || "N/A"} />
+                <DetailField label="Phone" value={guestPhone || "N/A"} />
+                <DetailField label="Nationality" value={guestNationality || "N/A"} />
               </div>
             </div>
 
-            {/* Cancellation Policy */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <h3 className="text-sm font-bold text-gray-900 mb-3">Cancellation Policy</h3>
               {rooms.some((r) => r.cancellation_title || r.cancellation_description) ? (
@@ -503,7 +405,7 @@ export default function BookingDetailsView() {
                   <li className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                     <span className="text-sm text-gray-600">
-                      Free cancellation before {checkIn ? fmtShortDate(checkIn) : "N/A"} (2:00 PM).
+                      Free cancellation before {checkIn ? formatDateShort(checkIn) : "N/A"} (2:00 PM).
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
@@ -523,10 +425,8 @@ export default function BookingDetailsView() {
             </div>
           </div>
 
-          {/* Right Column */}
           <div className="space-y-6">
 
-            {/* Payment Summary */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <div className="flex items-center gap-2 mb-4">
                 <FileText size={16} className="text-brand-accent" />
@@ -535,59 +435,51 @@ export default function BookingDetailsView() {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Room Price</span>
-                  <span className="text-sm font-semibold text-gray-900">{CUR} {basePrice.toLocaleString()}</span>
+                  <span className="text-sm font-semibold text-gray-900">{currency} {basePrice.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Taxes & Fees</span>
-                  <span className="text-sm font-semibold text-gray-900">{CUR} {Math.abs(taxAmount).toLocaleString()}</span>
+                  <span className="text-sm font-semibold text-gray-900">{currency} {Math.abs(taxAmount).toLocaleString()}</span>
                 </div>
                 {specialOfferDiscount > 0 && (
                   <div className="flex justify-between items-center text-emerald-600">
                     <span className="text-sm">Special Offer Discount</span>
-                    <span className="text-sm font-semibold">- {CUR} {specialOfferDiscount.toLocaleString()}</span>
+                    <span className="text-sm font-semibold">- {currency} {specialOfferDiscount.toLocaleString()}</span>
                   </div>
                 )}
-                {couponDiscount > 0 && apiBooking?.coupon_code && (
+                {couponDiscount > 0 && booking?.coupon_code && (
                   <div className="flex justify-between items-center text-emerald-600">
-                    <span className="text-sm">Coupon ({apiBooking.coupon_code})</span>
-                    <span className="text-sm font-semibold">- {CUR} {couponDiscount.toLocaleString()}</span>
+                    <span className="text-sm">Coupon ({booking.coupon_code})</span>
+                    <span className="text-sm font-semibold">- {currency} {couponDiscount.toLocaleString()}</span>
                   </div>
                 )}
                 <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
                   <span className="text-sm font-bold text-gray-900">Total Paid</span>
-                  <span className="text-lg font-bold text-gray-900">{CUR} {totalAmount.toLocaleString()}</span>
+                  <span className="text-lg font-bold text-gray-900">{currency} {totalAmount.toLocaleString()}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Payment Method</p>
-                    <p className="text-sm font-semibold text-gray-900">{paymentGateway || "Razorpay"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Transaction ID</p>
-                    <p className="text-sm font-semibold text-gray-900 font-mono">pay_{refNumber.slice(0, 12)}</p>
-                  </div>
+                  <DetailField label="Payment Method" value={paymentGateway || '—'} />
+                  <DetailField label="Transaction ID" value={`pay_${refNumber.slice(0, 12)}`} mono />
                 </div>
               </div>
             </div>
 
-            {/* Actions toolbar */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
               <div className="px-5 py-4 border-b border-gray-200">
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={handleCopyCode} className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:border-[#0071c2] transition cursor-pointer">
+                   <button onClick={handleCopyCodeClick} className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:border-[#0071c2] transition cursor-pointer">
                     <Copy size={14} /> {copied ? 'Copied' : 'Copy'}
                   </button>
-                  <button onClick={handleShare} className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:border-[#0071c2] transition cursor-pointer">
+                   <button onClick={handleShareClick} className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:border-[#0071c2] transition cursor-pointer">
                     <Share2 size={14} /> Share
                   </button>
-                  <button onClick={handleDownloadReceipt} className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:border-[#0071c2] transition cursor-pointer">
+                   <button onClick={handleDownloadReceiptClick} className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:border-[#0071c2] transition cursor-pointer">
                     <Download size={14} /> Receipt
                   </button>
                 </div>
 
               </div>
 
-              {/* Reservation QR */}
               <div className="p-5">
                 <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4">
                   <div className="flex items-center gap-2 text-gray-900">
@@ -605,7 +497,6 @@ export default function BookingDetailsView() {
               </div>
             </div>
 
-            {/* Cancel Booking */}
             {(bookingStatus === "upcoming" || bookingStatus === "CONFIRMED") && (
               <div className="bg-white rounded-xl border border-red-200 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-2">
@@ -613,7 +504,7 @@ export default function BookingDetailsView() {
                   <h3 className="text-sm font-bold text-red-700">Cancel Booking</h3>
                 </div>
                 <p className="text-xs text-gray-500 mb-3">
-                  You can cancel this booking before {checkIn ? fmtShortDate(checkIn) : "N/A"} (2:00 PM).
+                  You can cancel this booking before {checkIn ? formatDateShort(checkIn) : "N/A"} (2:00 PM).
                 </p>
                 <button
                   onClick={() => {
@@ -628,7 +519,6 @@ export default function BookingDetailsView() {
               </div>
             )}
 
-            {/* Book Again */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <h3 className="text-sm font-bold text-gray-900 mb-1">Book Again</h3>
               <p className="text-xs text-gray-500 mb-3">Love this property?</p>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../api";
 import { Property } from "./useSearchProperties";
+import { getDefaultDates } from "../utils/date";
 
 function hasPermissionApi(): boolean {
   return typeof navigator !== "undefined" && "permissions" in navigator;
@@ -19,8 +20,7 @@ export function useNearbyProperties(limit = 6) {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
         });
-        const today = new Date().toISOString().split("T")[0];
-        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+        const { today, tomorrow } = getDefaultDates();
         const { data } = await api.get("/search/nearby", {
           params: {
             lat: pos.coords.latitude,

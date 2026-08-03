@@ -1,39 +1,20 @@
 import { useState, useEffect } from "react";
 import api from "../api";
+import { getDefaultDates } from "../utils/date";
+import { parseSearchResponse } from "../utils/helpers";
+import type { SearchProperty } from "../types/api";
 
-export interface Property {
-  property_id: string;
-  name: string;
-  type: string;
-  country: string;
-  state: string;
-  city: string;
-  address: string;
-  currency: string;
-  cover_photo: string;
-  distance_km?: number;
-  total_price?: number;
-  lowest_rate?: number;
-  nights?: number;
-  description?: string;
-  total_rooms?: number;
-  year_built?: number;
-  phone_number?: string;
-  email?: string;
-  system_amenities?: { id: string; name: string; icon: string }[];
-  custom_amenities?: { icon: string | null; name: string }[];
-}
+export type { SearchProperty as Property };
 
 export function useSearchProperties(destination: string, limit = 6) {
-  const [properties, setProperties] = useState<Property[]>([]);
+  const [properties, setProperties] = useState<SearchProperty[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProperties = async () => {
       setLoading(true);
       try {
-        const today = new Date().toISOString().split("T")[0];
-        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+        const { today, tomorrow } = getDefaultDates();
         const { data } = await api.get("/search", {
           params: {
             destination,
@@ -44,8 +25,7 @@ export function useSearchProperties(destination: string, limit = 6) {
             rooms: "1",
           },
         });
-        const results: Property[] = data?.data?.results
-          || (Array.isArray(data?.data) ? data.data : data?.results || []);
+        const results = parseSearchResponse<SearchProperty>(data);
         const withDetails = await Promise.all(
           results.slice(0, limit).map(async (p) => {
             try {

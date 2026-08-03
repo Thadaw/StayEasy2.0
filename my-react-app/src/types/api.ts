@@ -50,3 +50,27 @@ export interface ApiRoom {
   system_amenity_ids: string[]
   custom_amenities: { icon: string | null; name: string }[]
 }
+
+export interface SearchProperty {
+  property_id: string
+  name: string
+  type: string
+  country: string
+  state: string
+  city: string
+  address: string
+  currency: string
+  cover_photo: string
+  distance_km?: number
+  total_price?: number
+  lowest_rate?: number
+  nights?: number
+  description?: string
+  total_rooms?: number
+  year_built?: number
+  phone_number?: string
+  email?: string
+  system_amenities?: { id: string; name: string; icon: string }[]
+  custom_amenities?: { icon: string | null; name: string }[]
+  amenities?: string[]
+}

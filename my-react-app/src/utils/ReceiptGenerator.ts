@@ -1,4 +1,4 @@
-import { parseBookingDate } from '../../utils/time'
+import { parseBookingDate } from './time'
 
 interface ReceiptRoom {
   room_name: string
@@ -32,6 +32,15 @@ interface ReceiptData {
   totalAmount: number
   currency: string
   createdAt?: string
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
 }
 
 function fmtDate(d: string) {
@@ -70,6 +79,82 @@ export function generateReceiptHTML(data: ReceiptData): string {
   const receiptTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
   const receiptNo = `RCP-${new Date().toISOString().slice(0,10).replace(/-/g, '')}-${Math.floor(Math.random() * 9000 + 1000)}`
 
+  const safe = escapeHtml
+
+  const bookingDate = createdAt
+    ? `${safe(fmtShortDate(createdAt))}, ${new Date(createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+    : `${receiptDate}  ${receiptTime}`
+
+  const roomBlocks = rooms.map((r) => `
+    <div style="margin-bottom: 12px;">
+      <div class="row">
+        <span class="label">Room</span>
+        <span class="colon">:</span>
+        <span class="value">${safe(r.room_name)}</span>
+      </div>
+      <div class="row">
+        <span class="label" style="padding-left: 15px;">Type</span>
+        <span class="colon">:</span>
+        <span class="value">${safe(r.room_type)}</span>
+      </div>
+      <div class="row">
+        <span class="label" style="padding-left: 15px;">Bed</span>
+        <span class="colon">:</span>
+        <span class="value">${safe(r.bed_type)}</span>
+      </div>
+      <div class="row">
+        <span class="label" style="padding-left: 15px;">Guests</span>
+        <span class="colon">:</span>
+        <span class="value">Max ${r.max_adults} adults${r.max_children > 0 ? `, ${r.max_children} children` : ''}</span>
+      </div>
+      <div class="row">
+        <span class="label" style="padding-left: 15px;">Rate</span>
+        <span class="colon">:</span>
+        <span class="value">${safe(currency)}${r.base_rate.toFixed(2)} × ${r.nights} night${r.nights > 1 ? 's' : ''}</span>
+      </div>
+      <div class="row">
+        <span class="label" style="padding-left: 15px;">Subtotal</span>
+        <span class="colon">:</span>
+        <span class="value">${safe(currency)}${r.subtotal.toFixed(2)}</span>
+      </div>
+    </div>
+  `).join('')
+
+  const discountRows = `
+    ${(specialOfferDiscount || 0) > 0 ? `
+    <div class="row">
+      <span class="label">Special Offer</span>
+      <span class="colon">:</span>
+      <span class="value" style="color: #16a34a;">-${safe(currency)}${(specialOfferDiscount || 0).toFixed(2)}</span>
+    </div>
+    ` : ''}
+    ${couponCode ? `
+    <div class="row">
+      <span class="label">Coupon (${safe(couponCode)})</span>
+      <span class="colon">:</span>
+      <span class="value" style="color: #16a34a;">-${safe(currency)}${(couponDiscount || 0).toFixed(2)}</span>
+    </div>
+    ` : ''}
+  `
+
+  const optionalRows = `
+    ${propertyPhone ? `<div class="row">
+      <span class="label">Phone</span>
+      <span class="colon">:</span>
+      <span class="value">${safe(propertyPhone)}</span>
+    </div>` : ''}
+    ${propertyEmail ? `<div class="row">
+      <span class="label">Email</span>
+      <span class="colon">:</span>
+      <span class="value">${safe(propertyEmail)}</span>
+    </div>` : ''}
+    ${guestNationality ? `<div class="row">
+      <span class="label">Nationality</span>
+      <span class="colon">:</span>
+      <span class="value">${safe(guestNationality)}</span>
+    </div>` : ''}
+  `
+
   return `
     <!DOCTYPE html>
     <html>
@@ -104,7 +189,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
     <body>
       <div class="receipt">
         <div class="header" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-          <img src="\${window.location.origin}/logo1.png" alt="StayEasy" style="height: 50px;">
+          <img src="${window.location.origin}/logo1.png" alt="StayEasy" style="height: 50px;">
           <span style="font-size: 28px; font-weight: 800; color: #1a1a1a;">StayEasy</span>
         </div>
         <div class="tagline">Make Every Stay Effortless</div>
@@ -115,12 +200,12 @@ export function generateReceiptHTML(data: ReceiptData): string {
         <div class="row">
           <span class="label">Confirmation Code</span>
           <span class="colon">:</span>
-          <span class="value">${confirmationCode}</span>
+          <span class="value">${safe(confirmationCode)}</span>
         </div>
         <div class="row">
           <span class="label">Booking Date</span>
           <span class="colon">:</span>
-          <span class="value">${createdAt ? \`\${fmtShortDate(createdAt)}, \${new Date(createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}\` : \`\${receiptDate}  \${receiptTime}\`}</span>
+          <span class="value">${bookingDate}</span>
         </div>
         <div class="row">
           <span class="label">Receipt No.</span>
@@ -133,23 +218,14 @@ export function generateReceiptHTML(data: ReceiptData): string {
         <div class="row">
           <span class="label">Hotel</span>
           <span class="colon">:</span>
-          <span class="value">${propertyName}</span>
+          <span class="value">${safe(propertyName)}</span>
         </div>
         <div class="row">
           <span class="label">Location</span>
           <span class="colon">:</span>
-          <span class="value">${propertyLocation}</span>
+          <span class="value">${safe(propertyLocation)}</span>
         </div>
-        ${propertyPhone ? \`<div class="row">
-          <span class="label">Phone</span>
-          <span class="colon">:</span>
-          <span class="value">\${propertyPhone}</span>
-        </div>\` : ''}
-        ${propertyEmail ? \`<div class="row">
-          <span class="label">Email</span>
-          <span class="colon">:</span>
-          <span class="value">\${propertyEmail}</span>
-        </div>\` : ''}
+        ${optionalRows}
         <div class="row">
           <span class="label">Check-in</span>
           <span class="colon">:</span>
@@ -163,7 +239,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
         <div class="row">
           <span class="label">Rooms</span>
           <span class="colon">:</span>
-          <span class="value">${roomNames}</span>
+          <span class="value">${safe(roomNames)}</span>
         </div>
         <div class="row">
           <span class="label">Guests</span>
@@ -173,82 +249,31 @@ export function generateReceiptHTML(data: ReceiptData): string {
         <div class="row">
           <span class="label">Guest Name</span>
           <span class="colon">:</span>
-          <span class="value">${guestName}</span>
+          <span class="value">${safe(guestName)}</span>
         </div>
         <div class="row">
           <span class="label">Guest Email</span>
           <span class="colon">:</span>
-          <span class="value">${guestEmail || 'N/A'}</span>
+          <span class="value">${guestEmail ? safe(guestEmail) : 'N/A'}</span>
         </div>
         <div class="row">
           <span class="label">Guest Phone</span>
           <span class="colon">:</span>
-          <span class="value">${guestPhone || 'N/A'}</span>
+          <span class="value">${guestPhone ? safe(guestPhone) : 'N/A'}</span>
         </div>
-        ${guestNationality ? \`<div class="row">
-          <span class="label">Nationality</span>
-          <span class="colon">:</span>
-          <span class="value">\${guestNationality}</span>
-        </div>\` : ''}
         
         <hr class="divider">
 
-        \${rooms.map((r) => \`
-        <div style="margin-bottom: 12px;">
-          <div class="row">
-            <span class="label">Room</span>
-            <span class="colon">:</span>
-            <span class="value">\${r.room_name}</span>
-          </div>
-          <div class="row">
-            <span class="label" style="padding-left: 15px;">Type</span>
-            <span class="colon">:</span>
-            <span class="value">\${r.room_type}</span>
-          </div>
-          <div class="row">
-            <span class="label" style="padding-left: 15px;">Bed</span>
-            <span class="colon">:</span>
-            <span class="value">\${r.bed_type}</span>
-          </div>
-          <div class="row">
-            <span class="label" style="padding-left: 15px;">Guests</span>
-            <span class="colon">:</span>
-            <span class="value">Max \${r.max_adults} adults\${r.max_children > 0 ? \`, \${r.max_children} children\` : ''}</span>
-          </div>
-          <div class="row">
-            <span class="label" style="padding-left: 15px;">Rate</span>
-            <span class="colon">:</span>
-            <span class="value">\${currency}\${r.base_rate.toFixed(2)} × \${r.nights} night\${r.nights > 1 ? 's' : ''}</span>
-          </div>
-          <div class="row">
-            <span class="label" style="padding-left: 15px;">Subtotal</span>
-            <span class="colon">:</span>
-            <span class="value">\${currency}\${r.subtotal.toFixed(2)}</span>
-          </div>
-        </div>
-        \`).join('')}
+        ${roomBlocks}
 
-        \${(specialOfferDiscount || 0) > 0 ? \`
-        <div class="row">
-          <span class="label">Special Offer</span>
-          <span class="colon">:</span>
-          <span class="value" style="color: #16a34a;">-\${currency}\${(specialOfferDiscount || 0).toFixed(2)}</span>
-        </div>
-        \` : ''}
-        \${couponCode ? \`
-        <div class="row">
-          <span class="label">Coupon (\${couponCode})</span>
-          <span class="colon">:</span>
-          <span class="value" style="color: #16a34a;">-\${currency}\${(couponDiscount || 0).toFixed(2)}</span>
-        </div>
-        \` : ''}
+        ${discountRows}
         
         <hr class="divider">
         
         <div class="total-row">
           <span class="total-label">Total Paid</span>
           <span class="total-colon">:</span>
-          <span class="total-value">\${currency}\${totalAmount.toLocaleString()}</span>
+          <span class="total-value">${safe(currency)}${totalAmount.toLocaleString()}</span>
         </div>
         
         <hr class="divider">

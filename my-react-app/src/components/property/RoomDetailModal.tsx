@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, MapPin, Users, Bed, Bath, Maximize, Calendar, Shield } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users, Bed, Bath, Maximize, Calendar, Shield } from "lucide-react";
 import { Hotel, RoomType } from "../../data/hotels";
 
 interface RoomDetailModalProps {
@@ -24,7 +24,6 @@ export function RoomDetailModal({ room, hotel, roomGuestCounts, onClose, onReser
         onClick={e => e.stopPropagation()}
       >
         <div className="overflow-y-auto flex-1">
-          {/* Image Gallery */}
           <div className="relative">
             <div className="relative h-[300px] md:h-[400px] bg-muted">
               <img
@@ -77,7 +76,6 @@ export function RoomDetailModal({ room, hotel, roomGuestCounts, onClose, onReser
           </div>
 
           <div className="p-6">
-            {/* Room Name & Price */}
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-xl font-bold text-foreground">{room.name}</h3>
@@ -88,7 +86,6 @@ export function RoomDetailModal({ room, hotel, roomGuestCounts, onClose, onReser
               </div>
             </div>
 
-            {/* Quick Info Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-4 border-t border-b border-border">
               <div className="flex items-center gap-2">
                 <Bed size={16} className="text-muted-foreground" />
@@ -120,7 +117,6 @@ export function RoomDetailModal({ room, hotel, roomGuestCounts, onClose, onReser
               </div>
             </div>
 
-            {/* Cancellation Policy */}
             {room.cancellationTitle && (
               <div className="py-4 border-b border-border">
                 <div className="flex items-start gap-3 bg-green-50 rounded-xl p-4">
@@ -133,7 +129,6 @@ export function RoomDetailModal({ room, hotel, roomGuestCounts, onClose, onReser
               </div>
             )}
 
-            {/* Custom Amenities */}
             {room.customAmenities && room.customAmenities.length > 0 && (
               <div className="py-4 border-b border-border">
                 <h4 className="text-sm font-semibold text-foreground mb-3">Room Amenities</h4>
@@ -147,7 +142,6 @@ export function RoomDetailModal({ room, hotel, roomGuestCounts, onClose, onReser
               </div>
             )}
 
-            {/* Room Facilities */}
             {room.roomFacilities && room.roomFacilities.length > 0 && (
               <div className="py-4 border-b border-border">
                 <h4 className="text-sm font-semibold text-foreground mb-3">Room Facilities</h4>
@@ -164,7 +158,6 @@ export function RoomDetailModal({ room, hotel, roomGuestCounts, onClose, onReser
               </div>
             )}
 
-            {/* Bathroom Amenities */}
             {room.bathroomAmenities && room.bathroomAmenities.length > 0 && (
               <div className="py-4 border-b border-border">
                 <h4 className="text-sm font-semibold text-foreground mb-3">Private Bathroom</h4>
@@ -179,7 +172,6 @@ export function RoomDetailModal({ room, hotel, roomGuestCounts, onClose, onReser
               </div>
             )}
 
-            {/* Policies */}
             <div className="py-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
               {room.smokingPolicy && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -195,7 +187,6 @@ export function RoomDetailModal({ room, hotel, roomGuestCounts, onClose, onReser
           </div>
         </div>
 
-        {/* Footer */}
         <div className="bg-white p-4 border-t border-border flex items-center justify-between rounded-b-2xl">
           <div>
             <p className="text-xl font-bold text-foreground">${room.price}<span className="text-sm font-normal text-muted-foreground">/night</span></p>

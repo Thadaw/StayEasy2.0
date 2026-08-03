@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { Star, Heart } from "lucide-react";
+import { Star } from "lucide-react";
 import { trendingDestinations } from "../../data/trendingDestinations";
 import { useFavorites } from "../../context/FavoritesContext";
+import { FavouriteButton } from "../common/FavouriteButton";
 
 export function TrendingSection() {
   const navigate = useNavigate();
@@ -21,9 +22,7 @@ export function TrendingSection() {
                 alt={dest.name}
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
-              <button onClick={(e) => { e.stopPropagation(); toggleFavorite(dest.id); }} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors">
-                <Heart size={14} className={isFavorite(dest.id) ? "text-red-500 fill-red-500" : "text-gray-600 hover:text-red-500 transition-colors"} />
-              </button>
+              <FavouriteButton isFavourite={isFavorite(dest.id)} onToggle={() => toggleFavorite(dest.id)} />
               <span className="absolute top-2 left-2 px-2 py-0.5 bg-white/90 backdrop-blur-sm rounded-full text-[9px] font-semibold" style={{ color: "var(--brand-heading)" }}>{dest.type}</span>
             </div>
             <div className="px-3 py-2 relative">

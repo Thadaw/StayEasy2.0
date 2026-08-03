@@ -5,21 +5,18 @@ interface RecommendedRoomProps {
   guestCount: number;
   checkIn: string;
   onReserve: (roomId: string) => void;
-  CUR?: string;
+  currency?: string;
   roomQuantities?: Record<string, number>;
 }
 
-export function RecommendedRoom({ room, guestCount, checkIn, onReserve, CUR = '$', roomQuantities = {} }: RecommendedRoomProps) {
+export function RecommendedRoom({ room, guestCount, checkIn, onReserve, currency = '$', roomQuantities = {} }: RecommendedRoomProps) {
   const selected = (roomQuantities[room.id] || 0) > 0;
 
   return (
     <div className="flex flex-col md:flex-row items-stretch gap-4 p-4 rounded-xl border border-brand-primary-extra-light bg-brand-primary-extra-light hover:border-primary/70 transition-all">
-      {/* Image */}
       <img src={room.image} alt={room.name} className="w-full md:w-36 h-48 md:h-36 rounded-lg object-cover shrink-0" />
 
-      {/* Middle section - Room Details + Policies */}
       <div className="flex-1 min-w-0 flex flex-col md:flex-row gap-3 md:gap-4">
-        {/* Room Details */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-foreground">{room.name}</p>
@@ -47,10 +44,9 @@ export function RecommendedRoom({ room, guestCount, checkIn, onReserve, CUR = '$
 
       </div>
 
-      {/* Price & Reserve */}
       <div className="flex md:flex-col items-center md:items-end justify-between gap-3 md:gap-0">
         <div className="text-right">
-          <p className="text-sm font-bold text-foreground">{CUR}{room.price}<span className="text-[10px] font-normal text-muted-foreground">/night</span></p>
+          <p className="text-sm font-bold text-foreground">{currency}{room.price}<span className="text-[10px] font-normal text-muted-foreground">/night</span></p>
         </div>
         <div className="flex flex-col items-center md:items-end gap-1">
           <button

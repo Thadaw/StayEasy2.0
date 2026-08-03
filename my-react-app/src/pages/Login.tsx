@@ -88,7 +88,6 @@ export default function Login() {
           boxShadow: '0 8px 40px rgba(0,0,0,0.13)',
         }}
       >
-        {/* Animated scene panel */}
         <div style={{ width: '50%', background: '#dde0ee', order: 1, flexShrink: 0 }}>
           <BuildingScene
             mode="login"
@@ -99,7 +98,6 @@ export default function Login() {
           />
         </div>
 
-        {/* Form panel */}
         <div
           style={{
             width: '50%',
@@ -112,7 +110,6 @@ export default function Login() {
             flexShrink: 0,
           }}
         >
-          {/* Tabs */}
           <div style={{ display: 'flex', marginBottom: 8 }}>
             <div
               style={{
@@ -152,7 +149,6 @@ export default function Login() {
             {isHost ? 'Manage your properties' : 'Please enter your details'}
           </div>
 
-          {/* Email */}
           <div style={{ position: 'relative', marginBottom: 13 }}>
             <label
               style={{
@@ -186,7 +182,6 @@ export default function Login() {
             />
           </div>
 
-          {/* Password */}
           <div style={{ position: 'relative', marginBottom: 13 }}>
             <label
               style={{
@@ -240,7 +235,6 @@ export default function Login() {
             </button>
           </div>
 
-          {/* Remember / forgot */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 13 }}>
             <input
               type="checkbox"

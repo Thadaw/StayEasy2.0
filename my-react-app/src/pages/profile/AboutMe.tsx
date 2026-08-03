@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { Camera, Pencil, Check, X, Star, Calendar, Shield, Mail, Phone, User, MapPin } from 'lucide-react'
+import { StatBadge } from '../../components/common/StatBadge'
 import api from '../../api'
 
 interface GuestProfile {
@@ -17,7 +18,7 @@ export default function AboutMe() {
   const { user, updateProfile } = useAuth()
   const {
     firstName, lastName, displayInitials,
-    photoData, showPhotoMenu, setShowPhotoMenu,
+    photoUrl, showPhotoMenu, setShowPhotoMenu,
     handlePhotoSelected, removePhoto,
     fileInputRef, cameraInputRef,
   } = useUserProfile()
@@ -27,9 +28,11 @@ export default function AboutMe() {
   const [saving, setSaving] = useState(false)
   const [guestProfile, setGuestProfile] = useState<GuestProfile | null>(null)
 
-  const [editFirstName, setEditFirstName] = useState(user?.firstName || '')
-  const [editLastName, setEditLastName] = useState(user?.lastName || '')
-  const [editPhone, setEditPhone] = useState(user?.phone || '')
+  const [editForm, setEditForm] = useState({
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    phone: user?.phone || '',
+  })
 
   const yearsOnPlatform = user?.joinedDate
     ? Math.max(1, Math.floor((Date.now() - new Date(user.joinedDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)))
@@ -53,9 +56,9 @@ export default function AboutMe() {
 
   const handleSaveProfile = async () => {
     setSaving(true)
-    const first = editFirstName.trim()
-    const last = editLastName.trim()
-    await updateProfile({ first_name: first || firstName, last_name: last || lastName, phone: editPhone })
+    const first = editForm.firstName.trim()
+    const last = editForm.lastName.trim()
+    await updateProfile({ first_name: first || firstName, last_name: last || lastName, phone: editForm.phone })
     setEditingProfile(false)
     setSaving(false)
   }
@@ -69,15 +72,13 @@ export default function AboutMe() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      {/* Profile Card */}
       <div className="bg-white rounded-xl border border-brand-card-border overflow-hidden">
         <div className="p-8">
           <div className="flex items-start gap-8">
-            {/* Avatar */}
             <div className="flex flex-col items-center shrink-0">
               <div className="relative">
-                {photoData ? (
-                  <img src={photoData} alt="Profile" className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-card" />
+                {photoUrl ? (
+                  <img src={photoUrl} alt="Profile" className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-card" />
                 ) : (
                   <div className="w-28 h-28 rounded-full bg-brand-accent flex items-center justify-center text-3xl font-bold text-white shadow-card">
                     {displayInitials}
@@ -99,7 +100,7 @@ export default function AboutMe() {
                       <button onClick={() => cameraInputRef.current?.click()} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-brand-heading hover:bg-brand-secondary-surface transition-colors border-none cursor-pointer text-left">
                         <Camera size={15} className="text-brand-text-secondary" /> Take photo
                       </button>
-                      {photoData && (
+                      {photoUrl && (
                         <button onClick={removePhoto} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-brand-danger hover:bg-brand-danger-light transition-colors border-none cursor-pointer text-left">
                           <X size={15} /> Remove photo
                         </button>
@@ -112,7 +113,6 @@ export default function AboutMe() {
               </div>
             </div>
 
-            {/* Info */}
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl font-bold text-brand-heading mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
                 {guestProfile?.full_name || `${firstName} ${lastName}`}
@@ -136,20 +136,12 @@ export default function AboutMe() {
                 </div>
               )}
 
-              {/* Stats */}
               <div className="flex items-center gap-6 py-3 px-5 rounded-lg bg-brand-background border border-brand-card-border mb-5">
-                <div className="flex items-center gap-2 text-sm text-brand-text-secondary">
-                  <Star size={15} className="text-brand-heading" />
-                  <span className="font-semibold text-brand-heading">0</span> Reviews
-                </div>
+                <StatBadge icon={Star} value={0} label="Reviews" />
                 <div className="w-px h-5 bg-brand-card-border" />
-                <div className="flex items-center gap-2 text-sm text-brand-text-secondary">
-                  <Calendar size={15} className="text-brand-heading" />
-                  <span className="font-semibold text-brand-heading">{yearsOnPlatform}</span> {yearsOnPlatform === 1 ? 'Year' : 'Years'} on StayEasy
-                </div>
+                <StatBadge icon={Calendar} value={yearsOnPlatform} label={yearsOnPlatform === 1 ? 'Year on StayEasy' : 'Years on StayEasy'} />
               </div>
 
-              {/* Contact Info */}
               <div className="space-y-3">
                 <div className="flex items-center gap-3 text-sm">
                   <User size={15} className="text-brand-text-secondary shrink-0" />
@@ -157,14 +149,14 @@ export default function AboutMe() {
                   {editingProfile ? (
                     <div className="flex gap-2 flex-1">
                       <input
-                        value={editFirstName}
-                        onChange={e => setEditFirstName(e.target.value)}
+                        value={editForm.firstName}
+                        onChange={e => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
                         placeholder="First name"
                         className="flex-1 px-3 py-1.5 text-sm border border-brand-card-border rounded-lg outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent text-brand-heading"
                       />
                       <input
-                        value={editLastName}
-                        onChange={e => setEditLastName(e.target.value)}
+                        value={editForm.lastName}
+                        onChange={e => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
                         placeholder="Last name"
                         className="flex-1 px-3 py-1.5 text-sm border border-brand-card-border rounded-lg outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent text-brand-heading"
                       />
@@ -183,8 +175,8 @@ export default function AboutMe() {
                   <span className="w-16 text-brand-text-secondary">Phone</span>
                   {editingProfile ? (
                     <input
-                      value={editPhone}
-                      onChange={e => setEditPhone(e.target.value)}
+                      value={editForm.phone}
+                      onChange={e => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
                       placeholder="+1 (555) 123-4567"
                       className="flex-1 max-w-[220px] px-3 py-1.5 text-sm border border-brand-card-border rounded-lg outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent text-brand-heading"
                     />
@@ -199,12 +191,11 @@ export default function AboutMe() {
                 </div>
               </div>
 
-              {/* Edit / Save Profile */}
               <div className="mt-6">
                 {editingProfile ? (
                   <div className="flex gap-2">
                     <button
-                      onClick={() => { setEditingProfile(false); setEditFirstName(firstName); setEditLastName(lastName); setEditPhone(user?.phone || '') }}
+                      onClick={() => { setEditingProfile(false); setEditForm({ firstName, lastName, phone: user?.phone || '' }) }}
                       className="px-5 py-2 text-sm font-semibold rounded-lg border border-brand-card-border bg-white text-brand-text-secondary hover:bg-brand-secondary-surface transition-colors cursor-pointer"
                     >
                       Cancel
@@ -219,7 +210,7 @@ export default function AboutMe() {
                   </div>
                 ) : (
                   <button
-                    onClick={() => { setEditFirstName(firstName); setEditLastName(lastName); setEditPhone(user?.phone || ''); setEditingProfile(true) }}
+                    onClick={() => { setEditForm({ firstName, lastName, phone: user?.phone || '' }); setEditingProfile(true) }}
                     className="px-5 py-2 text-sm font-semibold rounded-lg border border-brand-card-border bg-white text-brand-heading hover:bg-brand-secondary-surface transition-colors cursor-pointer"
                   >
                     Edit Profile
@@ -231,7 +222,6 @@ export default function AboutMe() {
         </div>
       </div>
 
-      {/* About Me Section */}
       <div className="bg-white rounded-xl border border-brand-card-border overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-brand-card-border">
           <div className="flex items-center gap-2">

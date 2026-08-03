@@ -14,7 +14,7 @@ export function useUserProfile() {
   const displayInitials = initials.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'
 
   const photoKey = user?.id ? `photo_${user.id}` : 'photo_guest'
-  const [photoData, setPhotoData] = useState<string>(() => localStorage.getItem(photoKey) || '')
+  const [photoUrl, setPhotoUrl] = useState<string>(() => localStorage.getItem(photoKey) || '')
   const [showPhotoMenu, setShowPhotoMenu] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -27,7 +27,7 @@ export function useUserProfile() {
     reader.onload = () => {
       const data = reader.result as string
       localStorage.setItem(photoKey, data)
-      setPhotoData(data)
+      setPhotoUrl(data)
       setShowPhotoMenu(false)
     }
     reader.readAsDataURL(file)
@@ -36,7 +36,7 @@ export function useUserProfile() {
 
   const removePhoto = useCallback(() => {
     localStorage.removeItem(photoKey)
-    setPhotoData('')
+    setPhotoUrl('')
     setShowPhotoMenu(false)
   }, [photoKey])
 
@@ -44,8 +44,8 @@ export function useUserProfile() {
     firstName,
     lastName,
     displayInitials,
-    photoData,
-    setPhotoData,
+    photoUrl,
+    setPhotoUrl,
     showPhotoMenu,
     setShowPhotoMenu,
     handlePhotoSelected,

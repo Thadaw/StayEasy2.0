@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api'
+import { normalizeBookingStatus } from '../../utils/format'
 import { CalendarDays, Clock, X, ChevronRight, RefreshCw, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -131,7 +132,7 @@ export default function Bookings() {
   const filtered = bookings.filter(b => b.status === activeTab)
 
   const statusColor = (status: string) => {
-    switch (status) {
+    switch (normalizeBookingStatus(status)) {
       case 'upcoming': return 'bg-brand-accent-light text-brand-primary'
       case 'completed': return 'bg-brand-success-light text-brand-success'
       case 'cancelled': return 'bg-brand-danger-light text-brand-danger'
@@ -154,7 +155,6 @@ export default function Bookings() {
           )}
         </div>
 
-        {/* Tabs */}
         <div className="flex border-b border-brand-card-border px-6">
           {tabs.map(tab => (
             <button
@@ -172,7 +172,6 @@ export default function Bookings() {
           ))}
         </div>
 
-        {/* Content */}
         <div className="p-6">
           {loading ? (
             <div className="flex flex-col items-center py-12">
@@ -273,7 +272,6 @@ export default function Bookings() {
         </div>
       </div>
 
-      {/* Cancel Confirmation Modal */}
       {cancelModal.show && cancelModal.booking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={closeCancelModal} />

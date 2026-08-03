@@ -1,6 +1,5 @@
 import { Loader2 } from 'lucide-react'
-
-type PaymentMethod = "stripe" | "razorpay" | "khalti"
+import type { PaymentMethod } from '../../types/booking'
 
 interface ConfirmButtonProps {
   selectedPayment: PaymentMethod | null

@@ -10,7 +10,7 @@ import logo1 from "../assets/logo1.png";
 export function Navbar({ compact }: { compact?: boolean }) {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
-  const { firstName, lastName, displayInitials, photoData } = useUserProfile();
+  const { firstName, lastName, displayInitials, photoUrl } = useUserProfile();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -45,7 +45,6 @@ export function Navbar({ compact }: { compact?: boolean }) {
     >
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] md:h-[68px] flex items-center gap-2 md:gap-4">
 
-        {/* Logo */}
         <Link to="/" className="shrink-0 flex items-center gap-1.5 md:gap-2 group">
           <img src={logo1} alt="StayEasy" className="h-[30px] sm:h-[34px] w-auto transition-transform duration-300 group-hover:scale-105" />
           <span
@@ -62,16 +61,13 @@ export function Navbar({ compact }: { compact?: boolean }) {
           </span>
         </Link>
 
-        {/* Right side */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto">
-          {/* Language picker - always visible */}
           {!compact && (
             <div className="ml-2">
               <LanguagePicker />
             </div>
           )}
 
-          {/* Become a Host - hidden on mobile */}
           {!compact && (
             <Link
               to="/host/login"
@@ -82,7 +78,6 @@ export function Navbar({ compact }: { compact?: boolean }) {
             </Link>
           )}
 
-          {/* User menu */}
           <div ref={menuRef} className="relative">
             <button
               onClick={() => { if (user) { navigate('/profile'); } else { setMenuOpen(v => !v); } }}
@@ -95,8 +90,8 @@ export function Navbar({ compact }: { compact?: boolean }) {
             >
               {user ? (
                 <>
-                  {photoData ? (
-                    <img src={photoData} alt="" className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover" />
+                  {photoUrl ? (
+                    <img src={photoUrl} alt="" className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover" />
                   ) : (
                     <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold text-white" style={{ backgroundColor: 'var(--brand-accent)' }}>
                       {displayInitials}
@@ -124,8 +119,8 @@ export function Navbar({ compact }: { compact?: boolean }) {
                   <>
                     <div className="px-4 py-4 border-b" style={{ borderColor: "var(--border)", backgroundColor: "var(--accent)" }}>
                       <div className="flex items-center gap-3">
-                        {photoData ? (
-                          <img src={photoData} alt="" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2" style={{ borderColor: "var(--primary)" }} />
+                        {photoUrl ? (
+                          <img src={photoUrl} alt="" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2" style={{ borderColor: "var(--primary)" }} />
                         ) : (
                           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-sm font-bold text-white border-2" style={{ backgroundColor: 'var(--brand-accent)', borderColor: "var(--primary)" }}>
                             {displayInitials}

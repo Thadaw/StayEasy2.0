@@ -29,7 +29,6 @@ interface Building {
   roof: 'antenna' | 'pointed' | 'dome' | 'flat'
   iSY: number
   iD: number
-  // runtime state
   introOY: number
   curTilt: number
   curOffY: number
@@ -167,7 +166,6 @@ export default function BuildingScene({
       door.angle = 0; door.target = 0
     }
 
-    // restart building drop-in intro
     introRef.current.t = 0
     introRef.current.active = true
     BLD.forEach(b => {
@@ -400,11 +398,9 @@ export default function BuildingScene({
       const showPhone = man.phoneAlpha > 0.02
       const bob = man.bodyBob || 0
 
-      // shadow
       ctx.fillStyle = 'rgba(0,0,0,0.1)'
       ctx.beginPath(); ctx.ellipse(0, 3, 11, 4, 0, 0, Math.PI * 2); ctx.fill()
 
-      // legs
       const ls = isMoving ? Math.sin(leg) * 18 : 0
       const rs = isMoving ? -Math.sin(leg) * 18 : 0
       ctx.strokeStyle = '#1a237e'; ctx.lineWidth = 5; ctx.lineCap = 'round'
@@ -418,22 +414,18 @@ export default function BuildingScene({
       ctx.restore()
 
       const by = bob
-      // suit jacket
       ctx.fillStyle = '#1a237e'
       ctx.beginPath(); ctx.roundRect(-10, -26 + by, 20, 26, 3); ctx.fill()
       ctx.fillStyle = 'rgba(0,0,0,0.16)'
       if (d > 0) { ctx.beginPath(); ctx.roundRect(2, -26 + by, 8, 26, 3); ctx.fill() }
       else { ctx.beginPath(); ctx.roundRect(-10, -26 + by, 8, 26, 3); ctx.fill() }
-      // lapels
       ctx.fillStyle = '#fff'
       ctx.beginPath(); ctx.moveTo(0, -26 + by); ctx.lineTo(-6, -15 + by); ctx.lineTo(0, -18 + by); ctx.closePath(); ctx.fill()
       ctx.beginPath(); ctx.moveTo(0, -26 + by); ctx.lineTo(6, -15 + by); ctx.lineTo(0, -18 + by); ctx.closePath(); ctx.fill()
-      // tie
       ctx.fillStyle = '#c62828'
       ctx.beginPath(); ctx.moveTo(-2, -25 + by); ctx.lineTo(2, -25 + by); ctx.lineTo(3, -13 + by); ctx.lineTo(0, -10 + by); ctx.lineTo(-3, -13 + by); ctx.closePath(); ctx.fill()
       ctx.fillStyle = '#b71c1c'; ctx.beginPath(); ctx.ellipse(0, -25 + by, 2.5, 2, 0, 0, Math.PI * 2); ctx.fill()
 
-      // arms
       ctx.strokeStyle = '#1a237e'; ctx.lineWidth = 4.5; ctx.lineCap = 'round'
       const as = isMoving ? Math.sin(leg) * 12 : 0
 
@@ -459,7 +451,6 @@ export default function BuildingScene({
       }
       ctx.restore()
 
-      // right arm + briefcase
       ctx.save(); ctx.rotate((as * Math.PI) / 180)
       ctx.beginPath(); ctx.moveTo(8, -22 + by); ctx.lineTo(11, -10 + by); ctx.stroke()
       ctx.fillStyle = '#6d4c41'; ctx.beginPath(); ctx.roundRect(9, -12 + by, 14, 10, 2); ctx.fill()
@@ -468,7 +459,6 @@ export default function BuildingScene({
       ctx.beginPath(); ctx.moveTo(13, -12 + by); ctx.lineTo(13, -14 + by); ctx.lineTo(19, -14 + by); ctx.lineTo(19, -12 + by); ctx.stroke()
       ctx.restore()
 
-      // neck
       ctx.fillStyle = '#f5cba7'; ctx.beginPath(); ctx.roundRect(-3, -30 + by, 6, 6, 1); ctx.fill()
 
       const headTilt = lookUp ? -d * 0.22 : 0
