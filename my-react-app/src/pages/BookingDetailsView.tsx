@@ -10,6 +10,7 @@ import { useBookings } from "../context/BookingContext"
 import { useAuth } from "../context/AuthContext"
 import api from "../api"
 import toast from "react-hot-toast"
+import { parseBookingDate } from "../utils/time"
 
 interface ApiBookingRoom {
   room_id: string; room_name: string; room_type: string; bed_type: string;
@@ -35,11 +36,11 @@ interface ApiBooking {
 }
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
+  return parseBookingDate(d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
 }
 
 function fmtShortDate(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  return parseBookingDate(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
 export default function BookingDetailsView() {
@@ -141,7 +142,7 @@ export default function BookingDetailsView() {
     }, [])
     .join(", ")
   const CUR = apiBooking?.property?.currency || "USD"
-  const nights = apiBooking?.nights || (localBooking ? Math.max(1, Math.round((new Date(localBooking.checkOut).getTime() - new Date(localBooking.checkIn).getTime()) / 86400000)) : 1)
+  const nights = apiBooking?.nights || (localBooking ? Math.max(1, Math.round((parseBookingDate(localBooking.checkOut).getTime() - parseBookingDate(localBooking.checkIn).getTime()) / 86400000)) : 1)
   const checkIn = apiBooking?.check_in || localBooking?.checkIn || ""
   const checkOut = apiBooking?.check_out || localBooking?.checkOut || ""
   const adults = apiBooking?.number_of_adults ?? localBooking?.guests ?? 0
@@ -443,7 +444,7 @@ export default function BookingDetailsView() {
     }
   }
 
-  const checkInDate = new Date(checkIn)
+  const checkInDate = parseBookingDate(checkIn)
   const cancelDeadline = new Date(checkInDate)
   cancelDeadline.setDate(cancelDeadline.getDate() - 1)
   cancelDeadline.setHours(14, 0, 0, 0)

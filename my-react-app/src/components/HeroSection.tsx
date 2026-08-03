@@ -5,6 +5,18 @@ import { SearchBar } from "./SearchBar";
 import { heroHotels } from "../data/heroHotels";
 import { vibes } from "../data/vibes";
 import { useFavorites } from "../context/FavoritesContext";
+import api from "../api";
+
+interface NearbyProperty {
+  property_id: string;
+  name: string;
+  city: string;
+  country: string;
+  cover_photo: string;
+  lowest_rate: number;
+  currency: string;
+  distance_km?: number;
+}
 
 const vibeKeyMap: Record<string, string> = {
   All: "vibeAll",
@@ -21,6 +33,50 @@ export function HeroSection() {
   const [activeVibe, setActiveVibe] = useState("All");
   const { isFavorite, toggleFavorite } = useFavorites();
   const [showLocationPopup, setShowLocationPopup] = useState(false);
+  const [nearbyProperties, setNearbyProperties] = useState<NearbyProperty[]>([]);
+
+  useEffect(() => {
+    const fetchNearby = async () => {
+      try {
+        let lat: number | null = null;
+        let lon: number | null = null;
+
+        const stored = localStorage.getItem("nearbyLocation");
+        const match = stored?.match(/([\d.-]+),\s*([\d.-]+)/);
+        if (match) {
+          lat = parseFloat(match[1]);
+          lon = parseFloat(match[2]);
+        } else {
+          try {
+            const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
+            });
+            lat = pos.coords.latitude;
+            lon = pos.coords.longitude;
+          } catch {
+            // geolocation not available
+          }
+        }
+
+        if (lat == null || lon == null) return;
+
+        const today = new Date().toISOString().split("T")[0];
+        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+        const { data } = await api.get("/search/nearby", {
+          params: { lat, lon, limit: 10, check_in: today, check_out: tomorrow, adults: 2, children: 0, rooms: 1 },
+        });
+        const results: NearbyProperty[] = data?.data || [];
+        const sorted = results
+          .filter((p) => p.lowest_rate != null)
+          .sort((a, b) => a.lowest_rate - b.lowest_rate)
+          .slice(0, 3);
+        if (sorted.length > 0) setNearbyProperties(sorted);
+      } catch {
+        // fallback to static data
+      }
+    };
+    fetchNearby();
+  }, []);
 
   useEffect(() => {
     const hasSeenPopup = localStorage.getItem("locationPopupSeen");
@@ -70,6 +126,19 @@ export function HeroSection() {
     localStorage.setItem("locationPopupSeen", "true");
     setShowLocationPopup(false);
   };
+
+  const heroCardData = nearbyProperties.length >= 3
+    ? nearbyProperties.slice(0, 3).map((p) => ({
+        id: p.property_id,
+        name: p.name,
+        city: p.city || "",
+        country: p.country || "",
+        price: Math.round(p.lowest_rate),
+        currency: p.currency || "$",
+        image: p.cover_photo || "",
+        distance: p.distance_km,
+      }))
+    : null;
 
   return (
     <section className="relative w-full min-h-[240px] md:min-h-[280px] lg:min-h-[320px] overflow-visible bg-brand-background">
@@ -177,66 +246,66 @@ export function HeroSection() {
             </g>
           </svg>
 
-          {/* Card 1 - Santorini (top right, slightly rotated) */}
-          <div className="absolute left-[200px] top-[100px] xl:left-[260px] xl:top-[120px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-20 rotate-[4deg]">
-            <div className="relative h-[120px] xl:h-[150px]">
-              <img src={heroHotels[0].image} alt={heroHotels[0].location} className="w-full h-full object-cover" />
-              <div className="absolute top-2 right-2 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1.5 py-0.5">
-                <Star size={9} className="text-yellow-500 fill-yellow-500" />
-                <span className="text-[10px] xl:text-[11px] font-semibold text-gray-800">{heroHotels[0].rating}</span>
-              </div>
+          {/* Card 1 */}
+          <div className="absolute left-[200px] top-[100px] xl:left-[260px] xl:top-[120px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-20 rotate-[4deg] cursor-pointer" onClick={() => heroCardData && (window.location.href = `/hotel/${heroCardData[0].id}`)}>
+            <div className="relative h-[120px] xl:h-[150px] overflow-hidden">
+              <img src={heroCardData ? heroCardData[0].image : heroHotels[0].image} alt="" className="w-full h-full object-cover" />
+              <button onClick={(e) => { e.stopPropagation(); }} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors">
+                <Heart size={14} className="text-gray-600" />
+              </button>
             </div>
-            <div className="px-2 py-2.5 xl:px-2.5 xl:py-3">
-              <h3 className="text-[11px] xl:text-[13px] font-bold text-gray-900 mb-0.5">{heroHotels[0].location}</h3>
-              <p className="text-[9px] xl:text-[10px] text-gray-500 mb-1">{heroHotels[0].tagline}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs xl:text-[13px] font-bold text-gray-900">${heroHotels[0].price} <span className="text-[9px] xl:text-[10px] font-normal text-gray-400">{t("perNight")}</span></span>
-                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(heroHotels[0].id); }} className="w-5 h-5 xl:w-6 xl:h-6 rounded-full border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors group">
-                  <Heart size={9} className={isFavorite(heroHotels[0].id) ? "text-red-500 fill-red-500" : "text-gray-400 group-hover:text-red-500 transition-colors"} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2 - Bali (bottom left, tilted opposite) */}
-          <div className="absolute left-[100px] top-[240px] xl:left-[130px] xl:top-[300px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-10 -rotate-[3deg]">
-            <div className="relative h-[120px] xl:h-[150px]">
-              <img src={heroHotels[1].image} alt={heroHotels[1].location} className="w-full h-full object-cover" />
-              <div className="absolute top-2 right-2 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1.5 py-0.5">
-                <Star size={9} className="text-yellow-500 fill-yellow-500" />
-                <span className="text-[10px] xl:text-[11px] font-semibold text-gray-800">{heroHotels[1].rating}</span>
-              </div>
-            </div>
-            <div className="px-2 py-2.5 xl:px-2.5 xl:py-3">
-              <h3 className="text-[11px] xl:text-[13px] font-bold text-gray-900 mb-0.5">{heroHotels[1].location}</h3>
-              <p className="text-[9px] xl:text-[10px] text-gray-500 mb-1">{heroHotels[1].tagline}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs xl:text-[13px] font-bold text-gray-900">${heroHotels[1].price} <span className="text-[9px] xl:text-[10px] font-normal text-gray-400">{t("perNight")}</span></span>
-                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(heroHotels[1].id); }} className="w-5 h-5 xl:w-6 xl:h-6 rounded-full border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors group">
-                  <Heart size={9} className={isFavorite(heroHotels[1].id) ? "text-red-500 fill-red-500" : "text-gray-400 group-hover:text-red-500 transition-colors"} />
-                </button>
-              </div>
+            <div className="px-3 py-2">
+              <h3 className="text-[11px] xl:text-[13px] font-bold leading-tight line-clamp-1" style={{ color: "var(--brand-heading)" }}>{heroCardData ? heroCardData[0].name : heroHotels[0].location}</h3>
+              <p className="text-[9px] xl:text-[10px] flex items-center gap-0.5 mb-1" style={{ color: "var(--brand-text-secondary)" }}>
+                <MapPin size={9} /> {heroCardData ? `${heroCardData[0].city}, ${heroCardData[0].country}` : heroHotels[0].location}
+              </p>
+              <p className="text-xs xl:text-[13px] font-bold leading-tight text-right" style={{ color: "var(--brand-heading)" }}>
+                <span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from </span>
+                {heroCardData ? `${heroCardData[0].currency} ${heroCardData[0].price}` : `$${heroHotels[0].price}`}
+                <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}> / night</span>
+              </p>
             </div>
           </div>
 
-          {/* Card 3 - Kyoto (center right, slight tilt, overlapping others) */}
-          <div className="absolute left-[280px] top-[270px] xl:left-[350px] xl:top-[340px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-15 rotate-[2deg]">
-            <div className="relative h-[120px] xl:h-[150px]">
-              <img src={heroHotels[2].image} alt={heroHotels[2].location} className="w-full h-full object-cover" />
-              <div className="absolute top-2 right-2 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-1.5 py-0.5">
-                <Star size={9} className="text-yellow-500 fill-yellow-500" />
-                <span className="text-[10px] xl:text-[11px] font-semibold text-gray-800">{heroHotels[2].rating}</span>
-              </div>
+          {/* Card 2 */}
+          <div className="absolute left-[100px] top-[240px] xl:left-[130px] xl:top-[300px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-10 -rotate-[3deg] cursor-pointer" onClick={() => heroCardData && (window.location.href = `/hotel/${heroCardData[1].id}`)}>
+            <div className="relative h-[120px] xl:h-[150px] overflow-hidden">
+              <img src={heroCardData ? heroCardData[1].image : heroHotels[1].image} alt="" className="w-full h-full object-cover" />
+              <button onClick={(e) => { e.stopPropagation(); }} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors">
+                <Heart size={14} className="text-gray-600" />
+              </button>
             </div>
-            <div className="px-2 py-2.5 xl:px-2.5 xl:py-3">
-              <h3 className="text-[11px] xl:text-[13px] font-bold text-gray-900 mb-0.5">{heroHotels[2].location}</h3>
-              <p className="text-[9px] xl:text-[10px] text-gray-500 mb-1">{heroHotels[2].tagline}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs xl:text-[13px] font-bold text-gray-900">${heroHotels[2].price} <span className="text-[9px] xl:text-[10px] font-normal text-gray-400">{t("perNight")}</span></span>
-                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(heroHotels[2].id); }} className="w-5 h-5 xl:w-6 xl:h-6 rounded-full border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors group">
-                  <Heart size={9} className={isFavorite(heroHotels[2].id) ? "text-red-500 fill-red-500" : "text-gray-400 group-hover:text-red-500 transition-colors"} />
-                </button>
-              </div>
+            <div className="px-3 py-2">
+              <h3 className="text-[11px] xl:text-[13px] font-bold leading-tight line-clamp-1" style={{ color: "var(--brand-heading)" }}>{heroCardData ? heroCardData[1].name : heroHotels[1].location}</h3>
+              <p className="text-[9px] xl:text-[10px] flex items-center gap-0.5 mb-1" style={{ color: "var(--brand-text-secondary)" }}>
+                <MapPin size={9} /> {heroCardData ? `${heroCardData[1].city}, ${heroCardData[1].country}` : heroHotels[1].location}
+              </p>
+              <p className="text-xs xl:text-[13px] font-bold leading-tight text-right" style={{ color: "var(--brand-heading)" }}>
+                <span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from </span>
+                {heroCardData ? `${heroCardData[1].currency} ${heroCardData[1].price}` : `$${heroHotels[1].price}`}
+                <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}> / night</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Card 3 */}
+          <div className="absolute left-[280px] top-[270px] xl:left-[350px] xl:top-[340px] -translate-x-1/2 -translate-y-1/2 w-[210px] xl:w-[260px] bg-white rounded-2xl shadow-modal overflow-hidden hover:scale-[1.03] hover:rotate-0 hover:z-30 transition-all duration-300 z-15 rotate-[2deg] cursor-pointer" onClick={() => heroCardData && (window.location.href = `/hotel/${heroCardData[2].id}`)}>
+            <div className="relative h-[120px] xl:h-[150px] overflow-hidden">
+              <img src={heroCardData ? heroCardData[2].image : heroHotels[2].image} alt="" className="w-full h-full object-cover" />
+              <button onClick={(e) => { e.stopPropagation(); }} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors">
+                <Heart size={14} className="text-gray-600" />
+              </button>
+            </div>
+            <div className="px-3 py-2">
+              <h3 className="text-[11px] xl:text-[13px] font-bold leading-tight line-clamp-1" style={{ color: "var(--brand-heading)" }}>{heroCardData ? heroCardData[2].name : heroHotels[2].location}</h3>
+              <p className="text-[9px] xl:text-[10px] flex items-center gap-0.5 mb-1" style={{ color: "var(--brand-text-secondary)" }}>
+                <MapPin size={9} /> {heroCardData ? `${heroCardData[2].city}, ${heroCardData[2].country}` : heroHotels[2].location}
+              </p>
+              <p className="text-xs xl:text-[13px] font-bold leading-tight text-right" style={{ color: "var(--brand-heading)" }}>
+                <span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from </span>
+                {heroCardData ? `${heroCardData[2].currency} ${heroCardData[2].price}` : `$${heroHotels[2].price}`}
+                <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}> / night</span>
+              </p>
             </div>
           </div>
         </div>

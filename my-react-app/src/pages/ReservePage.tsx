@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
-import { Star, X, Loader2, CreditCard, ShieldCheck, Wifi, Plane, UtensilsCrossed, Smartphone, Building2, CheckCircle2 } from "lucide-react"
+import { Star, X, Loader2, CreditCard, ShieldCheck, Wifi, Plane, UtensilsCrossed, Smartphone, Building2, CheckCircle2, BedDouble } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRazorpay } from "../hooks/useRazorpay"
 import type { RazorpayPaymentResponse } from "../types/razorpay"
@@ -12,7 +12,7 @@ import { Footer } from "../components/Footer"
 import { formatDate } from "../utils/format"
 import api from "../api"
 
-type PaymentMethod = "stripe" | "razorpay"
+type PaymentMethod = "stripe" | "razorpay" | "khalti"
 
 interface ApiProperty {
   id: string; tenant_id: string; name: string; type: string; description: string;
@@ -76,6 +76,7 @@ function mapApiPropertyToHotel(apiProp: ApiProperty, rooms: ApiRoom[]): Hotel {
 interface BookingRoom {
   room_id: string; room_name: string; room_type: string; bed_type: string;
   max_adults: number; max_children: number; base_rate: number; nights: number; subtotal: number;
+  photos?: { cover: string; gallery: string[] };
 }
 
 interface BookingData {
@@ -85,6 +86,8 @@ interface BookingData {
   rooms: BookingRoom[];
   total_amount: number; subtotal: number; special_offer_discount: number;
   coupon_code: string | null; coupon_discount: number;
+  guest_name?: string; guest_email?: string; guest_phone?: string;
+  number_of_adults?: number; number_of_children?: number;
 }
 
 const paymentOptions: { key: PaymentMethod; label: string; sub: string; logo: JSX.Element }[] = [
@@ -110,7 +113,34 @@ const paymentOptions: { key: PaymentMethod; label: string; sub: string; logo: JS
       </svg>
     ),
   },
+  {
+    key: "khalti",
+    label: "Khalti",
+    sub: "Pay via eWallet, Cards, Net Banking",
+    logo: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <rect x="2" y="4" width="20" height="16" rx="4" fill="#5C2D91" />
+        <text x="12" y="16" textAnchor="middle" fontSize="9" fontWeight="bold" fill="white">K</text>
+      </svg>
+    ),
+  },
 ]
+
+async function confirmBookingWithRetry(refNumber: string, payload: Record<string, unknown>, maxRetries = 3): Promise<void> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      await api.post(`/bookings/${refNumber}/confirm`, payload)
+      return
+    } catch (err) {
+      lastError = err
+      if (attempt < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+      }
+    }
+  }
+  throw lastError
+}
 
 export default function ReservePage() {
   const { id } = useParams()
@@ -150,6 +180,10 @@ const [stripeIntentLoading, setStripeIntentLoading] = useState(false)
 const [stripeIntentError, setStripeIntentError] = useState<string | null>(null)
 const [stripeIntentRetry, setStripeIntentRetry] = useState(0)
 const stripeIntentFiredRef = useRef<number | null>(null)
+const [stripeTransactionTime, setStripeTransactionTime] = useState<number | null>(null)
+const [khaltiPaymentIntentId, setKhaltiPaymentIntentId] = useState<string | null>(null)
+const [khaltiLoading, setKhaltiLoading] = useState(false)
+const [khaltiError, setKhaltiError] = useState<string | null>(null)
 const [upiId, setUpiId] = useState('')
   const [selectedBank, setSelectedBank] = useState('')
   const [paySubMethod, setPaySubMethod] = useState<'upi' | 'card' | 'netbanking' | null>(null)
@@ -184,7 +218,12 @@ const [upiId, setUpiId] = useState('')
             params: { checkin_date: booking?.check_in, checkout_date: booking?.check_out, adults: 2, children: 0, rooms: 1 },
           })
           setApiRooms(roomsRes.data?.data || [])
-        } catch { setApiRooms([]) }
+        } catch {
+          try {
+            const allRoomsRes = await api.get(`/properties/${propertyId}/rooms`)
+            setApiRooms(allRoomsRes.data?.data || [])
+          } catch { setApiRooms([]) }
+        }
       } catch {
         setBookingData(null)
         if (id) {
@@ -265,6 +304,30 @@ const [upiId, setUpiId] = useState('')
     return () => { cancelled = true }
   }, [selectedPayment, refNumber, stripePaymentIntentId, stripeIntentRetry])
 
+  useEffect(() => {
+    const khaltiStatus = searchParams.get('khalti_status')
+    if (khaltiStatus === 'Completed') {
+      const storedIntentId = localStorage.getItem('khalti_payment_intent_id')
+      const returnTo = localStorage.getItem('khalti_return_to')
+      localStorage.removeItem('khalti_return_to')
+      if (storedIntentId) {
+        setKhaltiPaymentIntentId(storedIntentId)
+        toast.success("Payment successful!")
+      }
+      if (returnTo && returnTo !== window.location.href) {
+        window.location.href = returnTo
+      }
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    const storedIntentId = localStorage.getItem('khalti_payment_intent_id')
+    if (storedIntentId && !searchParams.get('khalti_status')) {
+      setKhaltiPaymentIntentId(storedIntentId)
+      setSelectedPayment("khalti")
+    }
+  }, [])
+
   const handleApplyPromo = async () => {
     const code = promoInput.trim().toUpperCase()
     if (!code) return
@@ -329,7 +392,12 @@ const [upiId, setUpiId] = useState('')
     if (bookingData?.rooms?.length) {
       return bookingData.rooms.map(br => {
         const rt = hotel?.roomTypes.find(r => r.id === br.room_id)
-        return { room: rt || { id: br.room_id, name: br.room_name, price: br.base_rate, maxGuests: br.max_adults + br.max_children } as RoomType, qty: 1, gc: br.max_adults + br.max_children, ep: br.base_rate, lineTotal: br.subtotal }
+        return {
+          room: rt || { id: br.room_id, name: br.room_name, price: br.base_rate, maxGuests: br.max_adults + br.max_children } as RoomType,
+          qty: 1, gc: br.max_adults + br.max_children, ep: br.base_rate, lineTotal: br.subtotal,
+          cancellationTitle: rt?.cancellationTitle || '',
+          cancellationPolicy: rt?.cancellationPolicy || '',
+        }
       })
     }
     return selectedRoomTypes.map(rt => {
@@ -337,11 +405,16 @@ const [upiId, setUpiId] = useState('')
       const gc = parsedGuestCounts[rt.id] || 1;
       const ep = rt.price;
       const lineTotal = qty * ep;
-      return { room: rt, qty, gc, ep, lineTotal };
+      return { room: rt, qty, gc, ep, lineTotal, cancellationTitle: rt.cancellationTitle || '', cancellationPolicy: rt.cancellationPolicy || '' };
     })
   }, [bookingData, selectedRoomTypes, hotel, parsedRooms, parsedGuestCounts])
 
-  const totalGuests = Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0)
+  const cancellationTitle = apiRooms[0]?.cancellation_title || ''
+  const cancellationDescription = apiRooms[0]?.cancellation_description || ''
+
+  const apiGuestCount = (bookingData?.number_of_adults || 0) + (bookingData?.number_of_children || 0)
+  const totalGuests = (apiGuestCount > 0 ? apiGuestCount : null)
+    || Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0)
     || (adultsParam ? Number(adultsParam) : 0) + (childrenParam ? Number(childrenParam) : 0)
     || bookingData?.rooms?.reduce((s, r) => s + r.max_adults + r.max_children, 0) || 0;
 
@@ -467,7 +540,9 @@ const [upiId, setUpiId] = useState('')
                 <div>
                   <p className="text-xs text-gray-500 mb-0.5">Guests</p>
                   <p className="text-sm font-bold text-gray-900">
-                    {totalGuests} guest{totalGuests !== 1 ? 's' : ''}
+                    {bookingData?.number_of_adults != null
+                      ? `${bookingData.number_of_adults} adult${bookingData.number_of_adults !== 1 ? 's' : ''}${(bookingData.number_of_children || 0) > 0 ? `, ${bookingData.number_of_children} child${bookingData.number_of_children !== 1 ? 'ren' : ''}` : ''}`
+                      : `${totalGuests} guest${totalGuests !== 1 ? 's' : ''}`}
                   </p>
                 </div>
                 <div>
@@ -478,6 +553,41 @@ const [upiId, setUpiId] = useState('')
                 </div>
               </div>
             </div>
+
+          {/* Guest details */}
+          {(guestName || guestEmail) && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-gray-900">Guest details</h3>
+                <button
+                  onClick={() => navigate(-1)}
+                  className="text-xs font-semibold text-[#0071c2] hover:underline cursor-pointer"
+                >
+                  Edit
+                </button>
+              </div>
+              <div className="space-y-2 text-sm">
+                {guestName && (
+                  <div className="flex gap-2">
+                    <span className="text-gray-500">Name:</span>
+                    <span className="text-gray-900 font-medium">{guestName}</span>
+                  </div>
+                )}
+                {guestEmail && (
+                  <div className="flex gap-2">
+                    <span className="text-gray-500">Email:</span>
+                    <span className="text-gray-900">{guestEmail}</span>
+                  </div>
+                )}
+                {guestPhone && (
+                  <div className="flex gap-2">
+                    <span className="text-gray-500">Phone:</span>
+                    <span className="text-gray-900">{guestPhone}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
             <div className="border-t border-gray-200 p-5">
               <h3 className="text-sm font-bold text-gray-900 mb-3">Your price summary</h3>
@@ -556,50 +666,26 @@ const [upiId, setUpiId] = useState('')
 
             <div className="border-t border-gray-200 p-5">
               <h3 className="text-sm font-bold text-gray-900 mb-2">How much will it cost to cancel?</h3>
-              <p className="text-sm text-[#008009] font-medium mb-1">
-                Free cancellation before {checkIn ? formatDate(checkIn) : "check-in date"}
-              </p>
+              {cancellationTitle || cancellationDescription ? (
+                <>
+                  {cancellationTitle && (
+                    <p className="text-sm text-[#008009] font-medium mb-1">{cancellationTitle}</p>
+                  )}
+                  {cancellationDescription && (
+                    <p className="text-xs text-gray-600 leading-relaxed">{cancellationDescription}</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-[#008009] font-medium mb-1">
+                  Free cancellation before {checkIn ? formatDate(checkIn) : "check-in date"}
+                </p>
+              )}
               <div className="flex justify-between text-sm text-gray-600 mt-2">
                 <span>After 12:00 AM on {checkIn ? formatDate(checkIn) : "check-in"}</span>
                 <span className="font-medium">{CUR}{total.toFixed(2)}</span>
               </div>
             </div>
           </div>
-
-          {/* Guest details */}
-          {(guestName || guestEmail) && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-gray-900">Guest details</h3>
-                <button
-                  onClick={() => navigate(-1)}
-                  className="text-xs font-semibold text-[#0071c2] hover:underline cursor-pointer"
-                >
-                  Edit
-                </button>
-              </div>
-              <div className="space-y-2 text-sm">
-                {guestName && (
-                  <div className="flex gap-2">
-                    <span className="text-gray-500">Name:</span>
-                    <span className="text-gray-900 font-medium">{guestName}</span>
-                  </div>
-                )}
-                {guestEmail && (
-                  <div className="flex gap-2">
-                    <span className="text-gray-500">Email:</span>
-                    <span className="text-gray-900">{guestEmail}</span>
-                  </div>
-                )}
-                {guestPhone && (
-                  <div className="flex gap-2">
-                    <span className="text-gray-500">Phone:</span>
-                    <span className="text-gray-900">{guestPhone}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Payment method */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -608,7 +694,38 @@ const [upiId, setUpiId] = useState('')
               {paymentOptions.map(({ key, label, logo }) => (
                 <button
                   key={key}
-                  onClick={() => setSelectedPayment(key)}
+                  onClick={async () => {
+                    if (key === "khalti" && !khaltiPaymentIntentId && refNumber) {
+                      setKhaltiLoading(true)
+                      setKhaltiError(null)
+                      try {
+                        localStorage.setItem('khalti_return_to', window.location.href)
+                        const return_url = `${window.location.origin}/reserve/${id}?khalti_status=Completed`
+                        const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, {
+                          payment_gateway: "khalti",
+                          return_url,
+                        })
+                        const result = data?.data || data
+                        const intentId = result?.payment_intent_id
+                        const paymentUrl = result?.payment_url
+                        if (!paymentUrl || !intentId) {
+                          setKhaltiError("Failed to initialize Khalti payment")
+                          setSelectedPayment("khalti")
+                          return
+                        }
+                        localStorage.setItem('khalti_payment_intent_id', intentId)
+                        window.location.href = paymentUrl
+                      } catch (err: unknown) {
+                        const msg = err instanceof Error ? err.message : "Failed to initialize Khalti"
+                        setKhaltiError(msg)
+                        setSelectedPayment("khalti")
+                      } finally {
+                        setKhaltiLoading(false)
+                      }
+                    } else {
+                      setSelectedPayment(key)
+                    }
+                  }}
                   className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors cursor-pointer ${
                     selectedPayment === key
                       ? "border-[#0071c2] text-[#0071c2]"
@@ -633,7 +750,7 @@ const [upiId, setUpiId] = useState('')
                 intentLoading={stripeIntentLoading}
                 intentError={stripeIntentError}
                 onRetry={() => { setStripeClientSecret(null); setStripeIntentRetry(n => n + 1) }}
-                onSuccess={(id, secret) => { setStripePaymentIntentId(id); setStripeClientSecret(secret) }}
+                onSuccess={(id, secret, createdAt) => { setStripePaymentIntentId(id); setStripeClientSecret(secret); setStripeTransactionTime(createdAt) }}
               />
             )}
 
@@ -825,6 +942,41 @@ const [upiId, setUpiId] = useState('')
               </div>
             )}
 
+            {selectedPayment === "khalti" && !khaltiPaymentIntentId && (
+              <div className="space-y-3 mb-6">
+                {khaltiLoading && (
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <Loader2 size={16} className="animate-spin text-[#5C2D91]" />
+                    <span className="text-sm text-gray-500">Redirecting to Khalti...</span>
+                  </div>
+                )}
+                {khaltiError && (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-red-500 mb-2">{khaltiError}</p>
+                    <button
+                      onClick={() => setSelectedPayment("khalti")}
+                      className="text-sm text-[#0071c2] font-semibold hover:underline cursor-pointer"
+                    >
+                      Tap to retry
+                    </button>
+                  </div>
+                )}
+                {!khaltiLoading && !khaltiError && (
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <ShieldCheck size={16} className="text-[#5C2D91]" />
+                    <span className="text-sm text-gray-600">Tap the Khalti tab to pay</span>
+                  </div>
+                )}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                  <ShieldCheck size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 mb-1">Secure Payment via Khalti</p>
+                    <p className="text-xs text-gray-600">You will be redirected to Khalti to complete payment.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {razorpayResponse && (
               <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
                 <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
@@ -836,6 +988,16 @@ const [upiId, setUpiId] = useState('')
             )}
 
             {stripePaymentIntentId && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
+                <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-green-700">Payment completed!</p>
+                  <p className="text-xs text-green-600 mt-1">Click "Complete booking" below to confirm your reservation.</p>
+                </div>
+              </div>
+            )}
+
+            {khaltiPaymentIntentId && (
               <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
                 <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
                 <div>
@@ -861,7 +1023,7 @@ const [upiId, setUpiId] = useState('')
             </label>
 
             <button
-              disabled={!selectedPayment || paymentLoading || (selectedPayment === "razorpay" && !razorpayResponse) || (selectedPayment === "stripe" && !stripePaymentIntentId)}
+              disabled={!selectedPayment || paymentLoading || (selectedPayment === "razorpay" && !razorpayResponse) || (selectedPayment === "stripe" && !stripePaymentIntentId) || (selectedPayment === "khalti" && !khaltiPaymentIntentId)}
               onClick={async () => {
                 if (!selectedPayment) return
 
@@ -875,10 +1037,15 @@ const [upiId, setUpiId] = useState('')
                   return
                 }
 
+                if (selectedPayment === "khalti" && !khaltiPaymentIntentId) {
+                  toast.error("Please complete Khalti payment first")
+                  return
+                }
+
                 setPaymentLoading(true)
                 try {
                   if (selectedPayment === "razorpay" && razorpayResponse && refNumber) {
-                    await api.post(`/bookings/${refNumber}/confirm`, {
+                    await confirmBookingWithRetry(refNumber, {
                       idempotency_key: crypto.randomUUID(),
                       gateway_payload: {
                         razorpay_order_id: razorpayResponse.razorpay_order_id,
@@ -889,13 +1056,22 @@ const [upiId, setUpiId] = useState('')
                   }
 
                   if (selectedPayment === "stripe" && stripePaymentIntentId && refNumber) {
-                    await api.post(`/bookings/${refNumber}/confirm`, {
+                    await confirmBookingWithRetry(refNumber, {
                       idempotency_key: crypto.randomUUID(),
                       payment_gateway: "stripe",
                       gateway_payload: {
                         payment_intent_id: stripePaymentIntentId,
                         stripe_payment_intent_id: stripePaymentIntentId,
                         client_secret: stripeClientSecret,
+                      },
+                    })
+                  }
+
+                  if (selectedPayment === "khalti" && khaltiPaymentIntentId && refNumber) {
+                    await confirmBookingWithRetry(refNumber, {
+                      idempotency_key: crypto.randomUUID(),
+                      gateway_payload: {
+                        payment_intent_id: khaltiPaymentIntentId,
                       },
                     })
                   }
@@ -920,17 +1096,22 @@ const [upiId, setUpiId] = useState('')
                     } : undefined,
                   }
 
+                  const bookingTimestamp = selectedPayment === "stripe" && stripeTransactionTime
+                    ? new Date(stripeTransactionTime * 1000).toISOString()
+                    : new Date().toISOString()
+
                   try {
-                    addBooking(localBookingData)
+                    addBooking({ ...localBookingData, createdAt: bookingTimestamp })
                   } catch {}
 
                   const booking = {
                     id: refNumber || `${Date.now().toString(36)}`,
                     ...localBookingData,
                     status: "upcoming" as const,
-                    createdAt: new Date().toISOString(),
+                    createdAt: bookingTimestamp,
                   }
                   toast.success("Booking confirmed!")
+                  localStorage.removeItem('khalti_payment_intent_id')
                   navigate(`/booking-confirmation/${refNumber || booking.id}`, {
                     state: {
                       propertyImages: hotel?.images || [],
@@ -1028,7 +1209,9 @@ const [upiId, setUpiId] = useState('')
                   <div>
                     <p className="text-xs text-gray-500 mb-0.5">Guests</p>
                     <p className="text-sm font-bold text-gray-900">
-                      {totalGuests} guest{totalGuests !== 1 ? 's' : ''}
+                      {bookingData?.number_of_adults != null
+                        ? `${bookingData.number_of_adults} adult${bookingData.number_of_adults !== 1 ? 's' : ''}${(bookingData.number_of_children || 0) > 0 ? `, ${bookingData.number_of_children} child${bookingData.number_of_children !== 1 ? 'ren' : ''}` : ''}`
+                        : `${totalGuests} guest${totalGuests !== 1 ? 's' : ''}`}
                     </p>
                   </div>
                   <div>
@@ -1040,90 +1223,94 @@ const [upiId, setUpiId] = useState('')
                 </div>
               </div>
 
-              {/* Your price summary */}
-              <div className="border-t border-gray-200 p-5">
-                <h3 className="text-sm font-bold text-gray-900 mb-3">Your price summary</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Original price</span>
-                    <span className="text-sm text-gray-900">{CUR}{subtotal.toFixed(2)}</span>
+              {/* Room details */}
+              {roomLines.length > 0 && (
+                <div className="border-t border-gray-200 p-5">
+                  <h3 className="text-sm font-bold text-gray-900 mb-3">Room details</h3>
+                  <div className="space-y-3">
+                    {roomLines.map((rl, i) => {
+                      const apiRoom = apiRooms.find(r => r.id === rl.room.id || r.room_name === rl.room.name);
+                      const cover = apiRoom?.photos?.cover || '';
+                      const bookingRoom = bookingData?.rooms?.[i];
+                      return (
+                        <div key={i} className="flex items-start gap-3">
+                          {cover ? (
+                            <img src={cover} alt={rl.room.name} className="w-14 h-14 rounded-lg object-cover shrink-0" />
+                          ) : (
+                            <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                              <BedDouble size={20} className="text-gray-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900">{rl.room.name}</p>
+                            <p className="text-xs text-gray-500">{bookingRoom?.room_type || rl.room.roomTypeName || rl.room.bedType || ''}</p>
+                            <p className="text-xs text-gray-400">
+                              {bookingRoom
+                                ? `${bookingRoom.max_adults} adult${bookingRoom.max_adults !== 1 ? 's' : ''}${bookingRoom.max_children > 0 ? `, ${bookingRoom.max_children} child${bookingRoom.max_children !== 1 ? 'ren' : ''}` : ''}`
+                                : `${rl.gc} guest${rl.gc !== 1 ? 's' : ''}`
+                              }
+                            </p>
+                          </div>
+                          <p className="text-sm font-bold text-gray-900 shrink-0">{CUR}{rl.ep.toFixed(2)}</p>
+                        </div>
+                      );
+                    })}
                   </div>
-                  {appliedDiscount && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-[#d4111e] font-medium">Bonus savings</span>
-                      <span className="text-sm text-[#d4111e] font-medium">-{CUR}{discountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
                 </div>
+              )}
 
-                {appliedDiscount && (
-                  <p className="text-xs text-gray-500 italic mt-2">
-                    You're getting a reduced rate because this property is offering a discount.
-                  </p>
-                )}
-
-                {/* Price breakdown */}
-                <div className="border-t border-gray-200 mt-4 pt-4 space-y-2">
-                  {roomLines.map((l, i) => (
-                    <div key={i} className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">{l.room.name} × {nights} night{nights !== 1 ? 's' : ''}</span>
-                      <span className="text-gray-900">{CUR}{(l.lineTotal * nights).toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Discount code */}
-                <div className="border-t border-gray-200 mt-4 pt-4">
-                  <p className="text-xs font-semibold text-gray-600 mb-2">Discount code</p>
-                  {appliedDiscount ? (
-                    <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-green-700">{appliedDiscount.code}</span>
-                        <span className="text-xs text-green-600">
-                          {appliedDiscount.type === 'percentage' ? `${appliedDiscount.amount}% off` : `${CUR}${appliedDiscount.amount} off`}
-                        </span>
+              {/* Guest details */}
+              {(guestName || guestEmail) && (
+                <div className="border-t border-gray-200 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-gray-900">Guest details</h3>
+                    <button
+                      onClick={() => navigate(-1)}
+                      className="text-xs font-semibold text-[#0071c2] hover:underline cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    {guestName && (
+                      <div className="flex gap-2">
+                        <span className="text-gray-500">Name:</span>
+                        <span className="text-gray-900 font-medium">{guestName}</span>
                       </div>
-                      <button onClick={handleRemovePromo} className="text-green-600 hover:text-green-800 cursor-pointer">
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        value={promoInput}
-                        onChange={e => { setPromoInput(e.target.value); setPromoError('') }}
-                        onKeyDown={e => e.key === 'Enter' && handleApplyPromo()}
-                        placeholder="Enter code"
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#0071c2] transition-colors"
-                      />
-                      <button
-                        onClick={handleApplyPromo}
-                        className="px-4 py-2 rounded-lg border-2 border-[#0071c2] text-[#0071c2] text-sm font-semibold hover:bg-[#0071c2] hover:text-white transition-colors cursor-pointer"
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  )}
-                  {promoError && (
-                    <p className="text-xs text-red-500 mt-1">{promoError}</p>
-                  )}
+                    )}
+                    {guestEmail && (
+                      <div className="flex gap-2">
+                        <span className="text-gray-500">Email:</span>
+                        <span className="text-gray-900">{guestEmail}</span>
+                      </div>
+                    )}
+                    {guestPhone && (
+                      <div className="flex gap-2">
+                        <span className="text-gray-500">Phone:</span>
+                        <span className="text-gray-900">{guestPhone}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                <div className="border-t border-gray-200 mt-4 pt-4">
-                  {appliedDiscount && (
-                    <p className="text-sm text-[#d4111e] line-through mb-1">{CUR}{subtotal.toFixed(2)}</p>
-                  )}
-                  <p className="text-xl font-bold text-gray-900">Total {CUR}{Math.max(0, total).toFixed(2)}</p>
-                  <p className="text-xs text-gray-500">Taxes & fees included</p>
-                </div>
-              </div>
+              )}
 
               {/* Cancellation */}
               <div className="border-t border-gray-200 p-5">
                 <h3 className="text-sm font-bold text-gray-900 mb-2">How much will it cost to cancel?</h3>
-                <p className="text-sm text-[#008009] font-medium mb-1">
-                  Free cancellation before {checkIn ? formatDate(checkIn) : "check-in date"}
-                </p>
+                {cancellationTitle || cancellationDescription ? (
+                  <>
+                    {cancellationTitle && (
+                      <p className="text-sm text-[#008009] font-medium mb-1">{cancellationTitle}</p>
+                    )}
+                    {cancellationDescription && (
+                      <p className="text-xs text-gray-600 leading-relaxed">{cancellationDescription}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-[#008009] font-medium mb-1">
+                    Free cancellation before {checkIn ? formatDate(checkIn) : "check-in date"}
+                  </p>
+                )}
                 <div className="flex justify-between text-sm text-gray-600 mt-2">
                   <span>After 12:00 AM on {checkIn ? formatDate(checkIn) : "check-in"}</span>
                   <span className="font-medium">{CUR}{total.toFixed(2)}</span>
@@ -1135,61 +1322,81 @@ const [upiId, setUpiId] = useState('')
           {/* RIGHT COLUMN — Payment */}
           <div>
 
-            {/* Credit card needed banner */}
-            <div className="bg-[#febb02]/10 border border-[#febb02]/30 rounded-xl p-5 mb-6 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-gray-900 mb-1">credit card needed</h3>
-                <p className="text-sm text-gray-600">
-                  Your payment will be handled by Hotel, so you need to enter payment details for this booking.
-                </p>
+            {/* Your price summary */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+              <h3 className="text-sm font-bold text-gray-900 mb-3">Your price summary</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Original price</span>
+                  <span className="text-sm text-gray-900">{CUR}{subtotal.toFixed(2)}</span>
+                </div>
+                {appliedDiscount && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-[#d4111e] font-medium">Bonus savings</span>
+                    <span className="text-sm text-[#d4111e] font-medium">-{CUR}{discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
-              <img
-                src={hotel?.imageUrl || hotel?.images?.[0] || ''}
-                alt={hotelName}
-                className="w-16 h-16 rounded-lg object-cover shrink-0 ml-4"
-              />
-            </div>
 
-            {/* Guest details */}
-            {(guestName || guestEmail) && (
-              <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-gray-900">Guest details</h3>
-                  <button
-                    onClick={() => navigate(-1)}
-                    className="text-xs font-semibold text-[#0071c2] hover:underline cursor-pointer"
-                  >
-                    Edit
-                  </button>
-                </div>
-                <div className="space-y-2 text-sm">
-                  {guestName && (
-                    <div className="flex gap-2">
-                      <span className="text-gray-500">Name:</span>
-                      <span className="text-gray-900 font-medium">{guestName}</span>
-                    </div>
-                  )}
-                  {guestEmail && (
-                    <div className="flex gap-2">
-                      <span className="text-gray-500">Email:</span>
-                      <span className="text-gray-900">{guestEmail}</span>
-                    </div>
-                  )}
-                  {guestPhone && (
-                    <div className="flex gap-2">
-                      <span className="text-gray-500">Phone:</span>
-                      <span className="text-gray-900">{guestPhone}</span>
-                    </div>
-                  )}
-                  {specialRequests && (
-                    <div className="mt-2">
-                      <span className="text-gray-500">Special requests:</span>
-                      <p className="text-gray-900 mt-1 text-xs leading-relaxed">{specialRequests}</p>
-                    </div>
-                  )}
-                </div>
+              {appliedDiscount && (
+                <p className="text-xs text-gray-500 italic mt-2">
+                  You're getting a reduced rate because this property is offering a discount.
+                </p>
+              )}
+
+              <div className="border-t border-gray-200 mt-4 pt-4 space-y-2">
+                {roomLines.map((l, i) => (
+                  <div key={i} className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">{l.room.name} × {nights} night{nights !== 1 ? 's' : ''}</span>
+                    <span className="text-gray-900">{CUR}{(l.lineTotal * nights).toFixed(2)}</span>
+                  </div>
+                ))}
               </div>
-            )}
+
+              <div className="border-t border-gray-200 mt-4 pt-4">
+                <p className="text-xs font-semibold text-gray-600 mb-2">Discount code</p>
+                {appliedDiscount ? (
+                  <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-green-700">{appliedDiscount.code}</span>
+                      <span className="text-xs text-green-600">
+                        {appliedDiscount.type === 'percentage' ? `${appliedDiscount.amount}% off` : `${CUR}${appliedDiscount.amount} off`}
+                      </span>
+                    </div>
+                    <button onClick={handleRemovePromo} className="text-green-600 hover:text-green-800 cursor-pointer">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      value={promoInput}
+                      onChange={e => { setPromoInput(e.target.value); setPromoError('') }}
+                      onKeyDown={e => e.key === 'Enter' && handleApplyPromo()}
+                      placeholder="Enter code"
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#0071c2] transition-colors"
+                    />
+                    <button
+                      onClick={handleApplyPromo}
+                      className="px-4 py-2 rounded-lg border-2 border-[#0071c2] text-[#0071c2] text-sm font-semibold hover:bg-[#0071c2] hover:text-white transition-colors cursor-pointer"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )}
+                {promoError && (
+                  <p className="text-xs text-red-500 mt-1">{promoError}</p>
+                )}
+              </div>
+
+              <div className="border-t border-gray-200 mt-4 pt-4">
+                {appliedDiscount && (
+                  <p className="text-sm text-[#d4111e] line-through mb-1">{CUR}{subtotal.toFixed(2)}</p>
+                )}
+                <p className="text-xl font-bold text-gray-900">Total {CUR}{Math.max(0, total).toFixed(2)}</p>
+                <p className="text-xs text-gray-500">Taxes & fees included</p>
+              </div>
+            </div>
 
             {/* Payment method tabs */}
             <h3 className="text-sm font-semibold text-gray-800 mb-3">Payment Method</h3>
@@ -1197,7 +1404,38 @@ const [upiId, setUpiId] = useState('')
               {paymentOptions.map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => setSelectedPayment(key)}
+                  onClick={async () => {
+                    if (key === "khalti" && !khaltiPaymentIntentId && refNumber) {
+                      setKhaltiLoading(true)
+                      setKhaltiError(null)
+                      try {
+                        localStorage.setItem('khalti_return_to', window.location.href)
+                        const return_url = `${window.location.origin}/reserve/${id}?khalti_status=Completed`
+                        const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, {
+                          payment_gateway: "khalti",
+                          return_url,
+                        })
+                        const result = data?.data || data
+                        const intentId = result?.payment_intent_id
+                        const paymentUrl = result?.payment_url
+                        if (!paymentUrl || !intentId) {
+                          setKhaltiError("Failed to initialize Khalti payment")
+                          setSelectedPayment("khalti")
+                          return
+                        }
+                        localStorage.setItem('khalti_payment_intent_id', intentId)
+                        window.location.href = paymentUrl
+                      } catch (err: unknown) {
+                        const msg = err instanceof Error ? err.message : "Failed to initialize Khalti"
+                        setKhaltiError(msg)
+                        setSelectedPayment("khalti")
+                      } finally {
+                        setKhaltiLoading(false)
+                      }
+                    } else {
+                      setSelectedPayment(key)
+                    }
+                  }}
                   className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors cursor-pointer ${
                     selectedPayment === key
                       ? "border-[#0071c2] text-[#0071c2]"
@@ -1224,7 +1462,7 @@ const [upiId, setUpiId] = useState('')
                   intentLoading={stripeIntentLoading}
                   intentError={stripeIntentError}
                   onRetry={() => { setStripeClientSecret(null); setStripeIntentRetry(n => n + 1) }}
-                  onSuccess={(id, secret) => { setStripePaymentIntentId(id); setStripeClientSecret(secret) }}
+                  onSuccess={(id, secret, createdAt) => { setStripePaymentIntentId(id); setStripeClientSecret(secret); setStripeTransactionTime(createdAt) }}
                 />
               </div>
             )}
@@ -1505,6 +1743,41 @@ const [upiId, setUpiId] = useState('')
               </div>
             )}
 
+            {selectedPayment === "khalti" && !khaltiPaymentIntentId && (
+              <div className="space-y-3 mb-6">
+                {khaltiLoading && (
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <Loader2 size={16} className="animate-spin text-[#5C2D91]" />
+                    <span className="text-sm text-gray-500">Redirecting to Khalti...</span>
+                  </div>
+                )}
+                {khaltiError && (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-red-500 mb-2">{khaltiError}</p>
+                    <button
+                      onClick={() => setSelectedPayment("khalti")}
+                      className="text-sm text-[#0071c2] font-semibold hover:underline cursor-pointer"
+                    >
+                      Tap to retry
+                    </button>
+                  </div>
+                )}
+                {!khaltiLoading && !khaltiError && (
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <ShieldCheck size={16} className="text-[#5C2D91]" />
+                    <span className="text-sm text-gray-600">Tap the Khalti tab to pay</span>
+                  </div>
+                )}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                  <ShieldCheck size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 mb-1">Secure Payment via Khalti</p>
+                    <p className="text-xs text-gray-600">You will be redirected to Khalti to complete payment.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Payment success */}
             {razorpayResponse && (
               <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-start gap-3">
@@ -1517,6 +1790,16 @@ const [upiId, setUpiId] = useState('')
             )}
 
             {stripePaymentIntentId && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+                <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-green-700">Payment completed!</p>
+                  <p className="text-xs text-green-600 mt-1">Click "Complete booking" below to confirm your reservation.</p>
+                </div>
+              </div>
+            )}
+
+            {khaltiPaymentIntentId && (
               <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-start gap-3">
                 <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
                 <div>
@@ -1541,7 +1824,7 @@ const [upiId, setUpiId] = useState('')
               </label>
 
               <button
-                disabled={!selectedPayment || paymentLoading || (selectedPayment === "razorpay" && !razorpayResponse) || (selectedPayment === "stripe" && !stripePaymentIntentId)}
+                disabled={!selectedPayment || paymentLoading || (selectedPayment === "razorpay" && !razorpayResponse) || (selectedPayment === "stripe" && !stripePaymentIntentId) || (selectedPayment === "khalti" && !khaltiPaymentIntentId)}
                 onClick={async () => {
                   if (!selectedPayment) return
 
@@ -1555,10 +1838,15 @@ const [upiId, setUpiId] = useState('')
                     return
                   }
 
+                  if (selectedPayment === "khalti" && !khaltiPaymentIntentId) {
+                    toast.error("Please complete Khalti payment first")
+                    return
+                  }
+
                   setPaymentLoading(true)
                   try {
                     if (selectedPayment === "razorpay" && razorpayResponse && refNumber) {
-                      await api.post(`/bookings/${refNumber}/confirm`, {
+                      await confirmBookingWithRetry(refNumber, {
                         idempotency_key: crypto.randomUUID(),
                         gateway_payload: {
                           razorpay_order_id: razorpayResponse.razorpay_order_id,
@@ -1569,13 +1857,22 @@ const [upiId, setUpiId] = useState('')
                     }
 
                     if (selectedPayment === "stripe" && stripePaymentIntentId && refNumber) {
-                      await api.post(`/bookings/${refNumber}/confirm`, {
+                      await confirmBookingWithRetry(refNumber, {
                         idempotency_key: crypto.randomUUID(),
                         payment_gateway: "stripe",
                         gateway_payload: {
                           payment_intent_id: stripePaymentIntentId,
                           stripe_payment_intent_id: stripePaymentIntentId,
                           client_secret: stripeClientSecret,
+                        },
+                      })
+                    }
+
+                    if (selectedPayment === "khalti" && khaltiPaymentIntentId && refNumber) {
+                      await confirmBookingWithRetry(refNumber, {
+                        idempotency_key: crypto.randomUUID(),
+                        gateway_payload: {
+                          payment_intent_id: khaltiPaymentIntentId,
                         },
                       })
                     }
@@ -1593,19 +1890,25 @@ const [upiId, setUpiId] = useState('')
                       guests: totalGuests,
                       totalPrice: Math.max(0, total),
                       refNumber: refNumber || undefined,
-                      discountApplied: appliedDiscount ? {
-                        code: appliedDiscount.code,
-                        type: appliedDiscount.type,
-                        amount: appliedDiscount.amount,
-                      } : undefined,
-                    }
-                    addBooking(localBookingData)
-                    const booking = {
-                      id: refNumber || `${Date.now().toString(36)}`,
-                      ...localBookingData,
-                      status: "upcoming" as const,
-                      createdAt: new Date().toISOString(),
-                    }
+                        discountApplied: appliedDiscount ? {
+                          code: appliedDiscount.code,
+                          type: appliedDiscount.type,
+                          amount: appliedDiscount.amount,
+                        } : undefined,
+                      }
+
+                      const bookingTimestamp = selectedPayment === "stripe" && stripeTransactionTime
+                        ? new Date(stripeTransactionTime * 1000).toISOString()
+                        : new Date().toISOString()
+
+                      addBooking({ ...localBookingData, createdAt: bookingTimestamp })
+
+                      const booking = {
+                        id: refNumber || `${Date.now().toString(36)}`,
+                        ...localBookingData,
+                        status: "upcoming" as const,
+                        createdAt: bookingTimestamp,
+                      }
                     toast.success("Booking confirmed!")
                     navigate(`/booking-confirmation/${refNumber || booking.id}`, {
                       state: {

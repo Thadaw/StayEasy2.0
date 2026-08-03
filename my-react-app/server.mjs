@@ -1,10 +1,45 @@
 import express from 'express'
 import Razorpay from 'razorpay'
+import Stripe from 'stripe'
 import crypto from 'crypto'
 import cors from 'cors'
 
 const app = express()
 app.use(cors())
+
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
+const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
+
+app.post('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) {
+    return res.status(500).json({ error: 'Stripe not configured' })
+  }
+
+  const sig = req.headers['stripe-signature']
+  if (!sig || !STRIPE_WEBHOOK_SECRET) {
+    return res.status(400).json({ error: 'Missing signature or webhook secret' })
+  }
+
+  let event
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET)
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message)
+    return res.status(400).json({ error: 'Invalid signature' })
+  }
+
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object
+    console.log(`PaymentIntent ${paymentIntent.id} succeeded at ${new Date(paymentIntent.created * 1000).toISOString()}`)
+  } else if (event.type === 'payment_intent.payment_failed') {
+    const paymentIntent = event.data.object
+    console.log(`PaymentIntent ${paymentIntent.id} failed at ${new Date().toISOString()}`)
+  }
+
+  res.json({ received: true })
+})
+
 app.use(express.json())
 
 const razorpay = new Razorpay({

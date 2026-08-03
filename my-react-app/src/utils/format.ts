@@ -1,8 +1,9 @@
 import i18n from "../i18n";
+import { parseBookingDate } from "./time";
 
 export function formatDateShort(dateStr: string): string {
   if (!dateStr) return ""
-  return new Date(dateStr + "T00:00:00").toLocaleDateString(i18n.language, {
+  return parseBookingDate(dateStr).toLocaleDateString(i18n.language, {
     month: "short",
     day: "numeric",
   })
@@ -10,7 +11,7 @@ export function formatDateShort(dateStr: string): string {
 
 export function formatDate(date: string): string {
   if (!date) return ''
-  return new Date(date).toLocaleDateString(i18n.language, {
+  return parseBookingDate(date).toLocaleDateString(i18n.language, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -19,7 +20,7 @@ export function formatDate(date: string): string {
 
 export function formatShortDate(date: string): string {
   if (!date) return ''
-  return new Date(date).toLocaleDateString(i18n.language, {
+  return parseBookingDate(date).toLocaleDateString(i18n.language, {
     month: 'short',
     day: 'numeric',
   })

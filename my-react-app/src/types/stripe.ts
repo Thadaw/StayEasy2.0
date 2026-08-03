@@ -17,5 +17,5 @@ export interface StripeCardFormProps {
   intentLoading?: boolean
   intentError?: string | null
   onRetry?: () => void
-  onSuccess: (paymentIntentId: string, clientSecret: string) => void
+  onSuccess: (paymentIntentId: string, clientSecret: string, createdAt: number) => void
 }

@@ -1,10 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useAuth } from './AuthContext'
 import type { Booking } from '../types'
+import { parseBookingDate } from '../utils/time'
 
 interface BookingContextValue {
   bookings: Booking[]
-  addBooking: (booking: Omit<Booking, 'id' | 'status' | 'createdAt'>) => void
+  addBooking: (booking: Omit<Booking, 'id' | 'status' | 'createdAt'> & { createdAt?: string }) => void
   cancelBooking: (id: string) => void
 }
 
@@ -31,7 +32,9 @@ function autoCompletePastBookings(bookings: Booking[]): Booking[] {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   return bookings.map(b => {
-    if (b.status === 'upcoming' && new Date(b.checkOut) < today) {
+    const checkOutDate = parseBookingDate(b.checkOut)
+    checkOutDate.setHours(0, 0, 0, 0)
+    if (b.status === 'upcoming' && checkOutDate < today) {
       return { ...b, status: 'completed' as const }
     }
     return b
@@ -55,12 +58,12 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   }, [bookings, user?.id])
 
   const addBooking = useCallback(
-    (data: Omit<Booking, 'id' | 'status' | 'createdAt'>) => {
+    (data: Omit<Booking, 'id' | 'status' | 'createdAt'> & { createdAt?: string }) => {
       const newBooking: Booking = {
         ...data,
         id: data.refNumber || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         status: 'upcoming',
-        createdAt: new Date().toISOString(),
+        createdAt: data.createdAt || new Date().toISOString(),
       }
       setBookings(prev => {
         const updated = autoCompletePastBookings([newBooking, ...prev])

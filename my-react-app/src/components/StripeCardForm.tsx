@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js"
-import { Loader2, ShieldCheck } from "lucide-react"
+import { Loader2, ShieldCheck, AlertTriangle } from "lucide-react"
 import toast from "react-hot-toast"
 import api from "../api"
 import type { StripeCardFormProps } from "../types/stripe"
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "")
+
+const INTENT_EXPIRY_MS = 23 * 60 * 60 * 1000
+const INTENT_WARNING_MS = 22 * 60 * 60 * 1000
 
 function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, currency, guestName, guestEmail, guestPhone, clientSecret: externalSecret, intentLoading, intentError, onRetry, onSuccess }: StripeCardFormProps) {
   const stripe = useStripe()
@@ -15,6 +18,9 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, currenc
   const [loadingIntent, setLoadingIntent] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [intentExpired, setIntentExpired] = useState(false)
+  const [intentExpiringSoon, setIntentExpiringSoon] = useState(false)
+  const intentCreatedAtRef = useRef<number>(Date.now())
 
   const CUR = currency || "USD"
 
@@ -27,6 +33,9 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, currenc
     setLoadingIntent(true)
     setError(null)
     setClientSecret(null)
+    setIntentExpired(false)
+    setIntentExpiringSoon(false)
+    intentCreatedAtRef.current = Date.now()
     try {
       const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, { payment_gateway: "stripe" })
       if (cancelledRef.current) return
@@ -36,6 +45,7 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, currenc
         return
       }
       setClientSecret(secret)
+      intentCreatedAtRef.current = Date.now()
     } catch (err: unknown) {
       if (cancelledRef.current) return
       const msg = err instanceof Error ? err.message : "Failed to initialize payment"
@@ -50,8 +60,30 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, currenc
     createIntent()
   }, [createIntent, externalSecret])
 
+  useEffect(() => {
+    if (!clientSecret) return
+    const warningTimer = setTimeout(() => {
+      if (!cancelledRef.current) setIntentExpiringSoon(true)
+    }, INTENT_WARNING_MS)
+    const expiryTimer = setTimeout(() => {
+      if (!cancelledRef.current) {
+        setIntentExpired(true)
+        setClientSecret(null)
+        toast.error("Payment session expired. Please retry.")
+      }
+    }, INTENT_EXPIRY_MS)
+    return () => {
+      clearTimeout(warningTimer)
+      clearTimeout(expiryTimer)
+    }
+  }, [clientSecret])
+
   const handleConfirmPayment = async () => {
     if (!stripe || !elements || !resolvedSecret) return
+    if (intentExpired) {
+      toast.error("Payment session expired. Please retry.")
+      return
+    }
     setLoading(true)
     try {
       const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(resolvedSecret, {
@@ -68,7 +100,9 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, currenc
         toast.error(stripeError.message || "Payment failed")
       } else if (paymentIntent?.status === "succeeded") {
         toast.success("Payment successful!")
-        onSuccess(paymentIntent.id, resolvedSecret)
+        onSuccess(paymentIntent.id, resolvedSecret, paymentIntent.created)
+      } else if (paymentIntent?.status === "requires_action") {
+        toast("Additional authentication required", { icon: "ℹ️" })
       } else {
         toast.error("Payment was not completed")
       }
@@ -93,6 +127,24 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, currenc
     )
   }
 
+  if (intentExpired) {
+    return (
+      <div className="text-center py-4">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <AlertTriangle size={16} className="text-amber-500" />
+          <p className="text-sm font-semibold text-amber-700">Payment session expired</p>
+        </div>
+        <p className="text-xs text-gray-500 mb-3">The payment session has timed out. Please retry to start a new session.</p>
+        <button
+          onClick={() => { if (externalSecret !== undefined) onRetry?.(); else createIntent() }}
+          className="text-sm text-[#0071c2] font-semibold hover:underline cursor-pointer"
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
+
   if (resolvedError) {
     return (
       <div className="text-center py-4">
@@ -111,6 +163,12 @@ function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, currenc
 
   return (
     <div className="space-y-3">
+      {intentExpiringSoon && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <AlertTriangle size={14} className="text-amber-500 shrink-0" />
+          <p className="text-xs text-amber-700">Payment session will expire soon. Please complete your payment.</p>
+        </div>
+      )}
       <div className="bg-gray-50 rounded-xl p-4">
         <label className="block text-xs font-semibold text-gray-700 mb-2">Card Details</label>
         <CardElement

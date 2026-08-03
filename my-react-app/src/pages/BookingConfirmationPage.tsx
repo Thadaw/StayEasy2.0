@@ -5,6 +5,7 @@ import { Navbar } from '../components/Navbar'
 import { Footer } from '../components/Footer'
 import api from '../api'
 import toast from 'react-hot-toast'
+import { parseBookingDate } from '../utils/time'
 
 interface ConfirmationRoom {
   room_id: string; room_name: string; room_type: string; bed_type: string;
@@ -38,11 +39,11 @@ function buildQrUrl(text: string) {
 }
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+  return parseBookingDate(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function fmtShort(d: string) {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return parseBookingDate(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 export default function BookingConfirmationPage() {
@@ -481,7 +482,7 @@ export default function BookingConfirmationPage() {
             <div className="px-5 py-4 border-b border-gray-200">
               <p className="text-xs font-semibold text-gray-500 mb-1">Dates</p>
               <p className="text-sm font-semibold text-gray-900">
-                {fmtShort(booking.check_in)} – {fmtShort(booking.check_out)}, {new Date(booking.check_out).getFullYear()}
+                {fmtShort(booking.check_in)} – {fmtShort(booking.check_out)}, {parseBookingDate(booking.check_out).getFullYear()}
               </p>
               <p className="text-xs text-gray-500 mt-1">{booking.nights} night{booking.nights > 1 ? 's' : ''}</p>
             </div>
@@ -748,7 +749,7 @@ export default function BookingConfirmationPage() {
               <div className="px-5 py-4 border-b border-gray-200">
                 <p className="text-xs font-semibold text-gray-500 mb-1">Dates</p>
                 <p className="text-sm font-semibold text-gray-900">
-                  {fmtShort(booking.check_in)} – {fmtShort(booking.check_out)}, {new Date(booking.check_out).getFullYear()}
+                  {fmtShort(booking.check_in)} – {fmtShort(booking.check_out)}, {parseBookingDate(booking.check_out).getFullYear()}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">{booking.nights} night{booking.nights > 1 ? 's' : ''}</p>
               </div>

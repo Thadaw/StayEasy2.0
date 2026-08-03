@@ -232,6 +232,27 @@ export default function PropertyDetailPage() {
   });
 
   useEffect(() => {
+    if (!id || apiLoading || !checkIn || !checkOut) return;
+    const fetchRooms = async () => {
+      try {
+        const roomsRes = await api.get(`/properties/${id}/rooms/available-rooms`, {
+          params: {
+            checkin_date: checkIn,
+            checkout_date: checkOut,
+            adults: guests.adults,
+            children: guests.children,
+            rooms: guests.rooms,
+          },
+        });
+        setApiRooms(roomsRes.data?.data || []);
+      } catch {
+        // keep existing rooms on error
+      }
+    };
+    fetchRooms();
+  }, [id, guests.adults, guests.children, guests.rooms, checkIn, checkOut]);
+
+  useEffect(() => {
     if (!hotel?.roomTypes) return;
     const totalGuests = guests.adults + guests.children;
     const selectedEntries = Object.entries(roomQuantities).filter(([, q]) => q > 0);
@@ -283,12 +304,28 @@ export default function PropertyDetailPage() {
     const totalGuests = guests.adults + guests.children;
     const selectedEntries = Object.entries(roomQuantities).filter(([, q]) => q > 0);
     if (selectedEntries.length === 0 || totalGuests <= 0) return '';
-    const totalCapacity = selectedEntries.reduce((sum, [roomId, qty]) => {
+
+    let totalMaxAdults = 0;
+    let totalMaxChildren = 0;
+    let totalMaxGuests = 0;
+
+    selectedEntries.forEach(([roomId, qty]) => {
       const rt = hotel.roomTypes.find(r => r.id === roomId);
-      return sum + (rt ? rt.maxGuests * qty : 0);
-    }, 0);
-    if (totalGuests > totalCapacity) {
-      return `Selected rooms can accommodate ${totalCapacity} guest${totalCapacity !== 1 ? 's' : ''}, but you have ${totalGuests} guest${totalGuests !== 1 ? 's' : ''}. Please add more rooms or reduce guest count.`;
+      if (rt) {
+        totalMaxAdults += rt.maxAdults * qty;
+        totalMaxChildren += rt.maxChildren * qty;
+        totalMaxGuests += rt.maxGuests * qty;
+      }
+    });
+
+    if (guests.adults > totalMaxAdults) {
+      return `Selected room${selectedEntries.length > 1 ? 's' : ''} can accommodate ${totalMaxAdults} adult${totalMaxAdults !== 1 ? 's' : ''}, but you have ${guests.adults} adult${guests.adults !== 1 ? 's' : ''}. Please select a room with higher adult capacity.`;
+    }
+    if (guests.children > totalMaxChildren) {
+      return `Selected room${selectedEntries.length > 1 ? 's' : ''} can accommodate ${totalMaxChildren} child${totalMaxChildren !== 1 ? 'ren' : ''}, but you have ${guests.children} child${guests.children !== 1 ? 'ren' : ''}. Please select a room with higher child capacity.`;
+    }
+    if (totalGuests > totalMaxGuests) {
+      return `Selected room${selectedEntries.length > 1 ? 's' : ''} can accommodate ${totalMaxGuests} guest${totalMaxGuests !== 1 ? 's' : ''}, but you have ${totalGuests} guest${totalGuests !== 1 ? 's' : ''}. Please add more rooms or reduce guest count.`;
     }
     return '';
   }, [hotel, roomQuantities, guests.adults, guests.children]);

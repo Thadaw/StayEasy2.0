@@ -155,13 +155,16 @@ export default function BookingDetailsPage() {
   const [refNumber, setRefNumber] = useState(refParam)
   const parsedRooms: Record<string, number> = roomsParam ? JSON.parse(roomsParam) : {}
   const parsedGuestCounts: Record<string, number> = guestCountsParam ? JSON.parse(guestCountsParam) : {}
-  const totalGuests = Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0)
-    || (adultsParam ? Number(adultsParam) : 0) + (childrenParam ? Number(childrenParam) : 0)
 
   const [apiProperty, setApiProperty] = useState<ApiProperty | null>(null)
   const [apiRooms, setApiRooms] = useState<ApiRoom[]>([])
   const [loading, setLoading] = useState(true)
   const [bookingRooms, setBookingRooms] = useState<{ room_id: string; room_name: string; room_type: string; bed_type: string; max_adults: number; max_children: number; base_rate: number; nights: number; subtotal: number }[]>([])
+  const [bookingGuests, setBookingGuests] = useState<{ adults: number; children: number } | null>(null)
+
+  const totalGuests = (bookingGuests ? bookingGuests.adults + bookingGuests.children : null)
+    || Object.values(parsedGuestCounts).reduce((s, c) => s + c, 0)
+    || (adultsParam ? Number(adultsParam) : 0) + (childrenParam ? Number(childrenParam) : 0)
 
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
@@ -251,6 +254,12 @@ export default function BookingDetailsPage() {
         const { data } = await api.get(`/bookings/${refNumber}`)
         const booking = data?.data || data
         if (booking?.rooms) setBookingRooms(booking.rooms)
+        if (booking?.number_of_adults != null || booking?.number_of_children != null) {
+          setBookingGuests({
+            adults: booking.number_of_adults || 0,
+            children: booking.number_of_children || 0,
+          })
+        }
       } catch {
         // fallback to URL params
       }
@@ -479,7 +488,9 @@ export default function BookingDetailsPage() {
                   <div>
                     <p className="text-xs text-gray-500 mb-0.5">Guests</p>
                     <p className="text-sm font-bold text-gray-900">
-                      {totalGuests} guest{totalGuests !== 1 ? 's' : ''}
+                      {bookingGuests
+                        ? `${bookingGuests.adults} adult${bookingGuests.adults !== 1 ? 's' : ''}${bookingGuests.children > 0 ? `, ${bookingGuests.children} child${bookingGuests.children !== 1 ? 'ren' : ''}` : ''}`
+                        : `${totalGuests} guest${totalGuests !== 1 ? 's' : ''}`}
                     </p>
                   </div>
                   <div>
