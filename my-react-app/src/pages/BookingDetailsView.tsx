@@ -8,6 +8,7 @@ import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
 import { useBookings } from "../context/BookingContext"
 import { useAuth } from "../context/AuthContext"
+import { printReceipt } from "../components/booking/ReceiptGenerator"
 import api from "../api"
 import toast from "react-hot-toast"
 import { parseBookingDate } from "../utils/time"
@@ -207,223 +208,28 @@ export default function BookingDetailsView() {
 
   const handleDownloadReceipt = () => {
     if (!apiBooking && !localBooking) return
-    const receiptDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    const receiptTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-    const receiptNo = `RCP-${new Date().toISOString().slice(0,10).replace(/-/g, '')}-${Math.floor(Math.random() * 9000 + 1000)}`
-
-    const receiptHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f5f5f5; display: flex; justify-content: center; padding: 20px; }
-          .receipt { background: white; max-width: 500px; width: 100%; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-          .header { text-align: center; margin-bottom: 20px; }
-          .logo { font-size: 28px; font-weight: 800; color: #1a1a1a; }
-          .tagline { font-size: 11px; color: #666; margin-top: 2px; text-align: center; }
-          .divider { border: none; border-top: 2px dashed #ccc; margin: 15px 0; }
-          .title { text-align: center; font-size: 16px; font-weight: 700; letter-spacing: 2px; margin: 15px 0; }
-          .row { display: flex; padding: 6px 0; }
-          .label { width: 140px; font-size: 13px; color: #333; }
-          .colon { width: 15px; font-size: 13px; color: #333; }
-          .value { flex: 1; font-size: 13px; font-weight: 600; color: #1a1a1a; }
-          .total-row { display: flex; padding: 10px 0; margin-top: 10px; }
-          .total-label { width: 140px; font-size: 16px; font-weight: 700; color: #1a1a1a; }
-          .total-colon { width: 15px; font-size: 16px; font-weight: 700; color: #1a1a1a; }
-          .total-value { flex: 1; font-size: 18px; font-weight: 700; color: #1a1a1a; }
-          .thank-you { text-align: center; margin: 20px 0; font-size: 12px; color: #333; line-height: 1.6; }
-          .important { text-align: center; margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 8px; }
-          .important-title { font-size: 13px; font-weight: 700; margin-bottom: 5px; }
-          .important-text { font-size: 11px; color: #555; line-height: 1.5; }
-          .footer { text-align: center; margin-top: 20px; font-size: 11px; color: #666; line-height: 1.6; }
-          .tear { text-align: center; margin-top: 15px; font-size: 20px; color: #ccc; letter-spacing: 3px; }
-          @media print { body { background: white; padding: 0; } .receipt { box-shadow: none; } }
-        </style>
-      </head>
-      <body>
-        <div class="receipt">
-          <div class="header" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-            <img src="${window.location.origin}/logo1.png" alt="StayEasy" style="height: 50px;">
-            <span style="font-size: 28px; font-weight: 800; color: #1a1a1a;">StayEasy</span>
-          </div>
-          <div class="tagline">Make Every Stay Effortless</div>
-          <hr class="divider">
-          <div class="title">STAYEASY BOOKING RECEIPT</div>
-          <hr class="divider">
-          
-          <div class="row">
-            <span class="label">Confirmation Code</span>
-            <span class="colon">:</span>
-            <span class="value">${refNumber}</span>
-          </div>
-          <div class="row">
-            <span class="label">Booking Date</span>
-            <span class="colon">:</span>
-            <span class="value">${createdAt ? `${fmtShortDate(createdAt)}, ${new Date(createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : `${receiptDate}  ${receiptTime}`}</span>
-          </div>
-          <div class="row">
-            <span class="label">Receipt No.</span>
-            <span class="colon">:</span>
-            <span class="value">${receiptNo}</span>
-          </div>
-          
-          <hr class="divider">
-          
-          <div class="row">
-            <span class="label">Hotel</span>
-            <span class="colon">:</span>
-            <span class="value">${propertyName}</span>
-          </div>
-          <div class="row">
-            <span class="label">Location</span>
-            <span class="colon">:</span>
-            <span class="value">${propertyLocation || `${propertyCity}, ${propertyCountry}`}</span>
-          </div>
-          <div class="row">
-            <span class="label">Phone</span>
-            <span class="colon">:</span>
-            <span class="value">${propertyPhone || 'N/A'}</span>
-          </div>
-          <div class="row">
-            <span class="label">Email</span>
-            <span class="colon">:</span>
-            <span class="value">${propertyEmail || 'N/A'}</span>
-          </div>
-          <div class="row">
-            <span class="label">Check-in</span>
-            <span class="colon">:</span>
-            <span class="value">${checkIn ? fmtDate(checkIn) : 'N/A'}</span>
-          </div>
-          <div class="row">
-            <span class="label">Check-out</span>
-            <span class="colon">:</span>
-            <span class="value">${checkOut ? fmtDate(checkOut) : 'N/A'}</span>
-          </div>
-          <div class="row">
-            <span class="label">Rooms</span>
-            <span class="colon">:</span>
-            <span class="value">${roomNames}</span>
-          </div>
-          <div class="row">
-            <span class="label">Guests</span>
-            <span class="colon">:</span>
-            <span class="value">${totalGuests}</span>
-          </div>
-          <div class="row">
-            <span class="label">Guest Name</span>
-            <span class="colon">:</span>
-            <span class="value">${guestName}</span>
-          </div>
-          <div class="row">
-            <span class="label">Guest Email</span>
-            <span class="colon">:</span>
-            <span class="value">${guestEmail || 'N/A'}</span>
-          </div>
-          <div class="row">
-            <span class="label">Guest Phone</span>
-            <span class="colon">:</span>
-            <span class="value">${guestPhone || 'N/A'}</span>
-          </div>
-          <div class="row">
-            <span class="label">Nationality</span>
-            <span class="colon">:</span>
-            <span class="value">${guestNationality || 'N/A'}</span>
-          </div>
-          
-          <hr class="divider">
-
-          ${rooms.map((r) => `
-          <div style="margin-bottom: 12px;">
-            <div class="row">
-              <span class="label">Room</span>
-              <span class="colon">:</span>
-              <span class="value">${r.room_name}</span>
-            </div>
-            <div class="row">
-              <span class="label" style="padding-left: 15px;">Type</span>
-              <span class="colon">:</span>
-              <span class="value">${r.room_type}</span>
-            </div>
-            <div class="row">
-              <span class="label" style="padding-left: 15px;">Bed</span>
-              <span class="colon">:</span>
-              <span class="value">${r.bed_type}</span>
-            </div>
-            <div class="row">
-              <span class="label" style="padding-left: 15px;">Guests</span>
-              <span class="colon">:</span>
-              <span class="value">Max ${r.max_adults} adults${r.max_children > 0 ? `, ${r.max_children} children` : ''}</span>
-            </div>
-            <div class="row">
-              <span class="label" style="padding-left: 15px;">Rate</span>
-              <span class="colon">:</span>
-              <span class="value">${CUR}${r.base_rate.toFixed(2)} x ${r.nights} night${r.nights > 1 ? 's' : ''}</span>
-            </div>
-            <div class="row">
-              <span class="label" style="padding-left: 15px;">Subtotal</span>
-              <span class="colon">:</span>
-              <span class="value">${CUR}${r.subtotal.toFixed(2)}</span>
-            </div>
-          </div>
-          `).join('')}
-
-          ${specialOfferDiscount > 0 ? `
-          <div class="row">
-            <span class="label">Special Offer</span>
-            <span class="colon">:</span>
-            <span class="value" style="color: #16a34a;">-${CUR}${specialOfferDiscount.toFixed(2)}</span>
-          </div>
-          ` : ''}
-          ${apiBooking?.coupon_code ? `
-          <div class="row">
-            <span class="label">Coupon (${apiBooking.coupon_code})</span>
-            <span class="colon">:</span>
-            <span class="value" style="color: #16a34a;">-${CUR}${couponDiscount.toFixed(2)}</span>
-          </div>
-          ` : ''}
-          
-          <hr class="divider">
-          
-          <div class="total-row">
-            <span class="total-label">Total Paid</span>
-            <span class="total-colon">:</span>
-            <span class="total-value">${CUR}${totalAmount.toLocaleString()}</span>
-          </div>
-          
-          <hr class="divider">
-          
-          <div class="thank-you">
-            Thank you for booking with StayEasy!<br>
-            We wish you a pleasant stay.
-          </div>
-          
-          <hr class="divider">
-          
-          <div class="important">
-            <div class="important-title">IMPORTANT</div>
-            <div class="important-text">Please carry a valid ID and<br>arrive at least 15 minutes early.</div>
-          </div>
-          
-          <hr class="divider">
-          
-          <div class="footer">
-            StayEasy Customer Support<br>
-            support@stayeasy.com | +977 9800000000
-          </div>
-          
-          <div class="tear">~~~~~~~~~~~~~~~~~~~~~</div>
-        </div>
-      </body>
-      </html>
-    `
-    const printWindow = window.open('', '_blank')
-    if (printWindow) {
-      printWindow.document.write(receiptHTML)
-      printWindow.document.close()
-      setTimeout(() => printWindow.print(), 500)
-    }
+    printReceipt({
+      confirmationCode: refNumber,
+      propertyName,
+      propertyLocation: propertyLocation || `${propertyCity}, ${propertyCountry}`,
+      propertyPhone,
+      propertyEmail,
+      checkIn,
+      checkOut,
+      roomNames,
+      totalGuests,
+      guestName,
+      guestEmail,
+      guestPhone,
+      guestNationality,
+      rooms,
+      specialOfferDiscount,
+      couponCode: apiBooking?.coupon_code,
+      couponDiscount,
+      totalAmount,
+      currency: CUR,
+      createdAt,
+    })
   }
 
   const statusColor = () => {

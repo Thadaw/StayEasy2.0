@@ -4,146 +4,20 @@ import { ChevronRight, Star, Wifi, Plane, UtensilsCrossed, BedDouble } from "luc
 import { Hotel, RoomType } from "../data/hotels"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
-import { useAuth } from "../context/AuthContext"
+import { useGuestProfile } from "../hooks/useGuestProfile"
 import { formatDate } from "../utils/format"
 import { phoneCodes } from "../data/phoneCodes"
 import { allCountries } from "../data/countries"
+import { ApiProperty, ApiRoom } from "../types/api"
+import { mapApiPropertyToHotel } from "../utils/propertyMapper"
 import api from "../api"
-
-interface GuestProfile {
-  full_name: string
-  email: string
-  phone: string
-  nationality: string
-  id: string
-  created_at: string
-}
-
-interface ApiProperty {
-  id: string
-  tenant_id: string
-  name: string
-  type: string
-  description: string
-  country: string
-  state: string
-  city: string
-  zip_code: string
-  address: string
-  latitude: string | null
-  longitude: string | null
-  check_in_time: string
-  check_out_time: string
-  check_in_grace_period: number
-  check_out_grace_period: number
-  always_allow_check_in_out: boolean
-  number_of_floors: number
-  total_rooms: number
-  year_built: number
-  phone_number: string
-  email: string
-  currency: string
-  timezone: string
-  language: string
-  brand_logo_url: string
-  brand_color: string
-  is_active: boolean
-  system_amenities: { id: string; name: string; icon: string }[]
-  custom_amenities: { icon: string | null; name: string }[]
-  photos: { cover: string; gallery: string[] }
-}
-
-interface ApiRoom {
-  id: string
-  property_id: string
-  floor_number: number
-  room_name: string
-  room_type_id: string
-  bed_type_id: string
-  max_adults: number
-  max_children: number
-  base_rate: string
-  status: string
-  cancellation_policy: string
-  cancellation_title: string
-  cancellation_description: string
-  photos: { cover: string; gallery: string[] }
-  system_amenity_ids: string[]
-  custom_amenities: { icon: string | null; name: string }[]
-}
-
-function mapApiPropertyToHotel(apiProp: ApiProperty, rooms: ApiRoom[]): Hotel {
-  const allAmenities = [
-    ...apiProp.system_amenities.map((a) => a.name),
-    ...apiProp.custom_amenities.map((a) => a.name),
-  ]
-  const totalAdults = rooms.reduce((sum, r) => sum + r.max_adults, 0)
-  const totalChildren = rooms.reduce((sum, r) => sum + r.max_children, 0)
-  const mappedRooms: RoomType[] = rooms.map((r) => ({
-    id: r.id,
-    name: r.room_name,
-    price: parseFloat(r.base_rate) || 0,
-    maxGuests: r.max_adults + r.max_children,
-    bedrooms: 1,
-    beds: 1,
-    bathrooms: 1,
-    description: r.cancellation_description || "",
-    totalRooms: 1,
-    availableRooms: r.status === "AVAILABLE" ? 1 : 0,
-    roomNumbers: [r.room_name],
-    bedType: "",
-    areaSqFt: 300,
-    floorNumber: r.floor_number,
-    maxAdults: r.max_adults,
-    maxChildren: r.max_children,
-    cancellationTitle: r.cancellation_title,
-    customAmenities: r.custom_amenities,
-    image: r.photos?.cover || "",
-    gallery: r.photos?.gallery || [],
-    bathroomAmenities: [],
-    roomFacilities: apiProp.system_amenities.map((a) => a.name),
-    smokingPolicy: "No smoking",
-    cancellationPolicy: r.cancellation_description || "",
-    breakfastIncluded: false,
-  }))
-  return {
-    id: 0,
-    name: apiProp.name,
-    location: `${apiProp.address}, ${apiProp.city}, ${apiProp.country}`,
-    city: apiProp.city,
-    country: apiProp.country,
-    lat: apiProp.latitude ? parseFloat(apiProp.latitude) : 0,
-    lng: apiProp.longitude ? parseFloat(apiProp.longitude) : 0,
-    rating: 4.8,
-    reviews: 0,
-    price: rooms.length > 0 ? parseFloat(rooms[0].base_rate) || 0 : 0,
-    imageUrl: apiProp.photos?.cover || "",
-    images: apiProp.photos?.gallery || [],
-    tag: apiProp.type,
-    isSuperhost: false,
-    category: apiProp.type.toLowerCase(),
-    description: apiProp.description || "",
-    amenities: allAmenities.length > 0 ? allAmenities : ["Free WiFi"],
-    hostName: apiProp.name,
-    hostAvatar: apiProp.brand_logo_url || "",
-    hostJoined: "",
-    hostReviews: 0,
-    hostBankDetails: { accountHolderName: "", accountNumber: "", ifscCode: "", bankName: "", upiId: "" },
-    bedrooms: 1,
-    beds: 1,
-    bathrooms: 1,
-    maxGuests: totalAdults + totalChildren,
-    maxAdults: totalAdults,
-    maxChildren: totalChildren,
-    roomTypes: mappedRooms,
-  }
-}
 
 export default function BookingDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { user } = useAuth()
+
+  const { profile: guestProfile } = useGuestProfile()
 
   const checkIn = searchParams.get("checkIn") || ""
   const checkOut = searchParams.get("checkOut") || ""
@@ -173,41 +47,29 @@ export default function BookingDetailsPage() {
   const [country, setCountry] = useState("")
 
   useEffect(() => {
-    const fetchGuestProfile = async () => {
-      if (!user) return
-      try {
-        const { data } = await api.get<GuestProfile>('/auth/guests/me')
-        if (data.full_name) {
-          setFullName(data.full_name)
-        }
-        if (data.email) setEmail(data.email)
-        if (data.phone) {
-          const match = data.phone.match(/^(\+\d+)(.*)$/)
-          if (match) {
-            setPhoneCode(match[1])
-            setPhoneNumber(match[2].replace(/\D/g, ''))
-          } else {
-            setPhoneNumber(data.phone.replace(/\D/g, ''))
-          }
-        }
-        if (data.nationality) {
-          const nat = data.nationality.trim().toLowerCase()
-          const found = allCountries.find(c =>
-            c.name.toLowerCase() === nat ||
-            c.code.toLowerCase() === nat ||
-            c.name.toLowerCase().includes(nat) ||
-            nat.includes(c.name.toLowerCase())
-          )
-          if (found) setCountry(found.code)
-        }
-      } catch {
-        // fallback to basic user data
-        setFullName(user.fullName || user.full_name || `${user.firstName || user.first_name || ''} ${user.lastName || user.last_name || ''}`.trim())
-        setEmail(user.email || '')
+    if (!guestProfile) return
+    if (guestProfile.full_name) setFullName(guestProfile.full_name)
+    if (guestProfile.email) setEmail(guestProfile.email)
+    if (guestProfile.phone) {
+      const match = guestProfile.phone.match(/^(\+\d+)(.*)$/)
+      if (match) {
+        setPhoneCode(match[1])
+        setPhoneNumber(match[2].replace(/\D/g, ''))
+      } else {
+        setPhoneNumber(guestProfile.phone.replace(/\D/g, ''))
       }
     }
-    fetchGuestProfile()
-  }, [user])
+    if (guestProfile.nationality) {
+      const nat = guestProfile.nationality.trim().toLowerCase()
+      const found = allCountries.find(c =>
+        c.name.toLowerCase() === nat ||
+        c.code.toLowerCase() === nat ||
+        c.name.toLowerCase().includes(nat) ||
+        nat.includes(c.name.toLowerCase())
+      )
+      if (found) setCountry(found.code)
+    }
+  }, [guestProfile])
 
   useEffect(() => {
     window.scrollTo(0, 0)
