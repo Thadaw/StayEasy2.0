@@ -21,7 +21,7 @@ export function PopularDestinations() {
   return (
     <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-10 md:py-14">
       <div className="flex items-center justify-between mb-6 md:mb-8">
-        <h2 className="text-xl md:text-2xl font-bold" style={{ fontFamily: "'Sora', sans-serif", color: "var(--brand-heading)" }}>
+        <h2 className="text-xl md:text-2xl font-bold font-display text-brand-heading">
           Popular destinations
         </h2>
       </div>

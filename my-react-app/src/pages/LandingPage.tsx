@@ -11,7 +11,7 @@ import { NewsletterSection } from "../components/landing/NewsletterSection";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "var(--background)", fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen bg-background font-jakarta">
       <Navbar />
       <HeroSection />
       <PropertyTypesSection />
@@ -24,10 +24,6 @@ export default function LandingPage() {
       <NewsletterSection />
       <Footer />
 
-      <style>{`
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-      `}</style>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { Loader2, CreditCard, Smartphone, Building2, CheckCircle2, ShieldCheck } from 'lucide-react'
 import StripeCardForm from '../StripeCardForm'
-import type { RazorpayPaymentResponse } from '../../types/razorpay'
+import type { RazorpayPaymentResponse, RazorpayPayOptions } from '../../types/razorpay'
 import type { PaymentMethod } from '../../types/booking'
 
 interface PaymentFormsProps {
@@ -33,7 +33,7 @@ interface PaymentFormsProps {
   onSetSelectedBank: (value: string) => void
   onStripeSuccess: (id: string, secret: string, createdAt: number) => void
   onStripeRetry: () => void
-  onRazorpayPay: (options: any) => void
+  onRazorpayPay: (options: RazorpayPayOptions) => void
   onSetKhaltiError: (error: string | null) => void
   onSetKhaltiLoading: (loading: boolean) => void
 }
@@ -78,7 +78,6 @@ export function PaymentForms({
         <StripeCardForm
           refNumber={refNumber}
           amount={total}
-          hotelName={hotelName}
           currency={currency}
           guestName={guestName}
           guestEmail={guestEmail}

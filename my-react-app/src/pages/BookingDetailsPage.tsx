@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
 import { ChevronRight, Star, BedDouble } from "lucide-react"
-import { RoomType } from "../data/hotels"
+import type { RoomType } from "../data/hotels"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
+import { LoadingSpinner } from "../components/LoadingSpinner"
 import { useGuestProfile } from "../hooks/useGuestProfile"
 import { formatDate } from "../utils/format"
 import { phoneCodes } from "../data/phoneCodes"
 import { allCountries } from "../data/countries"
-import { ApiProperty, ApiRoom } from "../types/api"
+import type { ApiProperty, ApiRoom } from "../types/api"
 import { mapPropertyToHotel } from "../utils/propertyMapper"
 import { useBookingCreation } from "../hooks/useBookingCreation"
 import { parseJSON } from "../utils/helpers"
@@ -167,7 +168,7 @@ export default function BookingDetailsPage() {
       }
     }
     fetchProperty()
-  }, [id, searchParams])
+  }, [id, searchParams, checkIn, checkOut])
 
   const hotel = useMemo(() => {
     if (!property) return null
@@ -225,8 +226,8 @@ export default function BookingDetailsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-        <span className="w-8 h-8 border-3 border-gray-200 border-t-brand-accent rounded-full animate-spin" />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 font-jakarta">
+        <LoadingSpinner />
         <p className="text-sm text-gray-500">Loading booking details...</p>
       </div>
     )
@@ -234,7 +235,7 @@ export default function BookingDetailsPage() {
 
   if (!hotel) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 font-jakarta">
         <p className="text-2xl">🏨</p>
         <p className="text-lg font-semibold text-gray-900">Property not found</p>
         <Link to="/" className="px-5 py-2.5 bg-[#1A3C5E] text-white rounded-full text-sm font-medium hover:opacity-90">
@@ -245,7 +246,7 @@ export default function BookingDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div className="min-h-screen bg-[#f8f9fa] font-jakarta">
       <Navbar />
 
       {/* Full-width stepper */}
@@ -294,7 +295,7 @@ export default function BookingDetailsPage() {
                     <Star key={i} size={14} className={i < Math.floor(hotel.rating) ? "fill-[#febb02] stroke-[#febb02]" : "fill-gray-200 stroke-gray-200"} />
                   ))}
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
+                <h2 className="text-xl font-bold text-gray-900 mb-1 font-display">
                   {hotel.name}
                 </h2>
                 <p className="text-sm text-gray-500 mb-2">{hotel.location}</p>

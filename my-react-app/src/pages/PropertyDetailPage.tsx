@@ -2,23 +2,23 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, BedDouble, Bath, Users } from "lucide-react";
 import toast from "react-hot-toast";
-import { Hotel, RoomType } from "../data/hotels";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
+import { LoadingSpinner } from "../components/LoadingSpinner";
 import { SearchBar } from "../components/SearchBar";
 import { StickySearchHeader } from "../components/StickySearchHeader";
 import { useAuth } from "../context/AuthContext";
 import { useFavorites } from "../context/FavoritesContext";
-import { HotelHeader } from "../components/property/HotelHeader";
-import { ImageGallery } from "../components/property/ImageGallery";
-import { HostInfo } from "../components/property/HostInfo";
-import { AmenitiesSection } from "../components/property/AmenitiesSection";
-import { RoomSelectionPanel } from "../components/property/RoomSelectionPanel";
-import { ReviewSection } from "../components/property/ReviewSection";
-import { ThingsToKnow } from "../components/property/ThingsToKnow";
-import { RoomDetailModal } from "../components/property/RoomDetailModal";
-import { RecommendedRoom } from "../components/property/RecommendedRoom";
-import { ApiProperty, ApiRoom } from "../types/api";
+import { HotelHeader } from "../components/PropertyDetail/HotelHeader";
+import { ImageGallery } from "../components/PropertyDetail/ImageGallery";
+import { HostInfo } from "../components/PropertyDetail/HostInfo";
+import { AmenitiesSection } from "../components/PropertyDetail/AmenitiesSection";
+import { RoomSelectionPanel } from "../components/PropertyDetail/RoomSelectionPanel";
+import { ReviewSection } from "../components/PropertyDetail/ReviewSection";
+import { ThingsToKnow } from "../components/PropertyDetail/ThingsToKnow";
+import { RoomDetailModal } from "../components/PropertyDetail/RoomDetailModal";
+import { RecommendedRoom } from "../components/PropertyDetail/RecommendedRoom";
+import type { ApiProperty, ApiRoom } from "../types/api";
 import { mapPropertyToHotel } from "../utils/propertyMapper";
 import { getDefaultDates } from "../utils/date";
 import { calculateNights } from "../utils/time";
@@ -34,8 +34,8 @@ export default function PropertyDetailPage() {
   const budgetParam = searchParams.get("budget") || "";
   const checkinParam = searchParams.get("checkin") || "";
   const checkoutParam = searchParams.get("checkout") || "";
-  const filterAmenities = searchParams.get("amenities")?.split(",").filter(Boolean) || [];
-  const filterBedTypes = searchParams.get("bedTypes")?.split(",").filter(Boolean) || [];
+  const filterAmenities = useMemo(() => searchParams.get("amenities")?.split(",").filter(Boolean) || [], [searchParams]);
+  const filterBedTypes = useMemo(() => searchParams.get("bedTypes")?.split(",").filter(Boolean) || [], [searchParams]);
   const filterGuestRating = searchParams.get("guestRating") || "Any";
   const filterPriceMin = Number(searchParams.get("priceMin")) || 0;
   const filterPriceMax = Number(searchParams.get("priceMax")) || 500;
@@ -48,12 +48,12 @@ export default function PropertyDetailPage() {
 
   const [property, setProperty] = useState<ApiProperty | null>(null);
   const [availableRooms, setAvailableRooms] = useState<ApiRoom[]>([]);
-  const [loading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
     const fetchProperty = async () => {
-      setIsLoading(true);
+      setLoading(true);
       try {
         const { today, tomorrow } = getDefaultDates();
         const checkInDate = checkinParam || today;
@@ -79,11 +79,11 @@ export default function PropertyDetailPage() {
         setProperty(null);
         setAvailableRooms([]);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
     fetchProperty();
-  }, [id, searchParams]);
+  }, [id, searchParams, checkinParam, checkoutParam, guestsParam]);
 
   const hotel = useMemo(() => {
     if (!property) return null;
@@ -125,7 +125,7 @@ export default function PropertyDetailPage() {
       }
     };
     fetchRooms();
-  }, [id, guests.adults, guests.children, guests.rooms, checkIn, checkOut]);
+  }, [id, loading, guests.adults, guests.children, guests.rooms, checkIn, checkOut]);
 
   useEffect(() => {
     if (!hotel?.roomTypes) return;
@@ -264,8 +264,8 @@ export default function PropertyDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-        <span className="w-8 h-8 border-3 border-gray-200 border-t-brand-accent rounded-full animate-spin" />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 font-jakarta">
+        <LoadingSpinner />
         <p className="text-sm text-muted-foreground">Loading property...</p>
       </div>
     );
@@ -273,7 +273,7 @@ export default function PropertyDetailPage() {
 
   if (!hotel) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 font-jakarta">
         <p className="text-2xl">🏨</p>
         <p className="text-lg font-semibold text-foreground">Property not found</p>
         <Link to="/" className="px-5 py-2.5 bg-primary text-white rounded-full text-sm font-medium hover:opacity-90">
@@ -368,7 +368,7 @@ export default function PropertyDetailPage() {
   const detailRoom = detailRoomId ? hotel.roomTypes.find(rt => rt.id === detailRoomId) : null;
 
   return (
-    <div className="min-h-screen bg-background" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div className="min-h-screen bg-background font-jakarta">
       <Navbar />
 
       <StickySearchHeader>
@@ -412,7 +412,7 @@ export default function PropertyDetailPage() {
 
           {hotelMatchesFilters && recommendedRooms.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-lg font-bold text-foreground mb-3" style={{ fontFamily: "'Sora', sans-serif" }}>
+              <h3 className="text-lg font-bold text-foreground mb-3 font-brand">
                 Recommended for {guestCount} guest{guestCount > 1 ? "s" : ""}
               </h3>
               <div className="space-y-3">

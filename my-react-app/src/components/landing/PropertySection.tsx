@@ -15,7 +15,7 @@ export function PropertySection({ title, linkTo, linkLabel = "View all", loading
   return (
     <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-10 md:py-14">
       <div className="flex items-center justify-between mb-6 md:mb-8">
-        <h2 className="text-xl md:text-2xl font-bold" style={{ fontFamily: "'Sora', sans-serif", color: "var(--brand-heading)" }}>
+        <h2 className="text-xl md:text-2xl font-bold font-display text-brand-heading">
           {title}
         </h2>
         {linkTo && (
@@ -40,7 +40,7 @@ export function PropertySection({ title, linkTo, linkLabel = "View all", loading
         </div>
       ) : isEmpty && emptyMessage ? (
         <div className="text-center py-16 bg-gray-50 rounded-2xl">
-          <p className="text-sm" style={{ color: "var(--brand-text-secondary)" }}>
+          <p className="text-sm text-brand-text-secondary">
             {emptyMessage}
           </p>
         </div>

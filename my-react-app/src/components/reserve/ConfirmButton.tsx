@@ -1,11 +1,12 @@
 import { Loader2 } from 'lucide-react'
 import type { PaymentMethod } from '../../types/booking'
+import type { RazorpayPaymentResponse } from '../../types/razorpay'
 
 interface ConfirmButtonProps {
   selectedPayment: PaymentMethod | null
   paymentLoading: boolean
   marketingOptIn: boolean
-  razorpayResponse: any | null
+  razorpayResponse: RazorpayPaymentResponse | null
   stripePaymentIntentId: string | null
   khaltiPaymentIntentId: string | null
   onSetMarketingOptIn: (value: boolean) => void

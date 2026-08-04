@@ -194,7 +194,6 @@ export function RoomSelectionPanel({
           <div className="space-y-3">
             {hotel.roomTypes.map((rt) => {
               const qty = roomQuantities[rt.id] || 0;
-              const gc = roomGuestCounts[rt.id] || 1;
               const lineTotal = qty * rt.price * nights;
               return (
                 <div key={rt.id} id={`room-${rt.id}`} className={`flex flex-col md:flex-row items-stretch gap-4 p-4 rounded-xl border border-brand-primary-extra-light transition-all scroll-mt-32 ${selectedRoomId === rt.id ? 'bg-brand-primary-extra-light ring-2 ring-brand-primary-extra-light' : 'hover:bg-gray-50'}`}>

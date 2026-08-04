@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../api'
 import { normalizeBookingStatus } from '../../utils/format'
 import { CalendarDays, Clock, X, ChevronRight, RefreshCw, AlertTriangle } from 'lucide-react'
+import { LoadingSpinner } from '../../components/LoadingSpinner'
 import toast from 'react-hot-toast'
 
 type Tab = 'upcoming' | 'completed' | 'cancelled'
@@ -175,7 +176,7 @@ export default function Bookings() {
         <div className="p-6">
           {loading ? (
             <div className="flex flex-col items-center py-12">
-              <span className="w-8 h-8 border-2 border-brand-card-border border-t-brand-accent rounded-full animate-spin mb-3" />
+              <LoadingSpinner className="mb-3" />
               <p className="text-sm text-brand-text-secondary">Loading bookings...</p>
             </div>
           ) : error ? (

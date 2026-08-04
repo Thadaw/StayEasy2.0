@@ -1,35 +1,23 @@
-import { SlidersHorizontal, Bed } from "lucide-react";
-import { PROPERTY_TYPES, AMENITIES_LIST, BED_TYPES, PROPERTY_RULES } from "../../constants/searchFilters";
+import { SlidersHorizontal } from "lucide-react";
+import { PROPERTY_TYPES, AMENITIES_LIST } from "../../constants/searchFilters";
 
 interface FilterSidebarProps {
   priceRange: [number, number];
   onPriceRangeChange: (range: [number, number]) => void;
-  selectedPropertyTypes: string[];
+  propertyFilters: string[];
   onTogglePropertyType: (type: string) => void;
-  selectedAmenities: string[];
+  amenities: string[];
   onToggleAmenity: (amenity: string) => void;
-  selectedRules: string[];
-  onToggleRule: (rule: string) => void;
-  selectedBedTypes: string[];
-  onToggleBedType: (bed: string) => void;
-  guestRating: string;
-  onGuestRatingChange: (rating: string) => void;
   onClearAll: () => void;
 }
 
 export function FilterSidebar({
   priceRange,
   onPriceRangeChange,
-  selectedPropertyTypes,
+  propertyFilters,
   onTogglePropertyType,
-  selectedAmenities,
+  amenities,
   onToggleAmenity,
-  selectedRules,
-  onToggleRule,
-  selectedBedTypes,
-  onToggleBedType,
-  guestRating,
-  onGuestRatingChange,
   onClearAll,
 }: FilterSidebarProps) {
   return (
@@ -79,7 +67,7 @@ export function FilterSidebar({
                 <label key={type.label} className="flex items-center gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
-                    checked={selectedPropertyTypes.includes(type.label)}
+                    checked={propertyFilters.includes(type.label)}
                     onChange={() => onTogglePropertyType(type.label)}
                     className="w-4 h-4 rounded border-gray-300 accent-brand-primary"
                   />
@@ -100,7 +88,7 @@ export function FilterSidebar({
                 <label key={amenity.label} className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={selectedAmenities.includes(amenity.label)}
+                    checked={amenities.includes(amenity.label)}
                     onChange={() => onToggleAmenity(amenity.label)}
                     className="w-4 h-4 rounded border-gray-300 accent-brand-primary"
                   />
@@ -111,61 +99,6 @@ export function FilterSidebar({
             })}
           </div>
           <button className="text-xs font-semibold text-brand-accent hover:underline mt-2">Show more</button>
-        </div>
-
-        <div>
-          <h4 className="text-sm font-semibold mb-3" style={{ color: "var(--brand-heading)" }}>Bed types</h4>
-          <div className="space-y-2">
-            {BED_TYPES.map((bed) => (
-              <label key={bed.label} className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedBedTypes.includes(bed.label)}
-                  onChange={() => onToggleBedType(bed.label)}
-                  className="w-4 h-4 rounded border-gray-300 accent-brand-primary"
-                />
-                <Bed size={14} className="text-gray-500" />
-                <span className="text-xs flex-1" style={{ color: "var(--brand-heading)" }}>{bed.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <h4 className="text-sm font-semibold mb-3" style={{ color: "var(--brand-heading)" }}>Guest rating</h4>
-          <div className="flex gap-2">
-            {["Any", "4.0+", "4.5+", "5.0"].map((rating) => (
-              <button
-                key={rating}
-                onClick={() => onGuestRatingChange(rating)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                  guestRating === rating
-                    ? "bg-brand-primary text-white border-brand-primary"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-                style={guestRating !== rating ? { color: "var(--brand-heading)" } : {}}
-              >
-                {rating}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <h4 className="text-sm font-semibold mb-3" style={{ color: "var(--brand-heading)" }}>Property rules</h4>
-          <div className="space-y-2">
-            {PROPERTY_RULES.map((rule) => (
-              <label key={rule.label} className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedRules.includes(rule.label)}
-                  onChange={() => onToggleRule(rule.label)}
-                  className="w-4 h-4 rounded border-gray-300 accent-brand-primary"
-                />
-                <span className="text-xs flex-1" style={{ color: "var(--brand-heading)" }}>{rule.label}</span>
-              </label>
-            ))}
-          </div>
         </div>
       </div>
     </aside>

@@ -11,7 +11,7 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 
 const INTENT_EXPIRY_MS = 23 * 60 * 60 * 1000
 const INTENT_WARNING_MS = 22 * 60 * 60 * 1000
 
-function StripeCardFormInner({ refNumber, amount, hotelName: _hotelName, currency, guestName, guestEmail, guestPhone, clientSecret: externalSecret, intentLoading, intentError, onRetry, onSuccess }: StripeCardFormProps) {
+function StripeCardFormInner({ refNumber, amount, currency, guestName, guestEmail, guestPhone, clientSecret: externalSecret, intentLoading, intentError, onRetry, onSuccess }: StripeCardFormProps) {
   const stripe = useStripe()
   const elements = useElements()
   const [clientSecret, setClientSecret] = useState<string | null>(null)

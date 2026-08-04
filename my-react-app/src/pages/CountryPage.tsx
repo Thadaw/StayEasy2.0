@@ -4,7 +4,6 @@ import { ArrowLeft, MapPin, Calendar, Utensils, Clock, ChevronRight, Star } from
 import { getCountry } from "../data/worldCountries";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
-import { HotelCard } from "../components/HotelCard";
 import { useFavorites } from "../context/FavoritesContext";
 import { getDefaultDates } from "../utils/date";
 import { parseSearchResponse } from "../utils/helpers";
@@ -53,7 +52,7 @@ export default function CountryPage() {
 
   if (!country) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 font-jakarta">
         <p className="text-4xl">🌍</p>
         <p className="text-lg font-semibold">Country not found</p>
         <Link to="/" className="px-5 py-2.5 bg-primary text-white rounded-full text-sm font-medium">Back to home</Link>
@@ -62,7 +61,7 @@ export default function CountryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div className="min-h-screen bg-background font-jakarta">
       <Navbar />
 
       <div
@@ -83,7 +82,7 @@ export default function CountryPage() {
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-5xl">{country.flag}</span>
                 <div>
-                  <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "clamp(2rem, 5vw, 3rem)", color: "white", lineHeight: 1.1 }}>
+                  <h1 className="font-display font-bold text-white leading-tight text-3xl md:text-4xl lg:text-5xl">
                     {selectedCity ? selectedCity.name : country.name}
                   </h1>
                   {selectedCity && <p className="text-white/80 text-sm mt-1">{country.name} · {country.flag}</p>}
@@ -107,7 +106,7 @@ export default function CountryPage() {
 
       <div className="max-w-screen-2xl mx-auto px-6 py-10">
         <div className="mb-10">
-          <h2 className="font-semibold text-foreground mb-4" style={{ fontSize: "1.125rem" }}>
+          <h2 className="font-semibold text-foreground mb-4 text-lg">
             Popular cities & places in {country.name}
           </h2>
           <div className="flex flex-wrap gap-3">
@@ -142,7 +141,7 @@ export default function CountryPage() {
         {selectedCity && (
           <div className="bg-white rounded-2xl border border-border p-6 mb-10 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "1.375rem", color: "var(--foreground)", marginBottom: "0.75rem" }}>
+              <h3 className="font-display font-bold text-foreground text-[1.375rem] mb-3">
                 About {selectedCity.name}
               </h3>
               <p className="text-muted-foreground text-sm leading-relaxed mb-4">{selectedCity.description}</p>
@@ -227,7 +226,7 @@ export default function CountryPage() {
 
         <div>
           <div className="flex items-center justify-between mb-6">
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "1.5rem", color: "var(--foreground)" }}>
+            <h2 className="font-display font-bold text-foreground text-2xl">
               {selectedCity ? `Stays in ${selectedCity.name}` : `Stays in ${country.name}`}
             </h2>
             <Link to="/" className="text-sm font-semibold text-primary hover:underline flex items-center gap-1">

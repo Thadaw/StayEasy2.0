@@ -29,7 +29,7 @@ interface BookingActionParams {
 export function useBookingActions() {
   const [copied, setCopied] = useState(false)
 
-  const handleCopyCode = async (code: string) => {
+  const copyCode = async (code: string) => {
     try {
       await navigator.clipboard.writeText(code)
       setCopied(true)
@@ -40,7 +40,7 @@ export function useBookingActions() {
     }
   }
 
-  const handleShare = async (shareText: string) => {
+  const shareBooking = async (shareText: string) => {
     const shareData = { title: 'StayEasy booking details', text: shareText, url: window.location.href }
     try {
       if (navigator.share) {
@@ -54,7 +54,7 @@ export function useBookingActions() {
     }
   }
 
-  const handleDownloadReceipt = (params: BookingActionParams) => {
+  const downloadReceipt = (params: BookingActionParams) => {
     printReceipt({
       confirmationCode: params.refNumber,
       propertyName: params.propertyName,
@@ -79,5 +79,5 @@ export function useBookingActions() {
     })
   }
 
-  return { copied, handleCopyCode, handleShare, handleDownloadReceipt }
+  return { copied, copyCode, shareBooking, downloadReceipt }
 }

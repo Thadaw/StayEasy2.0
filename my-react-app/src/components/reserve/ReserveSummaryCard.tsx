@@ -8,7 +8,7 @@ interface BookingRoom {
   subtotal: number
 }
 
-interface BookingSummaryCardProps {
+interface ReserveSummaryCardProps {
   propertyName: string
   roomNames: string
   propertyCity: string
@@ -41,7 +41,7 @@ function buildQrUrl(text: string) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`
 }
 
-export function BookingSummaryCard({
+export function ReserveSummaryCard({
   propertyName,
   roomNames,
   propertyCity,
@@ -64,7 +64,7 @@ export function BookingSummaryCard({
   onCopyCode,
   onShare,
   onDownloadReceipt,
-}: BookingSummaryCardProps) {
+}: ReserveSummaryCardProps) {
   const navigate = useNavigate()
 
   return (

@@ -45,6 +45,26 @@ export interface RazorpayCheckoutOptions {
   }
 }
 
+export interface RazorpayPayOptions {
+  type: 'upi' | 'card' | 'netbanking'
+  upiId?: string
+  bank?: string
+}
+
+export interface RazorpayFailureResponse {
+  error: {
+    code: string
+    description: string
+    source: string
+    step: string
+    reason: string
+    metadata?: {
+      order_id?: string
+      payment_id?: string
+    }
+  }
+}
+
 export interface HostBankDetails {
   accountHolderName: string
   accountNumber: string

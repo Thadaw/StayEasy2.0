@@ -14,7 +14,7 @@ export function DestinationResults({ selectedDestination, properties, loading, o
   return (
     <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-10 md:py-14">
       <div className="flex items-center justify-between mb-6 md:mb-8">
-        <h2 className="text-xl md:text-2xl font-bold" style={{ fontFamily: "'Sora', sans-serif", color: "var(--brand-heading)" }}>
+        <h2 className="text-xl md:text-2xl font-bold font-display text-brand-heading">
           Stays in {selectedDestination}
         </h2>
         <button onClick={onClear} className="text-sm font-semibold text-brand-accent hover:underline">
@@ -37,7 +37,7 @@ export function DestinationResults({ selectedDestination, properties, loading, o
         </div>
       ) : properties.length === 0 ? (
         <div className="text-center py-16 bg-gray-50 rounded-2xl">
-          <p className="text-sm" style={{ color: "var(--brand-text-secondary)" }}>
+          <p className="text-sm text-brand-text-secondary">
             No properties found in {selectedDestination}.
           </p>
         </div>

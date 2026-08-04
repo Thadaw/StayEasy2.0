@@ -1,27 +1,41 @@
 interface DestinationCardProps {
-  city: string;
-  country: string;
-  imageUrl: string;
-  properties: number;
+  city: string
+  country: string
+  imageUrl: string
+  properties: number
 }
 
-export function DestinationCard({ city, country, imageUrl, properties }: DestinationCardProps) {
+export function DestinationCard({
+  city,
+  country,
+  imageUrl,
+  properties,
+}: DestinationCardProps) {
+  const propertyText =
+    properties === 1
+      ? "1 property"
+      : `${properties.toLocaleString()} properties`
+
   return (
-    <div className="relative group cursor-pointer rounded-2xl overflow-hidden aspect- [3/4] bg-muted">
+    <div className="group relative aspect-[3/4] cursor-pointer overflow-hidden rounded-2xl bg-muted">
       <img
         src={imageUrl}
         alt={`${city}, ${country}`}
-        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        loading="lazy"
+        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
       />
-      <div
-        className="absolute inset-0"
-        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 55%)" }}
-      />
-      <div className="absolute bottom-0 left-0 right-0 p-5">
-        <p className="text-white font-bold" style={{ fontSize: "1.125rem" }}>{city}</p>
-        <p className="text-white/80 text-sm">{country}</p>
-        <p className="text-white/60 text-xs mt-1">{properties.toLocaleString()} properties</p>
+
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+      <div className="absolute inset-x-0 bottom-0 p-5">
+        <h3 className="text-lg font-bold text-white">{city}</h3>
+
+        <p className="text-sm text-white/80">{country}</p>
+
+        <p className="mt-1 text-xs text-white/60">
+          {propertyText}
+        </p>
       </div>
     </div>
-  );
-} 
+  )
+}

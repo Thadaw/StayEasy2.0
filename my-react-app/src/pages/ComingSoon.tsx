@@ -12,63 +12,20 @@ export default function ComingSoon() {
     .join(' ')
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: 'var(--brand-secondary-surface)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 'var(--space-6)',
-        fontFamily: "'Segoe UI', sans-serif",
-      }}
-    >
-      <div
-        style={{
-          width: 420,
-          background: 'var(--brand-surface)',
-          borderRadius: 'var(--radius-xl)',
-          boxShadow: 'var(--shadow-modal)',
-          padding: 'var(--space-12) var(--space-8)',
-          textAlign: 'center',
-        }}
-      >
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: '50%',
-            background: 'var(--brand-secondary-surface)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto var(--space-6)',
-            fontSize: 28,
-          }}
-        >
+    <div className="min-h-screen bg-brand-secondary-surface flex items-center justify-center p-6 font-jakarta">
+      <div className="w-[420px] bg-brand-surface rounded-2xl shadow-modal py-12 px-8 text-center">
+        <div className="w-16 h-16 rounded-full bg-brand-secondary-surface flex items-center justify-center mx-auto mb-6 text-2xl">
           ⏳
         </div>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--brand-heading)', margin: '0 0 var(--space-2)' }}>
+        <h1 className="text-[22px] font-bold text-brand-heading mb-2">
           {title || 'Page'}
         </h1>
-        <p style={{ fontSize: 14, color: 'var(--brand-text-secondary)', margin: '0 0 var(--space-8)' }}>
+        <p className="text-sm text-brand-text-secondary mb-8">
           This page is coming soon. We're working on it!
         </p>
         <button
           onClick={() => navigate(-1)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            padding: 'var(--space-3) var(--space-6)',
-            background: '#111',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 'var(--radius-card)',
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white border-none rounded-lg text-sm font-semibold cursor-pointer"
         >
           <ArrowLeft size={15} />
           Go Back

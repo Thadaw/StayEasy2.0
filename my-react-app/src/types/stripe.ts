@@ -8,7 +8,6 @@ export interface StripePaymentIntentResponse {
 export interface StripeCardFormProps {
   refNumber: string
   amount: number
-  hotelName: string
   currency?: string
   guestName?: string
   guestEmail?: string

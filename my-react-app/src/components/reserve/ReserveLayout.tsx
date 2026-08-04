@@ -1,11 +1,11 @@
 import { ReactNode } from 'react'
 
-interface BookingLayoutProps {
+interface ReserveLayoutProps {
   leftColumn: ReactNode
   rightColumn: ReactNode
 }
 
-export function BookingLayout({ leftColumn, rightColumn }: BookingLayoutProps) {
+export function ReserveLayout({ leftColumn, rightColumn }: ReserveLayoutProps) {
   return (
     <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-6">
       {/* Mobile: everything stacks vertically */}

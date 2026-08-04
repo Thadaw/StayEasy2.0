@@ -19,7 +19,7 @@ export function PropertyTypesSection() {
 
   return (
     <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-10 md:py-14">
-      <h2 className="text-xl md:text-2xl font-bold mb-6 md:mb-8" style={{ fontFamily: "'Sora', sans-serif", color: "var(--brand-heading)" }}>
+      <h2 className="text-xl md:text-2xl font-bold mb-6 md:mb-8 font-display text-brand-heading">
         Browse by property type
       </h2>
       <div className="relative">

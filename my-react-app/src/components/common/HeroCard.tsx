@@ -41,14 +41,14 @@ export function HeroCard({
         </button>
       </div>
       <div className="px-3 py-2">
-        <h3 className="text-[11px] xl:text-[13px] font-bold leading-tight line-clamp-1" style={{ color: "var(--brand-heading)" }}>{name}</h3>
-        <p className="text-[9px] xl:text-[10px] flex items-center gap-0.5 mb-1" style={{ color: "var(--brand-text-secondary)" }}>
+        <h3 className="text-[11px] xl:text-[13px] font-bold leading-tight line-clamp-1 text-brand-heading">{name}</h3>
+        <p className="text-[9px] xl:text-[10px] flex items-center gap-0.5 mb-1 text-brand-text-secondary">
           <MapPin size={9} /> {location}
         </p>
-        <p className="text-xs xl:text-[13px] font-bold leading-tight text-right" style={{ color: "var(--brand-heading)" }}>
-          <span className="text-[9px] font-medium" style={{ color: "var(--brand-text-secondary)" }}>Starting from </span>
+        <p className="text-xs xl:text-[13px] font-bold leading-tight text-right text-brand-heading">
+          <span className="text-[9px] font-medium text-brand-text-secondary">Starting from </span>
           {data.currency} {price}
-          <span className="text-[9px] font-normal" style={{ color: "var(--brand-text-secondary)" }}> / night</span>
+          <span className="text-[9px] font-normal text-brand-text-secondary"> / night</span>
         </p>
       </div>
     </div>

@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center font-jakarta">
           <p className="text-4xl">💥</p>
           <h1 className="text-xl font-bold text-foreground">Something went wrong</h1>
           <p className="text-sm text-muted-foreground max-w-md">

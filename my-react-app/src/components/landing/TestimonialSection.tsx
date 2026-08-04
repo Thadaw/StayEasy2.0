@@ -19,7 +19,7 @@ export function TestimonialSection() {
 
   return (
     <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-10 md:py-14 bg-gray-50">
-      <h2 className="text-xl md:text-2xl font-bold mb-8 md:mb-10 text-center" style={{ fontFamily: "'Sora', sans-serif", color: "var(--brand-heading)" }}>
+      <h2 className="text-xl md:text-2xl font-bold mb-8 md:mb-10 text-center font-display text-brand-heading">
         What travelers say
       </h2>
       <div className="relative overflow-hidden">
@@ -31,7 +31,7 @@ export function TestimonialSection() {
             <div key={t.id} className="w-full md:w-1/2 lg:w-1/3 flex-shrink-0 px-2 md:px-3">
               <div className="bg-white rounded-2xl p-6 shadow-sm relative h-full">
                 <Quote size={32} className="text-brand-accent opacity-20 absolute top-4 left-4" />
-                <p className="text-sm leading-relaxed mb-6 relative z-10 pt-6" style={{ color: "var(--brand-text-secondary)" }}>
+                <p className="text-sm leading-relaxed mb-6 relative z-10 pt-6 text-brand-text-secondary">
                   {t.quote}
                 </p>
                 <div className="flex items-center gap-3">
@@ -39,8 +39,8 @@ export function TestimonialSection() {
                     {t.name.split(" ").map((n) => n[0]).join("")}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: "var(--brand-heading)" }}>{t.name}</p>
-                    <p className="text-xs" style={{ color: "var(--brand-text-secondary)" }}>{t.role}</p>
+                    <p className="text-sm font-semibold text-brand-heading">{t.name}</p>
+                    <p className="text-xs text-brand-text-secondary">{t.role}</p>
                   </div>
                 </div>
               </div>

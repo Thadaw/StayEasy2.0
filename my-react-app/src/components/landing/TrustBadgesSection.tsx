@@ -11,8 +11,8 @@ export function TrustBadgesSection() {
               <div className="w-12 h-12 rounded-full bg-brand-accent-light flex items-center justify-center mb-3">
                 <Icon size={22} className="text-brand-accent" />
               </div>
-              <h3 className="text-sm font-semibold mb-1" style={{ color: "var(--brand-heading)" }}>{badge.title}</h3>
-              <p className="text-xs" style={{ color: "var(--brand-text-secondary)" }}>{badge.description}</p>
+              <h3 className="text-sm font-semibold mb-1 text-brand-heading">{badge.title}</h3>
+              <p className="text-xs text-brand-text-secondary">{badge.description}</p>
             </div>
           );
         })}

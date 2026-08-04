@@ -1,29 +1,26 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
-import { Star, X, Loader2, ShieldCheck, CheckCircle2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useRazorpay } from "../hooks/useRazorpay"
-import type { RazorpayPaymentResponse } from "../types/razorpay"
-import { Hotel, RoomType } from "../data/hotels"
+import type { RazorpayPaymentResponse, RazorpayCheckoutOptions, RazorpayPayOptions, RazorpayFailureResponse } from "../types/razorpay"
+import type { RoomType } from "../data/hotels"
 import { useBookings } from "../context/BookingContext"
 import { Navbar } from "../components/Navbar"
 import { Footer } from "../components/Footer"
-import { BookingLayout } from "../components/booking/BookingLayout"
-import { BookingStepper } from "../components/booking/BookingStepper"
-import { PropertySummaryCard } from "../components/booking/PropertySummaryCard"
-import { PriceSummaryCard } from "../components/booking/PriceSummaryCard"
-import { PaymentMethodTabs } from "../components/booking/PaymentMethodTabs"
-import { PaymentForms } from "../components/booking/PaymentForms"
-import { ConfirmButton } from "../components/booking/ConfirmButton"
-import { ApiProperty, ApiRoom } from "../types/api"
+import { LoadingSpinner } from "../components/LoadingSpinner"
+import { ReserveLayout } from "../components/reserve/ReserveLayout"
+import { ReserveStepper } from "../components/reserve/ReserveStepper"
+import { PropertySummaryCard } from "../components/reserve/PropertySummaryCard"
+import { PriceSummaryCard } from "../components/reserve/PriceSummaryCard"
+import { PaymentMethodTabs } from "../components/reserve/PaymentMethodTabs"
+import { PaymentForms } from "../components/reserve/PaymentForms"
+import { ConfirmButton } from "../components/reserve/ConfirmButton"
+import type { ApiProperty, ApiRoom } from "../types/api"
 import { mapPropertyToHotel } from "../utils/propertyMapper"
-import { formatDate } from "../utils/format"
 import { parseJSON } from "../utils/helpers"
 import { calculateNights } from "../utils/time"
 import api from "../api"
 import type { PaymentMethod, Booking } from "../types/booking"
-
-type BookingData = Booking
 
 const paymentOptions: { key: PaymentMethod; label: string; sub: string; logo: JSX.Element }[] = [
   {
@@ -84,7 +81,7 @@ export default function ReservePage() {
   const [property, setProperty] = useState<ApiProperty | null>(null)
   const [availableRooms, setAvailableRooms] = useState<ApiRoom[]>([])
   const [loading, setLoading] = useState(true)
-  const [booking, setBookingData] = useState<BookingData | null>(null)
+  const [booking, setBookingData] = useState<Booking | null>(null)
 
   const hotel = useMemo(() => {
     if (!property) return null
@@ -129,7 +126,7 @@ const [upiId, setUpiId] = useState('')
   const [paySubMethod, setPaySubMethod] = useState<'upi' | 'card' | 'netbanking' | null>(null)
 
   const refNumber = searchParams.get('ref') || ''
-  const { isLoaded: razorpayLoaded, openCheckout } = useRazorpay()
+  const { isLoaded: razorpayLoaded } = useRazorpay()
 
   useEffect(() => {
     if (!refNumber) return
@@ -184,7 +181,7 @@ const [upiId, setUpiId] = useState('')
       }
     }
     fetchBooking()
-  }, [id, refNumber])
+  }, [id, refNumber, appliedDiscount, searchParams])
 
   useEffect(() => {
     if (selectedPayment !== "razorpay" || !refNumber) return
@@ -263,7 +260,7 @@ const [upiId, setUpiId] = useState('')
       setKhaltiState(prev => ({ ...prev, paymentIntentId: storedIntentId }))
       setSelectedPayment("khalti")
     }
-  }, [])
+  }, [searchParams])
 
   const handleApplyPromo = async () => {
     const code = promoInput.trim().toUpperCase()
@@ -311,7 +308,6 @@ const [upiId, setUpiId] = useState('')
   const guestName = searchParams.get('guestName') || ''
   const guestEmail = searchParams.get('guestEmail') || ''
   const guestPhone = searchParams.get('guestPhone') || ''
-  const specialRequests = searchParams.get('specialRequests') || ''
 
   const hotelName = booking?.property?.name || hotel?.name || ''
   const hotelCity = booking?.property?.city || hotel?.city || ''
@@ -367,40 +363,11 @@ const [upiId, setUpiId] = useState('')
 
   const total = booking?.total_amount || (subtotal - discountAmount);
 
-  const handleKhaltiPayment = async () => {
-    if (!refNumber) return
-    setKhaltiState(prev => ({ ...prev, loading: true, error: null }))
-    try {
-      localStorage.setItem('khalti_return_to', window.location.href)
-      const return_url = `${window.location.origin}/reserve/${id}?khalti_status=Completed`
-      const { data } = await api.post(`/bookings/${refNumber}/payment-intent`, {
-        payment_gateway: "khalti",
-        return_url,
-      })
-      const result = data?.data || data
-      const intentId = result?.payment_intent_id
-      const paymentUrl = result?.payment_url
-      if (!paymentUrl || !intentId) {
-        setKhaltiState(prev => ({ ...prev, error: "Failed to initialize Khalti payment" }))
-        setSelectedPayment("khalti")
-        return
-      }
-      localStorage.setItem('khalti_payment_intent_id', intentId)
-      window.location.href = paymentUrl
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to initialize Khalti"
-      setKhaltiState(prev => ({ ...prev, error: msg }))
-      setSelectedPayment("khalti")
-    } finally {
-      setKhaltiState(prev => ({ ...prev, loading: false }))
-    }
-  }
-
-  const handleRazorpayPayment = async (options: { type: 'upi' | 'card' | 'netbanking'; upiId?: string; bank?: string }) => {
+  const handleRazorpayPayment = async (options: RazorpayPayOptions) => {
     if (!razorpayState.orderId) { toast.error("Razorpay not ready"); return }
     setPaymentLoading(true)
     try {
-      const razorpayOptions: any = {
+      const razorpayOptions: RazorpayCheckoutOptions = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
         amount: Math.max(0, total) * 100,
         currency: "INR",
@@ -454,8 +421,8 @@ const [upiId, setUpiId] = useState('')
         }
       }
 
-      const razorpay = new (window as any).Razorpay(razorpayOptions)
-      razorpay.on('payment.failed', (response: any) => { toast.error("Payment failed: " + response.error?.description || "Unknown error") })
+      const razorpay = new window.Razorpay(razorpayOptions)
+      razorpay.on('payment.failed', (response: RazorpayFailureResponse) => { toast.error("Payment failed: " + response.error?.description || "Unknown error") })
       razorpay.open()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error"
@@ -573,8 +540,8 @@ const [upiId, setUpiId] = useState('')
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-        <span className="w-8 h-8 border-3 border-gray-200 border-t-[#2E86AB] rounded-full animate-spin" />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 font-jakarta">
+        <LoadingSpinner />
         <p className="text-sm text-gray-500">Loading reservation...</p>
       </div>
     )
@@ -582,7 +549,7 @@ const [upiId, setUpiId] = useState('')
 
   if (!hotel && !booking) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 font-jakarta">
         <p className="text-2xl">🏨</p>
         <p className="text-lg font-semibold text-gray-900">Property not found</p>
         <Link to="/" className="px-5 py-2.5 bg-[#1A3C5E] text-white rounded-full text-sm font-medium hover:opacity-90">
@@ -632,12 +599,12 @@ const [upiId, setUpiId] = useState('')
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div className="min-h-screen bg-[#f8f9fa] font-jakarta">
       <Navbar />
 
-      <BookingStepper currentStep={2} />
+      <ReserveStepper currentStep={2} />
 
-      <BookingLayout
+      <ReserveLayout
         leftColumn={
           <PropertySummaryCard
             {...propertySummaryProps}

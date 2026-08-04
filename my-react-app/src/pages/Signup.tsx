@@ -112,90 +112,32 @@ export default function Signup() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#e8e8e8',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-        fontFamily: "'Segoe UI', sans-serif",
-      }}
-    >
-      <div
-        style={{
-          width: 640,
-          height: 440,
-          background: '#fff',
-          borderRadius: 16,
-          display: 'flex',
-          overflow: 'hidden',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.13)',
-        }}
-      >
-        <div
-          className="custom-scroll"
-          style={{
-            width: '50%',
-            background: '#fff',
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '22px 32px 28px',
-            order: 1,
-            flexShrink: 0,
-            overflowY: 'auto',
-          }}
-        >
-          <div style={{ display: 'flex', marginBottom: 4 }}>
+    <div className="min-h-screen bg-[#e8e8e8] flex items-center justify-center p-5 font-jakarta">
+      <div className="w-[640px] h-[440px] bg-white rounded-2xl flex overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.13)]">
+        <div className="custom-scroll w-1/2 bg-white flex-1 flex flex-col py-[22px] px-8 pb-7 order-1 shrink-0 overflow-y-auto">
+          <div className="flex mb-1">
             <div
               onClick={() => navigate(isHost ? '/host/login' : '/login')}
-              style={{
-                padding: '3px 0',
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.8px',
-                textTransform: 'uppercase',
-                color: '#ccc',
-                borderBottom: '2px solid transparent',
-                marginRight: 18,
-                cursor: 'pointer',
-              }}
+              className="py-[3px] text-[11px] font-bold tracking-[0.8px] uppercase text-[#ccc] border-b-2 border-transparent mr-[18px] cursor-pointer"
             >
               Login
             </div>
-            <div
-              style={{
-                padding: '3px 0',
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.8px',
-                textTransform: 'uppercase',
-                color: '#111',
-                borderBottom: '2px solid #111',
-              }}
-            >
+            <div className="py-[3px] text-[11px] font-bold tracking-[0.8px] uppercase text-black border-b-2 border-black">
               Sign up
             </div>
           </div>
 
           {!showOtpStep ? (
             <>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 2 }}>
+              <div className="text-xl font-bold text-black mb-0.5">
                 {isHost ? 'Become a Host' : 'Create account'}
               </div>
-              <div style={{ fontSize: 12, color: '#999', marginBottom: 12 }}>
+              <div className="text-xs text-[#999] mb-3">
                 {isHost ? 'Start listing your property today' : 'Start finding your stay today'}
               </div>
 
-              <div style={{ marginBottom: 7 }}>
-                <label
-                  style={{
-                    fontSize: 11, color: '#666', marginBottom: 3, display: 'block',
-                    textTransform: 'uppercase', letterSpacing: '0.4px',
-                  }}
-                >
+              <div className="mb-[7px]">
+                <label className="text-[11px] text-[#666] mb-[3px] block uppercase tracking-[0.4px]">
                   Full name
                 </label>
                 <input
@@ -205,20 +147,12 @@ export default function Signup() {
                   onFocus={() => setPwFocused(false)}
                   placeholder="Enter your name"
                   autoComplete="off"
-                  style={{
-                    width: '100%', border: 'none', borderBottom: '1.5px solid #ddd',
-                    padding: '7px 4px 7px 0', fontSize: 14, color: '#111', outline: 'none', background: 'transparent',
-                  }}
+                  className="w-full border-none border-b-[1.5px] border-b-[#ddd] py-[7px] pr-0 text-sm text-black outline-none bg-transparent"
                 />
               </div>
 
-              <div style={{ position: 'relative', marginBottom: 7 }}>
-                <label
-                  style={{
-                    fontSize: 11, color: '#666', marginBottom: 3, display: 'block',
-                    textTransform: 'uppercase', letterSpacing: '0.4px',
-                  }}
-                >
+              <div className="relative mb-[7px]">
+                <label className="text-[11px] text-[#666] mb-[3px] block uppercase tracking-[0.4px]">
                   Phone
                 </label>
                 <input
@@ -228,21 +162,13 @@ export default function Signup() {
                   onFocus={() => setPwFocused(false)}
                   placeholder="+977-98XXXXXXXX"
                   autoComplete="off"
-                  style={{
-                    width: '100%', border: 'none', borderBottom: '1.5px solid #ddd',
-                    padding: '7px 26px 7px 0', fontSize: 14, color: '#111', outline: 'none', background: 'transparent',
-                  }}
+                  className="w-full border-none border-b-[1.5px] border-b-[#ddd] py-[7px] pr-[26px] text-sm text-black outline-none bg-transparent"
                 />
               </div>
 
               {!isHost && (
-                <div style={{ position: 'relative', marginBottom: 7 }}>
-                  <label
-                    style={{
-                      fontSize: 11, color: '#666', marginBottom: 3, display: 'block',
-                      textTransform: 'uppercase', letterSpacing: '0.4px',
-                    }}
-                  >
+                <div className="relative mb-[7px]">
+                  <label className="text-[11px] text-[#666] mb-[3px] block uppercase tracking-[0.4px]">
                     Nationality
                   </label>
                   <input
@@ -252,21 +178,13 @@ export default function Signup() {
                     onFocus={() => setPwFocused(false)}
                     placeholder="e.g. Nepali"
                     autoComplete="off"
-                    style={{
-                      width: '100%', border: 'none', borderBottom: '1.5px solid #ddd',
-                      padding: '7px 26px 7px 0', fontSize: 14, color: '#111', outline: 'none', background: 'transparent',
-                    }}
+                    className="w-full border-none border-b-[1.5px] border-b-[#ddd] py-[7px] pr-[26px] text-sm text-black outline-none bg-transparent"
                   />
                 </div>
               )}
 
-              <div style={{ position: 'relative', marginBottom: 7 }}>
-                <label
-                  style={{
-                    fontSize: 11, color: '#666', marginBottom: 3, display: 'block',
-                    textTransform: 'uppercase', letterSpacing: '0.4px',
-                  }}
-                >
+              <div className="relative mb-[7px]">
+                <label className="text-[11px] text-[#666] mb-[3px] block uppercase tracking-[0.4px]">
                   Email
                 </label>
                 <input
@@ -276,20 +194,12 @@ export default function Signup() {
                   onFocus={() => setPwFocused(false)}
                   placeholder="Enter your email"
                   autoComplete="off"
-                  style={{
-                    width: '100%', border: 'none', borderBottom: '1.5px solid #ddd',
-                    padding: '7px 26px 7px 0', fontSize: 14, color: '#111', outline: 'none', background: 'transparent',
-                  }}
+                  className="w-full border-none border-b-[1.5px] border-b-[#ddd] py-[7px] pr-[26px] text-sm text-black outline-none bg-transparent"
                 />
               </div>
 
-              <div style={{ position: 'relative', marginBottom: 7 }}>
-                <label
-                  style={{
-                    fontSize: 11, color: '#666', marginBottom: 3, display: 'block',
-                    textTransform: 'uppercase', letterSpacing: '0.4px',
-                  }}
-                >
+              <div className="relative mb-[7px]">
+                <label className="text-[11px] text-[#666] mb-[3px] block uppercase tracking-[0.4px]">
                   Password
                 </label>
                 <input
@@ -300,48 +210,38 @@ export default function Signup() {
                   onBlur={() => setPwFocused(false)}
                   placeholder="••••••••"
                   autoComplete="off"
-                  style={{
-                    width: '100%', border: 'none', borderBottom: '1.5px solid #ddd',
-                    padding: '7px 26px 7px 0', fontSize: 14, color: '#111', outline: 'none', background: 'transparent',
-                  }}
+                  className="w-full border-none border-b-[1.5px] border-b-[#ddd] py-[7px] pr-[26px] text-sm text-black outline-none bg-transparent"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw(p => !p)}
                   aria-label="Toggle password visibility"
-                  style={{
-                    position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer', color: '#bbb', fontSize: 15, padding: 0,
-                  }}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-[#bbb] text-[15px] p-0"
                 >
                   {showPw ? <Eye size={15} /> : <EyeOff size={15} />}
                 </button>
               </div>
-              <div style={{ fontSize: 11, color: '#bbb', marginTop: 0, marginBottom: 6 }}>
+              <div className="text-[11px] text-[#bbb] mt-0 mb-1.5">
                 Must be 8+ characters with a number and a special character.
               </div>
 
               {error && (
-                <p style={{ color: '#e94560', fontSize: 12, marginBottom: 6 }}>{error}</p>
+                <p className="text-[#e94560] text-xs mb-1.5">{error}</p>
               )}
 
               <button
                 onClick={handleSignup}
                 disabled={loading}
-                style={{
-                  width: '100%', padding: 11, background: '#111', border: 'none', borderRadius: 8,
-                  color: '#fff', fontSize: 14, fontWeight: 600, cursor: loading ? 'default' : 'pointer',
-                  marginTop: 0, opacity: loading ? 0.7 : 1,
-                }}
+                className="w-full py-[11px] bg-black text-white border-none rounded-lg text-sm font-semibold cursor-pointer mt-0 opacity-100 disabled:opacity-70 disabled:cursor-default"
               >
                 {loading ? 'Creating account...' : 'Create Account'}
               </button>
 
-              <div style={{ textAlign: 'center', marginTop: 12, fontSize: 12, color: '#aaa' }}>
+              <div className="text-center mt-3 text-xs text-[#aaa]">
                 Already have an account?{' '}
                 <span
                   onClick={() => navigate(isHost ? '/host/login' : '/login')}
-                  style={{ color: '#111', fontWeight: 600, cursor: 'pointer' }}
+                  className="text-black font-semibold cursor-pointer"
                 >
                   Log in
                 </span>
@@ -349,22 +249,17 @@ export default function Signup() {
             </>
           ) : (
             <>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 3 }}>
+              <div className="text-xl font-bold text-black mb-[3px]">
                 Verify your email
               </div>
-              <div style={{ fontSize: 12, color: '#999', marginBottom: 20 }}>
+              <div className="text-xs text-[#999] mb-5">
                 A verification code was sent to <strong>{form.email}</strong>
               </div>
 
               {!verified ? (
                 <>
-                  <div style={{ position: 'relative', marginBottom: 20 }}>
-                    <label
-                      style={{
-                        fontSize: 11, color: '#666', marginBottom: 3, display: 'block',
-                        textTransform: 'uppercase', letterSpacing: '0.4px',
-                      }}
-                    >
+                  <div className="relative mb-5">
+                    <label className="text-[11px] text-[#666] mb-[3px] block uppercase tracking-[0.4px]">
                       Verification code
                     </label>
                     <input
@@ -373,40 +268,27 @@ export default function Signup() {
                       onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="Enter 6-digit code"
                       autoComplete="off"
-                      style={{
-                        width: '100%', border: 'none', borderBottom: '1.5px solid #ddd',
-                        padding: '7px 26px 7px 0', fontSize: 14, color: '#111', outline: 'none', background: 'transparent',
-                        letterSpacing: 8,
-                        fontWeight: 600,
-                      }}
+                      className="w-full border-none border-b-[1.5px] border-b-[#ddd] py-[7px] pr-[26px] text-sm text-black outline-none bg-transparent tracking-[8px] font-semibold"
                     />
                   </div>
 
                   {error && (
-                    <p style={{ color: '#e94560', fontSize: 12, marginBottom: 10 }}>{error}</p>
+                    <p className="text-[#e94560] text-xs mb-2.5">{error}</p>
                   )}
 
                   <button
                     onClick={handleVerifyOtp}
                     disabled={otpLoading || otp.length < 4}
-                    style={{
-                      width: '100%', padding: 11, background: '#111', border: 'none', borderRadius: 8,
-                      color: '#fff', fontSize: 14, fontWeight: 600, cursor: otpLoading ? 'default' : 'pointer',
-                      marginTop: 2, opacity: otpLoading || otp.length < 4 ? 0.7 : 1,
-                    }}
+                    className="w-full py-[11px] bg-black text-white border-none rounded-lg text-sm font-semibold cursor-pointer mt-0.5 opacity-100 disabled:opacity-70 disabled:cursor-default"
                   >
                     {otpLoading ? 'Verifying...' : 'Verify OTP'}
                   </button>
 
-                  <div style={{ textAlign: 'center', marginTop: 6, fontSize: 12, color: '#aaa' }}>
+                  <div className="text-center mt-1.5 text-xs text-[#aaa]">
                     Didn't receive the code?{' '}
                     <span
                       onClick={handleResendOtp}
-                      style={{
-                        color: resendTimer > 0 || resendLoading ? '#ccc' : '#111',
-                        fontWeight: 600,
-                        cursor: resendTimer > 0 || resendLoading ? 'default' : 'pointer',
-                      }}
+                      className={`font-semibold ${(resendTimer > 0 || resendLoading) ? 'text-[#ccc] cursor-default' : 'text-black cursor-pointer'}`}
                     >
                       {resendLoading ? 'Sending...' : resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend'}
                     </span>
@@ -414,20 +296,16 @@ export default function Signup() {
                 </>
               ) : (
                 <>
-                  <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                    <div style={{ fontSize: 40, marginBottom: 10 }}>✓</div>
-                    <p style={{ fontSize: 13, color: '#1E8449', fontWeight: 600 }}>
+                  <div className="text-center mb-5">
+                    <div className="text-[40px] mb-2.5">✓</div>
+                    <p className="text-[13px] text-[#1E8449] font-semibold">
                       Email verified successfully!
                     </p>
                   </div>
 
                   <button
                     onClick={() => navigate(isHost ? '/host/login' : '/login')}
-                    style={{
-                      width: '100%', padding: 11, background: '#111', border: 'none', borderRadius: 8,
-                      color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                      marginTop: 2,
-                    }}
+                    className="w-full py-[11px] bg-black text-white border-none rounded-lg text-sm font-semibold cursor-pointer mt-0.5"
                   >
                     Next
                   </button>
@@ -437,7 +315,7 @@ export default function Signup() {
           )}
         </div>
 
-        <div style={{ width: '50%', background: '#dde0ee', order: 2, flexShrink: 0 }}>
+        <div className="w-1/2 bg-[#dde0ee] order-2 shrink-0">
           <BuildingScene mode="signup" passwordFocused={pwFocused} passwordVisible={showPw} />
         </div>
       </div>

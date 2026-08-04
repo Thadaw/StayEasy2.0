@@ -15,7 +15,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!user) {
-    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
+    const redirectPath = `${location.pathname}${location.search}`;
+    const loginUrl = `/login?redirect=${encodeURIComponent(redirectPath)}`;
+    return <Navigate to={loginUrl} replace />;
   }
 
   return <>{children}</>;

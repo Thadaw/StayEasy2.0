@@ -167,8 +167,7 @@ export function HeroSection() {
       <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 md:px-10 py-4 sm:py-5 md:py-6 flex flex-col lg:flex-row items-start lg:items-center gap-5 lg:gap-10 min-h-[240px] md:min-h-[280px] lg:min-h-[320px]">
         <div className="flex-1 w-full max-w-2xl pt-2 md:pt-4 lg:pt-0">
           <h1
-            className="text-[2rem] sm:text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] leading-[1.05] tracking-tight mb-4 md:mb-5"
-            style={{ fontFamily: "'Sora', 'Inter', sans-serif", fontWeight: 800, color: "var(--brand-heading)" }}
+            className="text-[2rem] sm:text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] leading-[1.05] tracking-tight mb-4 md:mb-5 font-brand font-extrabold text-brand-heading"
           >
             {t("heroHeading1")}
             <br />
@@ -176,8 +175,7 @@ export function HeroSection() {
           </h1>
 
           <p
-            className="text-[0.875rem] md:text-[1.05rem] mb-6 md:mb-8 leading-relaxed"
-            style={{ color: "var(--brand-text-secondary)", fontFamily: "'Inter', sans-serif", maxWidth: "400px" }}
+            className="text-[0.875rem] md:text-[1.05rem] mb-6 md:mb-8 leading-relaxed text-brand-text-secondary max-w-[400px]"
           >
             {t("heroSubtext1")}
             <br className="hidden sm:block" />
@@ -305,8 +303,6 @@ export function HeroSection() {
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
         .animate-in { animation: animate-in 0.15s ease-out; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
       `}</style>
     </section>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import { Hotel } from "../data/hotels"
 import { ApiProperty, ApiRoom } from "../types/api"
@@ -45,8 +45,8 @@ export function usePropertyDetails(id: string | undefined): UsePropertyDetailsRe
   const budgetParam = searchParams.get("budget") || ""
   const checkinParam = searchParams.get("checkin") || ""
   const checkoutParam = searchParams.get("checkout") || ""
-  const filterAmenities = searchParams.get("amenities")?.split(",").filter(Boolean) || []
-  const filterBedTypes = searchParams.get("bedTypes")?.split(",").filter(Boolean) || []
+  const filterAmenities = useMemo(() => searchParams.get("amenities")?.split(",").filter(Boolean) || [], [searchParams])
+  const filterBedTypes = useMemo(() => searchParams.get("bedTypes")?.split(",").filter(Boolean) || [], [searchParams])
   const filterGuestRating = searchParams.get("guestRating") || "Any"
   const filterPriceMin = Number(searchParams.get("priceMin")) || 0
   const filterPriceMax = Number(searchParams.get("priceMax")) || 500
@@ -102,7 +102,7 @@ export function usePropertyDetails(id: string | undefined): UsePropertyDetailsRe
       }
     }
     fetchProperty()
-  }, [id, searchParams])
+  }, [id, searchParams, checkinParam, checkoutParam, guestsParam])
 
   const hotel = useMemo(() => {
     if (!property) return null
@@ -128,7 +128,7 @@ export function usePropertyDetails(id: string | undefined): UsePropertyDetailsRe
       }
     }
     fetchRooms()
-  }, [id, guests.adults, guests.children, guests.rooms, checkIn, checkOut])
+  }, [id, isLoading, guests.adults, guests.children, guests.rooms, checkIn, checkOut])
 
   useEffect(() => {
     if (!hotel?.roomTypes) return

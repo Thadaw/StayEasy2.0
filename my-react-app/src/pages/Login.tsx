@@ -6,7 +6,6 @@ import BuildingScene from '../components/BuildingScene'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
 
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function extractError(err: unknown): string {
@@ -31,8 +30,6 @@ export default function Login() {
   const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-
   const [loginClicked, setLoginClicked] = useState(false)
 
   const fieldsReady = email.trim().length > 0 && password.trim().length > 0
@@ -66,29 +63,9 @@ export default function Login() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#e8e8e8',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-        fontFamily: "'Segoe UI', sans-serif",
-      }}
-    >
-      <div
-        style={{
-          width: 640,
-          height: 440,
-          background: '#fff',
-          borderRadius: 16,
-          display: 'flex',
-          overflow: 'hidden',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.13)',
-        }}
-      >
-        <div style={{ width: '50%', background: '#dde0ee', order: 1, flexShrink: 0 }}>
+    <div className="min-h-screen bg-[#e8e8e8] flex items-center justify-center p-5 font-jakarta">
+      <div className="w-[640px] h-[440px] bg-white rounded-2xl flex overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.13)]">
+        <div className="w-1/2 bg-[#dde0ee] order-1 shrink-0">
           <BuildingScene
             mode="login"
             fieldsReady={fieldsReady}
@@ -98,68 +75,28 @@ export default function Login() {
           />
         </div>
 
-        <div
-          style={{
-            width: '50%',
-            background: '#fff',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            padding: '36px 32px 42px',
-            order: 2,
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ display: 'flex', marginBottom: 8 }}>
-            <div
-              style={{
-                padding: '3px 0',
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.8px',
-                textTransform: 'uppercase',
-                color: '#111',
-                borderBottom: '2px solid #111',
-                marginRight: 18,
-              }}
-            >
+        <div className="w-1/2 bg-white flex flex-col justify-center py-9 px-8 order-2 shrink-0">
+          <div className="flex mb-2">
+            <div className="py-[3px] text-[11px] font-bold tracking-[0.8px] uppercase text-black border-b-2 border-black mr-[18px]">
               Login
             </div>
             <div
               onClick={() => navigate(isHost ? '/host/signup' : '/signup')}
-              style={{
-                padding: '3px 0',
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.8px',
-                textTransform: 'uppercase',
-                color: '#ccc',
-                borderBottom: '2px solid transparent',
-                cursor: 'pointer',
-              }}
+              className="py-[3px] text-[11px] font-bold tracking-[0.8px] uppercase text-[#ccc] border-b-2 border-transparent cursor-pointer"
             >
               Sign up
             </div>
           </div>
 
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 3 }}>
+          <div className="text-xl font-bold text-black mb-[3px]">
             {isHost ? 'Welcome Back, Host' : 'Welcome back!'}
           </div>
-          <div style={{ fontSize: 12, color: '#999', marginBottom: 20 }}>
+          <div className="text-xs text-[#999] mb-5">
             {isHost ? 'Manage your properties' : 'Please enter your details'}
           </div>
 
-          <div style={{ position: 'relative', marginBottom: 13 }}>
-            <label
-              style={{
-                fontSize: 11,
-                color: '#666',
-                marginBottom: 3,
-                display: 'block',
-                textTransform: 'uppercase',
-                letterSpacing: '0.4px',
-              }}
-            >
+          <div className="relative mb-[13px]">
+            <label className="text-[11px] text-[#666] mb-[3px] block uppercase tracking-[0.4px]">
               Email
             </label>
             <input
@@ -169,30 +106,12 @@ export default function Login() {
               onFocus={() => setPwFocused(false)}
               placeholder="Enter your email"
               autoComplete="off"
-              style={{
-                width: '100%',
-                border: 'none',
-                borderBottom: '1.5px solid #ddd',
-                padding: '7px 26px 7px 0',
-                fontSize: 14,
-                color: '#111',
-                outline: 'none',
-                background: 'transparent',
-              }}
+              className="w-full border-none border-b-[1.5px] border-b-[#ddd] py-[7px] pr-[26px] text-sm text-black outline-none bg-transparent"
             />
           </div>
 
-          <div style={{ position: 'relative', marginBottom: 13 }}>
-            <label
-              style={{
-                fontSize: 11,
-                color: '#666',
-                marginBottom: 3,
-                display: 'block',
-                textTransform: 'uppercase',
-                letterSpacing: '0.4px',
-              }}
-            >
+          <div className="relative mb-[13px]">
+            <label className="text-[11px] text-[#666] mb-[3px] block uppercase tracking-[0.4px]">
               Password
             </label>
             <input
@@ -203,83 +122,51 @@ export default function Login() {
               onBlur={() => setPwFocused(false)}
               placeholder="Set your password"
               autoComplete="off"
-              style={{
-                width: '100%',
-                border: 'none',
-                borderBottom: '1.5px solid #ddd',
-                padding: '7px 26px 7px 0',
-                fontSize: 14,
-                color: '#111',
-                outline: 'none',
-                background: 'transparent',
-              }}
+              className="w-full border-none border-b-[1.5px] border-b-[#ddd] py-[7px] pr-[26px] text-sm text-black outline-none bg-transparent"
             />
             <button
               type="button"
               onClick={() => setShowPw(p => !p)}
               aria-label="Toggle password visibility"
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: '#bbb',
-                fontSize: 15,
-                padding: 0,
-              }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-[#bbb] text-[15px] p-0"
             >
               {showPw ? <Eye size={15} /> : <EyeOff size={15} />}
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 13 }}>
+          <div className="flex items-center gap-1.5 mb-[13px]">
             <input
               type="checkbox"
               id="remember"
               checked={remember}
               onChange={e => setRemember(e.target.checked)}
-              style={{ width: 12, height: 12, accentColor: '#111' }}
+              className="w-3 h-3 accent-black"
             />
-            <label htmlFor="remember" style={{ fontSize: 11, color: '#999' }}>
+            <label htmlFor="remember" className="text-[11px] text-[#999]">
               Remember for 30 days
             </label>
-            <span style={{ fontSize: 11, color: '#bbb', cursor: 'pointer', marginLeft: 'auto' }}>
+            <span className="text-[11px] text-[#bbb] cursor-pointer ml-auto">
               Forgot password?
             </span>
           </div>
 
           {error && (
-            <p style={{ color: '#e94560', fontSize: 12, marginBottom: 10 }}>{error}</p>
+            <p className="text-[#e94560] text-xs mb-2.5">{error}</p>
           )}
 
           <button
             onClick={handleLogin}
             disabled={loading}
-            style={{
-              width: '100%',
-              padding: 11,
-              background: '#111',
-              border: 'none',
-              borderRadius: 8,
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: loading ? 'default' : 'pointer',
-              marginTop: 2,
-              opacity: loading ? 0.7 : 1,
-            }}
+            className="w-full py-[11px] bg-black text-white border-none rounded-lg text-sm font-semibold cursor-pointer mt-0.5 opacity-100 disabled:opacity-70 disabled:cursor-default"
           >
             {loading ? 'Signing in...' : 'Log In'}
           </button>
 
-          <div style={{ textAlign: 'center', marginTop: 11, fontSize: 12, color: '#aaa' }}>
+          <div className="text-center mt-[11px] text-xs text-[#aaa]">
             Don't have an account?{' '}
             <span
               onClick={() => navigate(isHost ? '/host/signup' : '/signup')}
-              style={{ color: '#111', fontWeight: 600, cursor: 'pointer' }}
+              className="text-black font-semibold cursor-pointer"
             >
               Sign up
             </span>

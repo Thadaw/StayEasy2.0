@@ -23,7 +23,7 @@ export default function ProfileLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-background">
+    <div className="min-h-screen bg-brand-background font-jakarta">
       <Navbar compact />
 
       <div className="max-w-screen-2xl mx-auto px-6">
