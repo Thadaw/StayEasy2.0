@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useAuth } from './AuthContext'
-import type { Booking } from '../types'
-import { parseBookingDate } from '../utils/time'
+import type { Booking } from '../shared/types/booking'
+import { parseBookingDate } from '../shared/utils/time'
 
 interface BookingContextValue {
   bookings: Booking[]
@@ -28,6 +28,9 @@ function saveBookings(bookings: Booking[], userId?: number) {
   localStorage.setItem(getStorageKey(userId), JSON.stringify(bookings))
 }
 
+// Automatically transition past bookings to "completed" status on load so the
+// UI doesn't show stale "upcoming" badges for reservations whose check-out date
+// has already passed.
 function autoCompletePastBookings(bookings: Booking[]): Booking[] {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -41,6 +44,8 @@ function autoCompletePastBookings(bookings: Booking[]): Booking[] {
   })
 }
 
+// Bookings are stored in localStorage per-user because the API doesn't persist
+// draft/pending bookings, and this allows offline viewing of past reservations.
 export function BookingProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [bookings, setBookings] = useState<Booking[]>(() => {
@@ -83,7 +88,13 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   )
 
   return (
-    <BookingContext.Provider value={{ bookings, addBooking, cancelBooking }}>
+    <BookingContext.Provider
+      value={{
+        bookings,
+        addBooking,
+        cancelBooking,
+      }}
+    >
       {children}
     </BookingContext.Provider>
   )

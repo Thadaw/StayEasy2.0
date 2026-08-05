@@ -5,7 +5,7 @@ export const PROPERTY_TYPES = [
   { label: "Hotels", icon: Building2 },
   { label: "Apartments", icon: Building2 },
   { label: "Villa", icon: Castle },
-  { label: "Resort", icon: Waves },
+  { label: "Resorts", icon: Waves },
   { label: "Others", icon: TreePine },
 ];
 

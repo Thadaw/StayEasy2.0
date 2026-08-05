@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useAuth } from './AuthContext'
-import type { Coupon } from '../types'
+import type { Coupon } from '../shared/types'
 
 interface CouponContextValue {
   coupons: Coupon[]
@@ -20,7 +20,9 @@ function loadCoupons(userId?: number): Coupon[] {
   try {
     const data = localStorage.getItem(getStorageKey(userId))
     if (data) return JSON.parse(data)
-  } catch { /* ignore */ }
+  } catch {
+    // Corrupted localStorage data — fall through to sample coupons below.
+  }
 
   const sampleCoupons: Coupon[] = [
     {
@@ -103,7 +105,15 @@ export function CouponProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <CouponContext.Provider value={{ coupons, activeCoupons, usedCoupons, useCoupon, addCoupon }}>
+    <CouponContext.Provider
+      value={{
+        coupons,
+        activeCoupons,
+        usedCoupons,
+        useCoupon,
+        addCoupon,
+      }}
+    >
       {children}
     </CouponContext.Provider>
   )
